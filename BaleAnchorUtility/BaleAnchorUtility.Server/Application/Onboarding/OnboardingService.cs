@@ -9,19 +9,53 @@ public sealed class OnboardingService
 {
     private readonly IUserRepository userRepository;
     private readonly IUtilitySetupRepository utilitySetupRepository;
+    private readonly ITermsAcceptanceRepository termsAcceptanceRepository;
+    private readonly ITermsVersionRepository termsVersionRepository;
     private readonly ISystemClock clock;
     private readonly ILogger<OnboardingService> logger;
 
     public OnboardingService(
         IUserRepository userRepository,
         IUtilitySetupRepository utilitySetupRepository,
+        ITermsAcceptanceRepository termsAcceptanceRepository,
+        ITermsVersionRepository termsVersionRepository,
         ISystemClock clock,
         ILogger<OnboardingService> logger)
     {
         this.userRepository = userRepository;
         this.utilitySetupRepository = utilitySetupRepository;
+        this.termsAcceptanceRepository = termsAcceptanceRepository;
+        this.termsVersionRepository = termsVersionRepository;
         this.clock = clock;
         this.logger = logger;
+    }
+
+    public async Task<OnboardingProgressResponse> GetProgressAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User record was not found for this session.");
+
+        var profileComplete = !string.IsNullOrWhiteSpace(user.SurnameNormalized)
+            && !string.IsNullOrWhiteSpace(user.DateOfBirth)
+            && !string.IsNullOrWhiteSpace(user.FlatNumberNormalized)
+            && !string.IsNullOrWhiteSpace(user.MobileNumber);
+
+        var utilitySetup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
+        var utilitySetupComplete = utilitySetup is not null;
+
+        var activeTerms = await termsVersionRepository.GetActiveAsync(cancellationToken);
+        var termsAccepted = activeTerms is null
+            || await termsAcceptanceRepository.GetByUserAndVersionAsync(userId, activeTerms.Id, cancellationToken) is not null;
+
+        return new OnboardingProgressResponse
+        {
+            UserId = user.Id,
+            AccountStatus = user.Status.ToString(),
+            TermsAccepted = termsAccepted,
+            ProfileComplete = profileComplete,
+            UtilitySetupComplete = utilitySetupComplete,
+            NextStep = ResolveNextStep(termsAccepted, profileComplete, utilitySetupComplete),
+        };
     }
 
     public async Task<CompleteProfileResponse> CompleteProfileAsync(
@@ -191,5 +225,25 @@ public sealed class OnboardingService
         }
 
         return value;
+    }
+
+    private static string ResolveNextStep(bool termsAccepted, bool profileComplete, bool utilitySetupComplete)
+    {
+        if (!termsAccepted)
+        {
+            return "AcceptTerms";
+        }
+
+        if (!profileComplete)
+        {
+            return "CompleteProfile";
+        }
+
+        if (!utilitySetupComplete)
+        {
+            return "CompleteUtilitySetup";
+        }
+
+        return "AwaitApproval";
     }
 }

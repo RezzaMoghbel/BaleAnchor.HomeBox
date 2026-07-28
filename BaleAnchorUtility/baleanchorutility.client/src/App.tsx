@@ -42,6 +42,21 @@ interface CompleteUtilitySetupResponse {
   message: string;
 }
 
+interface CompleteProfileResponse {
+  userId: string;
+  status: string;
+  message: string;
+}
+
+interface OnboardingProgressResponse {
+  userId: string;
+  accountStatus: string;
+  termsAccepted: boolean;
+  profileComplete: boolean;
+  utilitySetupComplete: boolean;
+  nextStep: string;
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -51,6 +66,18 @@ function App() {
     null,
   );
   const [termsMessage, setTermsMessage] = useState("No terms loaded.");
+  const [surname, setSurname] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [flatNumber, setFlatNumber] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [profileMessage, setProfileMessage] = useState(
+    "No profile details submitted.",
+  );
+  const [onboardingProgress, setOnboardingProgress] =
+    useState<OnboardingProgressResponse | null>(null);
+  const [progressMessage, setProgressMessage] = useState(
+    "Onboarding progress not checked.",
+  );
   const [moveInDate, setMoveInDate] = useState("");
   const [openingColdWaterReading, setOpeningColdWaterReading] = useState("");
   const [openingHotWaterReading, setOpeningHotWaterReading] = useState("");
@@ -239,6 +266,66 @@ function App() {
       await refreshSession();
     } catch {
       setUtilitySetupMessage("Failed to submit utility setup.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitProfile = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/onboarding/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          surname,
+          dateOfBirth,
+          flatNumber,
+          mobileNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        setProfileMessage(
+          "Profile submission failed. Ensure terms are accepted and all fields are valid.",
+        );
+        return;
+      }
+
+      const body = (await response.json()) as CompleteProfileResponse;
+      setProfileMessage(`${body.message} Status: ${body.status}.`);
+      setStatusMessage(`Profile details saved for user ${body.userId}.`);
+      await refreshSession();
+    } catch {
+      setProfileMessage("Failed to submit profile details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOnboardingProgress = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/onboarding/progress", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        setOnboardingProgress(null);
+        setProgressMessage("Unable to load onboarding progress. Sign in first.");
+        return;
+      }
+
+      const body = (await response.json()) as OnboardingProgressResponse;
+      setOnboardingProgress(body);
+      setProgressMessage(`Next required step: ${body.nextStep}.`);
+    } catch {
+      setOnboardingProgress(null);
+      setProgressMessage("Failed to load onboarding progress.");
     } finally {
       setLoading(false);
     }
@@ -476,6 +563,125 @@ function App() {
                     ){` | Effective: ${activeTerms.effectiveFromUtc}`}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Onboarding Progress</h5>
+              <p className="text-secondary mb-3">
+                Check current onboarding status and the next required action.
+              </p>
+
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={loadOnboardingProgress}
+                  disabled={loading}
+                >
+                  Check onboarding progress
+                </button>
+              </div>
+
+              <div className="alert alert-light border mb-0" role="status">
+                <div className="fw-semibold mb-1">Progress status</div>
+                <div>{progressMessage}</div>
+                {onboardingProgress && (
+                  <div className="mt-2 text-secondary small">
+                    Account: {onboardingProgress.accountStatus}
+                    {` | Terms: ${onboardingProgress.termsAccepted ? "Done" : "Pending"}`}
+                    {` | Profile: ${onboardingProgress.profileComplete ? "Done" : "Pending"}`}
+                    {` | Utility: ${onboardingProgress.utilitySetupComplete ? "Done" : "Pending"}`}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Onboarding Profile</h5>
+              <p className="text-secondary mb-3">
+                Required sequence step after terms: surname, DOB, flat number,
+                and mobile number.
+              </p>
+
+              <div className="row g-3">
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="surname" className="form-label">
+                    Surname
+                  </label>
+                  <input
+                    id="surname"
+                    type="text"
+                    className="form-control"
+                    placeholder="Smith"
+                    value={surname}
+                    onChange={(event) => setSurname(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="dob" className="form-label">
+                    Date of birth
+                  </label>
+                  <input
+                    id="dob"
+                    type="date"
+                    className="form-control"
+                    value={dateOfBirth}
+                    onChange={(event) => setDateOfBirth(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="flatNumber" className="form-label">
+                    Flat number
+                  </label>
+                  <input
+                    id="flatNumber"
+                    type="text"
+                    className="form-control"
+                    placeholder="A12"
+                    value={flatNumber}
+                    onChange={(event) => setFlatNumber(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="mobileNumber" className="form-label">
+                    Mobile / WhatsApp
+                  </label>
+                  <input
+                    id="mobileNumber"
+                    type="text"
+                    className="form-control"
+                    placeholder="07123456789"
+                    value={mobileNumber}
+                    onChange={(event) => setMobileNumber(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={submitProfile}
+                  disabled={
+                    loading ||
+                    !surname ||
+                    !dateOfBirth ||
+                    !flatNumber ||
+                    !mobileNumber
+                  }
+                >
+                  Submit profile details
+                </button>
+              </div>
+
+              <div className="alert alert-light border mt-3 mb-0" role="status">
+                <div className="fw-semibold mb-1">Profile status</div>
+                <div>{profileMessage}</div>
               </div>
             </div>
           </div>
