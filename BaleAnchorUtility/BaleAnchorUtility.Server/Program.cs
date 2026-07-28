@@ -76,6 +76,7 @@ builder.Services.AddScoped<AdminRoleService>();
 builder.Services.AddScoped<BillingInputService>();
 builder.Services.AddScoped<CalculationSnapshotService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<StatementSummaryService>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();

@@ -82,6 +82,7 @@ Payment and balance endpoints are available under `api/v1/billing`.
 
 - `POST /api/v1/billing/calculations/latest/payment`: records one payment for the latest calculated period.
 - `GET /api/v1/billing/calculations/latest/payment`: returns latest period total, payment (if any), and period difference/status.
+- `GET /api/v1/billing/statements/latest-summary`: returns latest statement-ready period summary with payment and all-time balance values.
 - `GET /api/v1/billing/payments/history`: returns payment history ordered newest-first by period.
 - `GET /api/v1/billing/payments/balance`: returns all-time calculated charges, total recorded payments, and current balance status.
 - `PUT /api/v1/billing/payments/{paymentId}`: updates a payment record owned by the authenticated user.
@@ -95,4 +96,5 @@ Validation and behavior:
 - Payment amount must be greater than zero and stored with decimal-safe rounding.
 - Earlier payments are not deletable; only the latest payment is eligible for deletion.
 - Payment create/delete actions are audit logged with category `PAYMENT`.
+- Latest statement summary includes period difference status and all-time balance status using clear labels: `Amount outstanding`, `In credit`, `Paid in full`.
 - Conflict and validation failures return RFC 7807 ProblemDetails with operation-specific `errorCode` values.
