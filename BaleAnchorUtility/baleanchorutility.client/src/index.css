@@ -7,5 +7,8 @@ body,
 body {
   margin: 0;
   font-family: "Roboto", sans-serif;
-  background: #f4f5f9;
+  background:
+    radial-gradient(circle at top, rgba(13, 110, 253, 0.08), transparent 36%),
+    linear-gradient(180deg, #eff3f8 0%, #f4f5f9 42%, #edf2f7 100%);
+  color: #13253a;
 }
