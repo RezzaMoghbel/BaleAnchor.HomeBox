@@ -65,6 +65,11 @@ interface ApiProblemDetails {
   errors?: Record<string, string[]>;
 }
 
+interface ParsedProblemDetails {
+  message: string;
+  errors: Record<string, string[]>;
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -100,6 +105,12 @@ function App() {
   const [utilitySetupMessage, setUtilitySetupMessage] = useState(
     "No utility setup submitted.",
   );
+  const [profileFieldErrors, setProfileFieldErrors] = useState<
+    Record<string, string[]>
+  >({});
+  const [utilityFieldErrors, setUtilityFieldErrors] = useState<
+    Record<string, string[]>
+  >({});
   const [loading, setLoading] = useState(false);
 
   const formatValidationErrors = (errors?: Record<string, string[]>) => {
@@ -116,13 +127,40 @@ function App() {
     return parts.length > 0 ? ` ${parts.join(" | ")}` : "";
   };
 
-  const readProblemDetails = async (response: Response) => {
+  const getFieldErrors = (
+    errors: Record<string, string[]>,
+    fieldName: string,
+  ) => {
+    const direct = errors[fieldName];
+    if (direct && direct.length > 0) {
+      return direct;
+    }
+
+    const wanted = fieldName.toLowerCase();
+    const matchEntry = Object.entries(errors).find(([key]) => {
+      const normalized = key.replace(/^\$\./, "").toLowerCase();
+      return normalized === wanted;
+    });
+
+    return matchEntry?.[1] ?? [];
+  };
+
+  const readProblemDetails = async (
+    response: Response,
+  ): Promise<ParsedProblemDetails> => {
     try {
       const body = (await response.json()) as ApiProblemDetails;
       const detail = body.detail || body.title || "The request failed.";
-      return `${detail}${formatValidationErrors(body.errors)}`;
+      const errors = body.errors ?? {};
+      return {
+        message: `${detail}${formatValidationErrors(errors)}`,
+        errors,
+      };
     } catch {
-      return "The request failed.";
+      return {
+        message: "The request failed.",
+        errors: {},
+      };
     }
   };
 
@@ -138,8 +176,8 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setStatusMessage(`Failed to request OTP code. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setStatusMessage(`Failed to request OTP code. ${error.message}`);
         return;
       }
 
@@ -167,8 +205,8 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setStatusMessage(`Failed to verify OTP code. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setStatusMessage(`Failed to verify OTP code. ${error.message}`);
         return;
       }
 
@@ -192,8 +230,8 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setStatusMessage(`Failed to retrieve session status. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setStatusMessage(`Failed to retrieve session status. ${error.message}`);
         return;
       }
 
@@ -218,8 +256,8 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setStatusMessage(`Failed to sign out. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setStatusMessage(`Failed to sign out. ${error.message}`);
         return;
       }
 
@@ -241,9 +279,9 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
+        const error = await readProblemDetails(response);
         setTermsMessage(
-          `No active terms are currently published. ${errorMessage}`,
+          `No active terms are currently published. ${error.message}`,
         );
         setActiveTerms(null);
         return;
@@ -276,8 +314,8 @@ function App() {
       );
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setTermsMessage(`Terms acceptance failed. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setTermsMessage(`Terms acceptance failed. ${error.message}`);
         return;
       }
 
@@ -291,6 +329,7 @@ function App() {
   };
 
   const submitUtilitySetup = async () => {
+    setUtilityFieldErrors({});
     setLoading(true);
     try {
       const response = await fetch("/api/v1/onboarding/utility-setup", {
@@ -312,12 +351,14 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setUtilitySetupMessage(`Utility setup failed. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setUtilityFieldErrors(error.errors);
+        setUtilitySetupMessage(`Utility setup failed. ${error.message}`);
         return;
       }
 
       const body = (await response.json()) as CompleteUtilitySetupResponse;
+      setUtilityFieldErrors({});
       setUtilitySetupMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Utility setup complete for user ${body.userId}.`);
       await refreshSession();
@@ -329,6 +370,7 @@ function App() {
   };
 
   const submitProfile = async () => {
+    setProfileFieldErrors({});
     setLoading(true);
     try {
       const response = await fetch("/api/v1/onboarding/profile", {
@@ -346,12 +388,14 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
-        setProfileMessage(`Profile submission failed. ${errorMessage}`);
+        const error = await readProblemDetails(response);
+        setProfileFieldErrors(error.errors);
+        setProfileMessage(`Profile submission failed. ${error.message}`);
         return;
       }
 
       const body = (await response.json()) as CompleteProfileResponse;
+      setProfileFieldErrors({});
       setProfileMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Profile details saved for user ${body.userId}.`);
       await refreshSession();
@@ -371,10 +415,10 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readProblemDetails(response);
+        const error = await readProblemDetails(response);
         setOnboardingProgress(null);
         setProgressMessage(
-          `Unable to load onboarding progress. ${errorMessage}`,
+          `Unable to load onboarding progress. ${error.message}`,
         );
         return;
       }
@@ -675,11 +719,16 @@ function App() {
                   <input
                     id="surname"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(profileFieldErrors, "surname").length > 0 ? "is-invalid" : ""}`}
                     placeholder="Smith"
                     value={surname}
                     onChange={(event) => setSurname(event.target.value)}
                   />
+                  {getFieldErrors(profileFieldErrors, "surname").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(profileFieldErrors, "surname").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="dob" className="form-label">
@@ -688,10 +737,15 @@ function App() {
                   <input
                     id="dob"
                     type="date"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(profileFieldErrors, "dateOfBirth").length > 0 ? "is-invalid" : ""}`}
                     value={dateOfBirth}
                     onChange={(event) => setDateOfBirth(event.target.value)}
                   />
+                  {getFieldErrors(profileFieldErrors, "dateOfBirth").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(profileFieldErrors, "dateOfBirth").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="flatNumber" className="form-label">
@@ -700,11 +754,16 @@ function App() {
                   <input
                     id="flatNumber"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(profileFieldErrors, "flatNumber").length > 0 ? "is-invalid" : ""}`}
                     placeholder="A12"
                     value={flatNumber}
                     onChange={(event) => setFlatNumber(event.target.value)}
                   />
+                  {getFieldErrors(profileFieldErrors, "flatNumber").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(profileFieldErrors, "flatNumber").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="mobileNumber" className="form-label">
@@ -713,11 +772,16 @@ function App() {
                   <input
                     id="mobileNumber"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(profileFieldErrors, "mobileNumber").length > 0 ? "is-invalid" : ""}`}
                     placeholder="07123456789"
                     value={mobileNumber}
                     onChange={(event) => setMobileNumber(event.target.value)}
                   />
+                  {getFieldErrors(profileFieldErrors, "mobileNumber").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(profileFieldErrors, "mobileNumber").join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -761,10 +825,15 @@ function App() {
                   <input
                     id="moveInDate"
                     type="date"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "moveInDate").length > 0 ? "is-invalid" : ""}`}
                     value={moveInDate}
                     onChange={(event) => setMoveInDate(event.target.value)}
                   />
+                  {getFieldErrors(utilityFieldErrors, "moveInDate").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "moveInDate").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="coldWater" className="form-label">
@@ -773,13 +842,18 @@ function App() {
                   <input
                     id="coldWater"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingColdWaterReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={openingColdWaterReading}
                     onChange={(event) =>
                       setOpeningColdWaterReading(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "openingColdWaterReading").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "openingColdWaterReading").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="hotWater" className="form-label">
@@ -788,13 +862,18 @@ function App() {
                   <input
                     id="hotWater"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingHotWaterReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={openingHotWaterReading}
                     onChange={(event) =>
                       setOpeningHotWaterReading(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "openingHotWaterReading").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "openingHotWaterReading").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="electricity" className="form-label">
@@ -803,13 +882,18 @@ function App() {
                   <input
                     id="electricity"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingElectricityReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={openingElectricityReading}
                     onChange={(event) =>
                       setOpeningElectricityReading(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "openingElectricityReading").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "openingElectricityReading").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="waterTariff" className="form-label">
@@ -818,13 +902,18 @@ function App() {
                   <input
                     id="waterTariff"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
                     placeholder="1.234567"
                     value={initialWaterTariffPerUnit}
                     onChange={(event) =>
                       setInitialWaterTariffPerUnit(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="electricityTariff" className="form-label">
@@ -833,13 +922,18 @@ function App() {
                   <input
                     id="electricityTariff"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.456789"
                     value={initialElectricityTariffPerUnit}
                     onChange={(event) =>
                       setInitialElectricityTariffPerUnit(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="boilerKwh" className="form-label">
@@ -848,13 +942,18 @@ function App() {
                   <input
                     id="boilerKwh"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").length > 0 ? "is-invalid" : ""}`}
                     placeholder="10.500000"
                     value={boilerKwhPerCubicMeter}
                     onChange={(event) =>
                       setBoilerKwhPerCubicMeter(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="boilerEfficiency" className="form-label">
@@ -863,13 +962,18 @@ function App() {
                   <input
                     id="boilerEfficiency"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").length > 0 ? "is-invalid" : ""}`}
                     placeholder="85.00"
                     value={boilerEfficiencyPercent}
                     onChange={(event) =>
                       setBoilerEfficiencyPercent(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 

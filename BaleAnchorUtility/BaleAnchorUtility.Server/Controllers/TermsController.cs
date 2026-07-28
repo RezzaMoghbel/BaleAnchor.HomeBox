@@ -1,6 +1,7 @@
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Terms;
 using BaleAnchorUtility.Server.Application.Terms.Dtos;
+using BaleAnchorUtility.Server.Infrastructure.Errors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BaleAnchorUtility.Server.Controllers;
@@ -57,9 +58,20 @@ public sealed class TermsController : ControllerBase
 
             return Ok(response);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            return Conflict();
+            var problem = ApiProblemDetailsFactory.Create(
+                HttpContext,
+                StatusCodes.Status409Conflict,
+                "Conflict",
+                ex.Message,
+                "TERMS_ACCEPT_CONFLICT");
+
+            return new ObjectResult(problem)
+            {
+                StatusCode = StatusCodes.Status409Conflict,
+                ContentTypes = { "application/problem+json" },
+            };
         }
     }
 }

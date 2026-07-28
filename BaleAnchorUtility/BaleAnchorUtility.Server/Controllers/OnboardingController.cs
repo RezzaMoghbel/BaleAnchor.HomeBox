@@ -1,6 +1,7 @@
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Onboarding;
 using BaleAnchorUtility.Server.Application.Onboarding.Dtos;
+using BaleAnchorUtility.Server.Infrastructure.Errors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BaleAnchorUtility.Server.Controllers;
@@ -54,9 +55,9 @@ public sealed class OnboardingController : ControllerBase
             var response = await onboardingService.CompleteProfileAsync(sessionStatus.UserId, request, cancellationToken);
             return Ok(response);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            return Conflict();
+            return CreateConflictProblem(ex.Message, "ONBOARDING_PROFILE_CONFLICT");
         }
     }
 
@@ -79,9 +80,25 @@ public sealed class OnboardingController : ControllerBase
             var response = await onboardingService.CompleteUtilitySetupAsync(sessionStatus.UserId, request, cancellationToken);
             return Ok(response);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            return Conflict();
+            return CreateConflictProblem(ex.Message, "ONBOARDING_UTILITY_CONFLICT");
         }
+    }
+
+    private ObjectResult CreateConflictProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status409Conflict,
+            "Conflict",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
     }
 }
