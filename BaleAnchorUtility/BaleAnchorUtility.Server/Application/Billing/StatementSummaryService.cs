@@ -87,6 +87,54 @@ public sealed class StatementSummaryService
         return await BuildSummaryAsync(user.Id, snapshot, cancellationToken);
     }
 
+    public async Task<StatementPeriodListResponse> GetStatementPeriodsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+
+        var snapshots = await calculationSnapshotRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var payments = await paymentRepository.GetByUserIdAsync(user.Id, cancellationToken);
+
+        var paymentByPeriod = payments
+            .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
+            .ToDictionary(
+                x => x.Key,
+                x => x.OrderByDescending(p => p.UpdatedAtUtc).First());
+
+        var items = snapshots
+            .OrderByDescending(x => x.PeriodEndDateExclusive, StringComparer.Ordinal)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .Select(snapshot =>
+            {
+                var key = $"{snapshot.PeriodStartDate}|{snapshot.PeriodEndDateExclusive}";
+                paymentByPeriod.TryGetValue(key, out var payment);
+
+                var paidAmount = payment?.Amount ?? 0m;
+                var difference = snapshot.PeriodTotal - paidAmount;
+
+                return new StatementPeriodItemResponse
+                {
+                    SnapshotId = snapshot.Id,
+                    PeriodStartDate = snapshot.PeriodStartDate,
+                    PeriodEndDateExclusive = snapshot.PeriodEndDateExclusive,
+                    PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
+                    HasPayment = payment is not null,
+                    PaymentAmount = payment?.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+                    PaymentDate = payment?.PaymentDate,
+                    PeriodDifference = difference.ToString("0.00", CultureInfo.InvariantCulture),
+                    PeriodBalanceStatus = ToBalanceStatus(difference),
+                    ContainsEstimatedSegments = snapshot.ContainsEstimatedSegments,
+                };
+            })
+            .ToList();
+
+        return new StatementPeriodListResponse
+        {
+            UserId = user.Id,
+            Count = items.Count,
+            Items = items,
+        };
+    }
+
     private async Task<LatestStatementSummaryResponse> BuildSummaryAsync(
         string userId,
         Domain.Calculations.CalculationSnapshot snapshot,

@@ -167,6 +167,66 @@ public sealed class StatementSummaryServiceTests
             service.GetSelectedSummaryAsync("u-active", "missing", null, null, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetStatementPeriodsAsync_ReturnsNewestFirst_WithPaymentMetadata()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s-old", "u-active", "2026-06-01", "2026-07-01", 120m), CancellationToken.None);
+        await snapshots.AddAsync(CreateSnapshot("s-new", "u-active", "2026-07-01", "2026-08-01", 80m), CancellationToken.None);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p-new",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 50m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, payments);
+
+        var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
+
+        Assert.Equal(2, response.Count);
+        Assert.Equal("s-new", response.Items[0].SnapshotId);
+        Assert.Equal("s-old", response.Items[1].SnapshotId);
+        Assert.True(response.Items[0].HasPayment);
+        Assert.Equal("50.00", response.Items[0].PaymentAmount);
+        Assert.Equal("30.00", response.Items[0].PeriodDifference);
+        Assert.False(response.Items[1].HasPayment);
+    }
+
+    [Fact]
+    public async Task GetStatementPeriodsAsync_ReturnsEmptyList_WhenNoSnapshotsExist()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var service = new StatementSummaryService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            new InMemoryPaymentRepository());
+
+        var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("u-active", response.UserId);
+        Assert.Equal(0, response.Count);
+        Assert.Empty(response.Items);
+    }
+
     private static UserAccount CreateActiveUser(string id)
     {
         return new UserAccount

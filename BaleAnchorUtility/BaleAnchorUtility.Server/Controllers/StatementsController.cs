@@ -85,6 +85,29 @@ public sealed class StatementsController : ControllerBase
         }
     }
 
+    [HttpGet("periods")]
+    [ProducesResponseType(typeof(StatementPeriodListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<StatementPeriodListResponse>> GetStatementPeriods(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await statementSummaryService.GetStatementPeriodsAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_STATEMENT_CONFLICT");
+        }
+    }
+
     private async Task<string?> ResolveUserIdAsync(CancellationToken cancellationToken)
     {
         Request.Cookies.TryGetValue(authService.SessionCookieName, out var rawToken);

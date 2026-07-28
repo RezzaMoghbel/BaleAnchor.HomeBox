@@ -106,6 +106,31 @@ public sealed class StatementsControllerTests
         Assert.Equal("2026-08-01", response.PeriodEndDateExclusive);
     }
 
+    [Fact]
+    public async Task GetStatementPeriods_Returns401_WhenUnauthenticated()
+    {
+        var controller = CreateController(withSessionCookie: false, seedUser: false, includeSnapshot: false);
+
+        var action = await controller.GetStatementPeriods(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(action.Result);
+    }
+
+    [Fact]
+    public async Task GetStatementPeriods_Returns200_WhenSnapshotsExist()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.GetStatementPeriods(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var response = Assert.IsType<Application.Billing.Dtos.StatementPeriodListResponse>(ok.Value);
+
+        Assert.Equal("u1", response.UserId);
+        Assert.Equal(1, response.Count);
+        Assert.Equal("s1", response.Items[0].SnapshotId);
+    }
+
     private static StatementsController CreateController(bool withSessionCookie, bool seedUser, bool includeSnapshot)
     {
         var users = new InMemoryUserRepository();

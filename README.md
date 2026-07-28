@@ -84,6 +84,7 @@ Payment and balance endpoints are available under `api/v1/billing`.
 - `GET /api/v1/billing/calculations/latest/payment`: returns latest period total, payment (if any), and period difference/status.
 - `GET /api/v1/billing/statements/latest-summary`: returns latest statement-ready period summary with payment and all-time balance values.
 - `GET /api/v1/billing/statements/summary`: returns selected statement summary by `snapshotId` or by `periodStartDate` + `periodEndDateExclusive` query.
+- `GET /api/v1/billing/statements/periods`: returns newest-first statement periods with payment/difference status metadata for period selection UIs.
 - `GET /api/v1/billing/payments/history`: returns payment history ordered newest-first by period.
 - `GET /api/v1/billing/payments/balance`: returns all-time calculated charges, total recorded payments, and current balance status.
 - `PUT /api/v1/billing/payments/{paymentId}`: updates a payment record owned by the authenticated user.
