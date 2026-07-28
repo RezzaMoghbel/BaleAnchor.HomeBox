@@ -768,8 +768,9 @@ function App() {
             <div className="card-body">
               <h5 className="mb-3">Admin Review Prototype</h5>
               <p className="text-secondary mb-3">
-                Development-only pending approval review with reasoned
-                approve/reject actions.
+                Role-based pending approval review with reasoned approve/reject
+                actions. For first-time setup, add your account email to
+                BootstrapAdminEmails.
               </p>
 
               <div className="d-flex flex-wrap gap-2 mb-3">
@@ -794,7 +795,9 @@ function App() {
                     className="form-control"
                     placeholder="user id"
                     value={adminTargetUserId}
-                    onChange={(event) => setAdminTargetUserId(event.target.value)}
+                    onChange={(event) =>
+                      setAdminTargetUserId(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-5">

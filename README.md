@@ -19,3 +19,14 @@ Server email transport is configured in `BaleAnchorUtility/BaleAnchorUtility.Ser
 - Set password at deploy/runtime with environment variable `EmailTransport__SmtpPassword`.
 
 This follows `ProjectDouments/CLAUDE.md` requirements to never store plaintext SMTP passwords while keeping VPS publish setup to one step.
+
+## Admin Bootstrap Access
+
+Admin approval endpoints are role-protected (`Admin`/`SuperAdmin`).
+
+- For first-time setup, add one or more emails to `AdminAccess:BootstrapAdminEmails`.
+- After promoting real admin accounts, remove bootstrap emails.
+
+Example environment variable override:
+
+- `AdminAccess__BootstrapAdminEmails__0=admin@example.com`

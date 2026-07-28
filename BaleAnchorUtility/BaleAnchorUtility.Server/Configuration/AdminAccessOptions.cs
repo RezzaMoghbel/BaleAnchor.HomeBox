@@ -4,5 +4,5 @@ public sealed class AdminAccessOptions
 {
     public const string SectionName = "AdminAccess";
 
-    public string[] AllowedEmails { get; set; } = [];
+    public string[] BootstrapAdminEmails { get; set; } = [];
 }

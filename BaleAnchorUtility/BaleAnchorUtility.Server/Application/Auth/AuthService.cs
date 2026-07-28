@@ -174,6 +174,7 @@ public sealed class AuthService
                 Id = Guid.NewGuid().ToString("N"),
                 EmailDisplay = request.Email.Trim(),
                 EmailNormalized = normalizedEmail,
+                Role = UserRole.Resident,
                 Status = UserAccountStatus.TermsPending,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now,

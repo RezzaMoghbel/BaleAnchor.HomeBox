@@ -3,6 +3,7 @@ using BaleAnchorUtility.Server.Application.Admin.Dtos;
 using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Configuration;
+using BaleAnchorUtility.Server.Domain.Users;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -110,13 +111,13 @@ public sealed class AdminApprovalsController : ControllerBase
             return null;
         }
 
-        var allowed = adminAccessOptions.AllowedEmails ?? [];
-        if (allowed.Any(x => string.Equals(x, "*", StringComparison.Ordinal)))
+        if (actor.Role is UserRole.Admin or UserRole.SuperAdmin)
         {
             return actor;
         }
 
-        return allowed.Any(x => string.Equals(x, actor.EmailNormalized, StringComparison.OrdinalIgnoreCase))
+        var bootstrapAllowed = adminAccessOptions.BootstrapAdminEmails ?? [];
+        return bootstrapAllowed.Any(x => string.Equals(x, actor.EmailNormalized, StringComparison.OrdinalIgnoreCase))
             ? actor
             : null;
     }
