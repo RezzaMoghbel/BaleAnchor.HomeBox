@@ -40,3 +40,19 @@ Admin role changes are available via `POST /api/v1/admin/roles/{targetUserId}` i
 - Safety rule: `SuperAdmin` cannot remove their own `SuperAdmin` role.
 - Validation: role and reason are strictly validated and return RFC 7807 validation payloads on HTTP 400.
 - Audit: every role change is written to `AuditLogs` with category `ADMIN_ROLE` and action `CHANGE_ROLE`.
+
+## Billing Input APIs
+
+Resident billing input endpoints are available under `POST/GET /api/v1/billing/*` in `BaleAnchorUtility.Server`.
+
+- `POST /api/v1/billing/readings`: submit combined cold-water, hot-water, and electricity readings.
+- `GET /api/v1/billing/readings/latest`: fetch the latest submitted readings for the authenticated user.
+- `POST /api/v1/billing/tariffs`: add a dated tariff version for water and electricity.
+- `GET /api/v1/billing/tariffs/active?onDate=yyyy-MM-dd`: fetch the applicable tariff for a date.
+
+Validation and behavior:
+
+- Only `Active` user accounts can submit or retrieve billing inputs.
+- Reading dates must be strictly increasing and readings must not roll back.
+- Tariff entries are append-only by effective date; duplicate effective dates are rejected.
+- Conflict/business-rule failures return RFC 7807 ProblemDetails with domain-specific `errorCode` values.

@@ -82,6 +82,35 @@ interface AdminRoleChangeResponse {
   message: string;
 }
 
+interface SubmitReadingsResponse {
+  userId: string;
+  readingDate: string;
+  message: string;
+}
+
+interface LatestReadingsResponse {
+  userId: string;
+  readingDate: string;
+  coldWaterReading: string;
+  hotWaterReading: string;
+  electricityReading: string;
+}
+
+interface UpsertTariffResponse {
+  userId: string;
+  effectiveFromDate: string;
+  waterTariffPerUnit: string;
+  electricityTariffPerUnit: string;
+  message: string;
+}
+
+interface ActiveTariffResponse {
+  userId: string;
+  effectiveFromDate: string;
+  waterTariffPerUnit: string;
+  electricityTariffPerUnit: string;
+}
+
 interface ApiProblemDetails {
   title?: string;
   detail?: string;
@@ -144,6 +173,21 @@ function App() {
   const [adminRoleTarget, setAdminRoleTarget] = useState("Admin");
   const [adminMessage, setAdminMessage] = useState(
     "Admin approvals not loaded.",
+  );
+  const [readingDate, setReadingDate] = useState("");
+  const [coldWaterReading, setColdWaterReading] = useState("");
+  const [hotWaterReading, setHotWaterReading] = useState("");
+  const [electricityReading, setElectricityReading] = useState("");
+  const [tariffEffectiveFromDate, setTariffEffectiveFromDate] = useState("");
+  const [waterTariffPerUnit, setWaterTariffPerUnit] = useState("");
+  const [electricityTariffPerUnit, setElectricityTariffPerUnit] = useState("");
+  const [billingMessage, setBillingMessage] = useState(
+    "Billing inputs have not been submitted.",
+  );
+  const [latestReadings, setLatestReadings] =
+    useState<LatestReadingsResponse | null>(null);
+  const [activeTariff, setActiveTariff] = useState<ActiveTariffResponse | null>(
+    null,
   );
   const [loading, setLoading] = useState(false);
 
@@ -574,6 +618,146 @@ function App() {
     }
   };
 
+  const submitReadings = async () => {
+    if (
+      !readingDate ||
+      !coldWaterReading ||
+      !hotWaterReading ||
+      !electricityReading
+    ) {
+      setBillingMessage("Reading date and all meter values are required.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/readings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          readingDate,
+          coldWaterReading,
+          hotWaterReading,
+          electricityReading,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Reading submission failed. ${error.message}`);
+        return;
+      }
+
+      const body = (await response.json()) as SubmitReadingsResponse;
+      setBillingMessage(`${body.message} Date: ${body.readingDate}.`);
+      await loadLatestReadings();
+    } catch {
+      setBillingMessage("Reading submission failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLatestReadings = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/readings/latest", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Unable to load latest readings. ${error.message}`);
+        setLatestReadings(null);
+        return;
+      }
+
+      const body = (await response.json()) as LatestReadingsResponse;
+      setLatestReadings(body);
+      setBillingMessage(`Loaded latest readings for ${body.readingDate}.`);
+    } catch {
+      setBillingMessage("Unable to load latest readings.");
+      setLatestReadings(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitTariffVersion = async () => {
+    if (
+      !tariffEffectiveFromDate ||
+      !waterTariffPerUnit ||
+      !electricityTariffPerUnit
+    ) {
+      setBillingMessage(
+        "Effective date, water tariff, and electricity tariff are required.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/tariffs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          effectiveFromDate: tariffEffectiveFromDate,
+          waterTariffPerUnit,
+          electricityTariffPerUnit,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Tariff save failed. ${error.message}`);
+        return;
+      }
+
+      const body = (await response.json()) as UpsertTariffResponse;
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await loadActiveTariff();
+    } catch {
+      setBillingMessage("Tariff save failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadActiveTariff = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/tariffs/active", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Unable to load active tariff. ${error.message}`);
+        setActiveTariff(null);
+        return;
+      }
+
+      const body = (await response.json()) as ActiveTariffResponse;
+      setActiveTariff(body);
+      setBillingMessage(`Loaded active tariff from ${body.effectiveFromDate}.`);
+    } catch {
+      setBillingMessage("Unable to load active tariff.");
+      setActiveTariff(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="wrapper">
       <header className="top-header">
@@ -954,6 +1138,187 @@ function App() {
                     {` | Terms: ${onboardingProgress.termsAccepted ? "Done" : "Pending"}`}
                     {` | Profile: ${onboardingProgress.profileComplete ? "Done" : "Pending"}`}
                     {` | Utility: ${onboardingProgress.utilitySetupComplete ? "Done" : "Pending"}`}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Billing Inputs Prototype</h5>
+              <p className="text-secondary mb-3">
+                Submit combined meter readings and maintain dated tariffs for
+                independent billing inputs.
+              </p>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="readingDate" className="form-label">
+                    Reading date
+                  </label>
+                  <input
+                    id="readingDate"
+                    type="date"
+                    className="form-control"
+                    value={readingDate}
+                    onChange={(event) => setReadingDate(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="coldWaterReading" className="form-label">
+                    Cold water
+                  </label>
+                  <input
+                    id="coldWaterReading"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={coldWaterReading}
+                    onChange={(event) =>
+                      setColdWaterReading(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="hotWaterReading" className="form-label">
+                    Hot water
+                  </label>
+                  <input
+                    id="hotWaterReading"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={hotWaterReading}
+                    onChange={(event) => setHotWaterReading(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="electricityReading" className="form-label">
+                    Electricity
+                  </label>
+                  <input
+                    id="electricityReading"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={electricityReading}
+                    onChange={(event) =>
+                      setElectricityReading(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={submitReadings}
+                  disabled={loading}
+                >
+                  Submit readings
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={loadLatestReadings}
+                  disabled={loading}
+                >
+                  Load latest readings
+                </button>
+              </div>
+
+              <hr />
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-4">
+                  <label
+                    htmlFor="tariffEffectiveFromDate"
+                    className="form-label"
+                  >
+                    Tariff effective from
+                  </label>
+                  <input
+                    id="tariffEffectiveFromDate"
+                    type="date"
+                    className="form-control"
+                    value={tariffEffectiveFromDate}
+                    onChange={(event) =>
+                      setTariffEffectiveFromDate(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <label htmlFor="waterTariffPerUnit" className="form-label">
+                    Water tariff per unit
+                  </label>
+                  <input
+                    id="waterTariffPerUnit"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000000"
+                    value={waterTariffPerUnit}
+                    onChange={(event) =>
+                      setWaterTariffPerUnit(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <label
+                    htmlFor="electricityTariffPerUnit"
+                    className="form-label"
+                  >
+                    Electricity tariff per unit
+                  </label>
+                  <input
+                    id="electricityTariffPerUnit"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000000"
+                    value={electricityTariffPerUnit}
+                    onChange={(event) =>
+                      setElectricityTariffPerUnit(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-success"
+                  onClick={submitTariffVersion}
+                  disabled={loading}
+                >
+                  Save tariff version
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={loadActiveTariff}
+                  disabled={loading}
+                >
+                  Load active tariff
+                </button>
+              </div>
+
+              <div className="alert alert-light border mt-3 mb-0" role="status">
+                <div className="fw-semibold mb-1">Billing status</div>
+                <div>{billingMessage}</div>
+                {latestReadings && (
+                  <div className="mt-2 text-secondary small">
+                    Latest ({latestReadings.readingDate})
+                    {` | Cold: ${latestReadings.coldWaterReading}`}
+                    {` | Hot: ${latestReadings.hotWaterReading}`}
+                    {` | Electricity: ${latestReadings.electricityReading}`}
+                  </div>
+                )}
+                {activeTariff && (
+                  <div className="mt-2 text-secondary small">
+                    Tariff from {activeTariff.effectiveFromDate}
+                    {` | Water: ${activeTariff.waterTariffPerUnit}`}
+                    {` | Electricity: ${activeTariff.electricityTariffPerUnit}`}
                   </div>
                 )}
               </div>
