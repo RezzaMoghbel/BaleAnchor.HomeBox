@@ -1,4 +1,10 @@
+using BaleAnchorUtility.Server.Application.Abstractions;
+using BaleAnchorUtility.Server.Application.Auth;
+using BaleAnchorUtility.Server.Configuration;
+using BaleAnchorUtility.Server.Infrastructure.Email;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
+using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
+using BaleAnchorUtility.Server.Infrastructure.Time;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +41,15 @@ builder.Services
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.Configure<AuthOtpOptions>(builder.Configuration.GetSection(AuthOtpOptions.SectionName));
+
+builder.Services.AddSingleton<JsonCollectionStore>();
+builder.Services.AddScoped<IUserRepository, JsonUserRepository>();
+builder.Services.AddScoped<IOtpChallengeRepository, JsonOtpChallengeRepository>();
+builder.Services.AddScoped<ISessionRepository, JsonSessionRepository>();
+builder.Services.AddSingleton<IEmailSender, LoggingEmailSender>();
+builder.Services.AddSingleton<ISystemClock, SystemClock>();
+builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 
