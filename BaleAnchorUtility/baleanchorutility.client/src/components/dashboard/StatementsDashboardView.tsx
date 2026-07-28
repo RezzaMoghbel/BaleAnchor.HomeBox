@@ -181,7 +181,9 @@ export function StatementsDashboardView({
                       </div>
                       <div>
                         Current balance:{" "}
-                        {formatCurrencyGbp(latestStatementSummary.currentBalance)}
+                        {formatCurrencyGbp(
+                          latestStatementSummary.currentBalance,
+                        )}
                       </div>
                       <div>
                         Balance status:{" "}
@@ -212,7 +214,9 @@ export function StatementsDashboardView({
                       </div>
                       <div>
                         Period total:{" "}
-                        {formatCurrencyGbp(selectedStatementSummary.periodTotal)}
+                        {formatCurrencyGbp(
+                          selectedStatementSummary.periodTotal,
+                        )}
                       </div>
                       <div>
                         Payment:{" "}
@@ -282,7 +286,9 @@ export function StatementsDashboardView({
                               <button
                                 type="button"
                                 className={`btn btn-sm ${selectedSnapshotId === item.snapshotId ? "btn-primary" : "btn-outline-primary"}`}
-                                onClick={() => onSelectSnapshotId(item.snapshotId)}
+                                onClick={() =>
+                                  onSelectSnapshotId(item.snapshotId)
+                                }
                               >
                                 {selectedSnapshotId === item.snapshotId
                                   ? "Selected"
@@ -304,7 +310,9 @@ export function StatementsDashboardView({
                                 type="button"
                                 className="btn btn-sm btn-outline-success"
                                 onClick={() =>
-                                  void onExportSelectedStatementPdf(item.snapshotId)
+                                  void onExportSelectedStatementPdf(
+                                    item.snapshotId,
+                                  )
                                 }
                                 disabled={loading}
                               >

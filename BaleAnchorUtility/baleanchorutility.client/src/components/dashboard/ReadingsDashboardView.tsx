@@ -138,7 +138,9 @@ export function ReadingsDashboardView({
                     type="date"
                     className="form-control"
                     value={readingDate}
-                    onChange={(event) => onReadingDateChange(event.target.value)}
+                    onChange={(event) =>
+                      onReadingDateChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
@@ -166,7 +168,9 @@ export function ReadingsDashboardView({
                     className="form-control"
                     placeholder="0.000"
                     value={hotWaterReading}
-                    onChange={(event) => onHotWaterReadingChange(event.target.value)}
+                    onChange={(event) =>
+                      onHotWaterReadingChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
@@ -268,7 +272,9 @@ export function ReadingsDashboardView({
                     className="form-control"
                     placeholder="0.00"
                     value={waterVatPercent}
-                    onChange={(event) => onWaterVatPercentChange(event.target.value)}
+                    onChange={(event) =>
+                      onWaterVatPercentChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -303,7 +309,9 @@ export function ReadingsDashboardView({
                     placeholder="0.000000"
                     value={electricityStandingChargePerDay}
                     onChange={(event) =>
-                      onElectricityStandingChargePerDayChange(event.target.value)
+                      onElectricityStandingChargePerDayChange(
+                        event.target.value,
+                      )
                     }
                   />
                 </div>

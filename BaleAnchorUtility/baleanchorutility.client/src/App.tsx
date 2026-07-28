@@ -5,6 +5,8 @@ import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardV
 import { PaymentsDashboardView } from "./components/dashboard/PaymentsDashboardView";
 import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardView";
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
+import { LoginView } from "./components/auth/LoginView";
+import { OnboardingView } from "./components/onboarding/OnboardingView";
 import {
   formatCurrencyGbp,
   formatDateRange,
@@ -1483,610 +1485,66 @@ function App() {
   }
 
   const renderLoginView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <div className="row g-4 align-items-center">
-                <div className="col-12 col-xl-7">
-                  <span className="hero-eyebrow">Resident portal</span>
-                  <h1 className="hero-title mb-3">
-                    Sign in with your email OTP and continue into your utility
-                    workspace.
-                  </h1>
-                  <p className="hero-copy mb-4">
-                    BaleAnchor Utility is moving from prototype screens to a
-                    resident-first experience with secure session handling,
-                    statements, payments, and transparent calculations.
-                  </p>
-
-                  <div className="d-flex flex-wrap gap-2 mb-4">
-                    <span className="feature-chip">Email OTP login</span>
-                    <span className="feature-chip">Secure session cookie</span>
-                    <span className="feature-chip">Resident-specific data</span>
-                    <span className="feature-chip">Transparent statements</span>
-                  </div>
-
-                  <div className="hero-metrics row g-3">
-                    <div className="col-12 col-md-4">
-                      <div className="metric-card">
-                        <div className="metric-label">Sign-in state</div>
-                        <div className="metric-value">
-                          {session?.isAuthenticated ? "Active" : "Awaiting OTP"}
-                        </div>
-                        <div className="metric-note">
-                          {session?.emailMasked ?? "No session yet"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="metric-card">
-                        <div className="metric-label">Current access</div>
-                        <div className="metric-value">
-                          {session?.userStatus ?? "Not loaded"}
-                        </div>
-                        <div className="metric-note">
-                          Account state returned by the server
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="metric-card">
-                        <div className="metric-label">Next step</div>
-                        <div className="metric-value">OTP flow</div>
-                        <div className="metric-note">
-                          Request code, verify, then continue
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-12 col-xl-5">
-                  <div className="auth-panel card border-0 shadow-sm h-100">
-                    <div className="card-body p-4 p-xl-4">
-                      <div className="d-flex align-items-start justify-content-between gap-3 mb-3">
-                        <div>
-                          <div className="auth-panel__eyebrow">Login</div>
-                          <h2 className="auth-panel__title mb-1">
-                            Resume your resident session
-                          </h2>
-                          <p className="auth-panel__copy mb-0">
-                            Use the email OTP flow already wired to the server.
-                          </p>
-                        </div>
-                        <div
-                          className={`auth-status-pill ${session?.isAuthenticated ? "auth-status-pill--active" : ""}`}
-                        >
-                          {session?.isAuthenticated
-                            ? "Signed in"
-                            : "Not signed in"}
-                        </div>
-                      </div>
-
-                      <div className="row g-3 align-items-end">
-                        <div className="col-12 col-md-7">
-                          <label htmlFor="email-login" className="form-label">
-                            Email
-                          </label>
-                          <input
-                            id="email-login"
-                            type="email"
-                            className="form-control form-control-lg"
-                            placeholder="resident@example.com"
-                            value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                          />
-                        </div>
-                        <div className="col-12 col-md-5">
-                          <label htmlFor="code-login" className="form-label">
-                            OTP code
-                          </label>
-                          <input
-                            id="code-login"
-                            type="text"
-                            className="form-control form-control-lg"
-                            placeholder="123456"
-                            value={code}
-                            onChange={(event) => setCode(event.target.value)}
-                            maxLength={6}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="d-flex flex-wrap gap-2 mt-3">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={requestCode}
-                          disabled={loading || !email}
-                        >
-                          Request code
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-success"
-                          onClick={verifyCode}
-                          disabled={loading || !email || code.length !== 6}
-                        >
-                          Verify code
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary"
-                          onClick={() => void refreshSession()}
-                          disabled={loading}
-                        >
-                          Check session
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger"
-                          onClick={logout}
-                          disabled={loading}
-                        >
-                          Sign out
-                        </button>
-                      </div>
-
-                      <div
-                        className="alert alert-light border mt-3 mb-0 auth-status-box"
-                        role="status"
-                      >
-                        <div className="fw-semibold mb-1">Status</div>
-                        <div>{statusMessage}</div>
-                        {session && (
-                          <div className="mt-2 text-secondary small">
-                            Session:{" "}
-                            {session.isAuthenticated ? "Active" : "Inactive"}
-                            {session.emailMasked
-                              ? ` | User: ${session.emailMasked}`
-                              : ""}
-                            {session.userStatus
-                              ? ` | Account state: ${session.userStatus}`
-                              : ""}
-                            {session.expiresAtUtc
-                              ? ` | Expires: ${formatDisplayDateTime(session.expiresAtUtc)}`
-                              : ""}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
-    </div>
+    <LoginView
+      shellHeader={renderShellHeader()}
+      session={session}
+      email={email}
+      code={code}
+      loading={loading}
+      statusMessage={statusMessage}
+      onEmailChange={setEmail}
+      onCodeChange={setCode}
+      onRequestCode={requestCode}
+      onVerifyCode={verifyCode}
+      onRefreshSession={() => refreshSession()}
+      onLogout={logout}
+      formatDisplayDateTime={formatDisplayDateTime}
+    />
   );
 
   const renderOnboardingView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <div className="row g-4 align-items-center">
-                <div className="col-12 col-xl-8">
-                  <span className="hero-eyebrow">Setup flow</span>
-                  <h1 className="hero-title mb-3">
-                    Complete onboarding in the order CLAUDE requires.
-                  </h1>
-                  <p className="hero-copy mb-0">
-                    Terms acceptance, profile completion, and utility setup are
-                    the next visible steps after login.
-                  </p>
-                </div>
-                <div className="col-12 col-xl-4">
-                  <div className="metric-card">
-                    <div className="metric-label">Next step</div>
-                    <div className="metric-value">
-                      {onboardingProgress?.nextStep ??
-                        "Load your onboarding status"}
-                    </div>
-                    <div className="metric-note">
-                      {onboardingProgress?.accountStatus ??
-                        "Server-authenticated user flow"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Terms Prototype</h5>
-              <p className="text-secondary mb-3">
-                Required terms flow endpoint slice: load active terms, then
-                accept them while authenticated.
-              </p>
-
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={loadActiveTerms}
-                  disabled={loading}
-                >
-                  Load active terms
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-success"
-                  onClick={acceptTerms}
-                  disabled={loading || !activeTerms}
-                >
-                  Accept active terms
-                </button>
-              </div>
-
-              <div className="alert alert-light border mb-0" role="status">
-                <div className="fw-semibold mb-1">Terms status</div>
-                <div>{termsMessage}</div>
-                {activeTerms && (
-                  <div className="mt-2 text-secondary small">
-                    Version: {activeTerms.versionLabel} ({activeTerms.versionId}
-                    ){` | Effective: ${activeTerms.effectiveFromUtc}`}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Onboarding Profile</h5>
-              <p className="text-secondary mb-3">
-                Required sequence step after terms: surname, DOB, flat number,
-                and mobile number.
-              </p>
-
-              <div className="row g-3">
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="surname-onboarding" className="form-label">
-                    Surname
-                  </label>
-                  <input
-                    id="surname-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(profileFieldErrors, "surname").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="Smith"
-                    value={surname}
-                    onChange={(event) => setSurname(event.target.value)}
-                  />
-                  {getFieldErrors(profileFieldErrors, "surname").length > 0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "surname").join(" ")}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="dob-onboarding" className="form-label">
-                    Date of birth
-                  </label>
-                  <input
-                    id="dob-onboarding"
-                    type="date"
-                    className={`form-control ${getFieldErrors(profileFieldErrors, "dateOfBirth").length > 0 ? "is-invalid" : ""}`}
-                    value={dateOfBirth}
-                    onChange={(event) => setDateOfBirth(event.target.value)}
-                  />
-                  {getFieldErrors(profileFieldErrors, "dateOfBirth").length >
-                    0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "dateOfBirth").join(
-                        " ",
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="flatNumber-onboarding" className="form-label">
-                    Flat number
-                  </label>
-                  <input
-                    id="flatNumber-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(profileFieldErrors, "flatNumber").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="A12"
-                    value={flatNumber}
-                    onChange={(event) => setFlatNumber(event.target.value)}
-                  />
-                  {getFieldErrors(profileFieldErrors, "flatNumber").length >
-                    0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "flatNumber").join(
-                        " ",
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label
-                    htmlFor="mobileNumber-onboarding"
-                    className="form-label"
-                  >
-                    Mobile / WhatsApp
-                  </label>
-                  <input
-                    id="mobileNumber-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(profileFieldErrors, "mobileNumber").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="07123456789"
-                    value={mobileNumber}
-                    onChange={(event) => setMobileNumber(event.target.value)}
-                  />
-                  {getFieldErrors(profileFieldErrors, "mobileNumber").length >
-                    0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "mobileNumber").join(
-                        " ",
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={submitProfile}
-                  disabled={
-                    loading ||
-                    !surname ||
-                    !dateOfBirth ||
-                    !flatNumber ||
-                    !mobileNumber
-                  }
-                >
-                  Submit profile details
-                </button>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Profile status</div>
-                <div>{profileMessage}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Onboarding Utility Setup</h5>
-              <p className="text-secondary mb-3">
-                Next vertical slice: move-in date, opening readings, initial
-                tariffs, and boiler assumptions.
-              </p>
-
-              <div className="row g-3">
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="moveInDate-onboarding" className="form-label">
-                    Move-in date
-                  </label>
-                  <input
-                    id="moveInDate-onboarding"
-                    type="date"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "moveInDate").length > 0 ? "is-invalid" : ""}`}
-                    value={moveInDate}
-                    onChange={(event) => setMoveInDate(event.target.value)}
-                  />
-                  {getFieldErrors(utilityFieldErrors, "moveInDate").length >
-                    0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "moveInDate").join(
-                        " ",
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="coldWater-onboarding" className="form-label">
-                    Opening cold-water
-                  </label>
-                  <input
-                    id="coldWater-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingColdWaterReading").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="0.000"
-                    value={openingColdWaterReading}
-                    onChange={(event) =>
-                      setOpeningColdWaterReading(event.target.value)
-                    }
-                  />
-                  {getFieldErrors(utilityFieldErrors, "openingColdWaterReading")
-                    .length > 0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(
-                        utilityFieldErrors,
-                        "openingColdWaterReading",
-                      ).join(" ")}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="hotWater-onboarding" className="form-label">
-                    Opening hot-water
-                  </label>
-                  <input
-                    id="hotWater-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingHotWaterReading").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="0.000"
-                    value={openingHotWaterReading}
-                    onChange={(event) =>
-                      setOpeningHotWaterReading(event.target.value)
-                    }
-                  />
-                  {getFieldErrors(utilityFieldErrors, "openingHotWaterReading")
-                    .length > 0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(
-                        utilityFieldErrors,
-                        "openingHotWaterReading",
-                      ).join(" ")}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label
-                    htmlFor="electricity-onboarding"
-                    className="form-label"
-                  >
-                    Opening electricity
-                  </label>
-                  <input
-                    id="electricity-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "openingElectricityReading").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="0.000"
-                    value={openingElectricityReading}
-                    onChange={(event) =>
-                      setOpeningElectricityReading(event.target.value)
-                    }
-                  />
-                  {getFieldErrors(
-                    utilityFieldErrors,
-                    "openingElectricityReading",
-                  ).length > 0 && (
-                    <div className="invalid-feedback d-block">
-                      {getFieldErrors(
-                        utilityFieldErrors,
-                        "openingElectricityReading",
-                      ).join(" ")}
-                    </div>
-                  )}
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label
-                    htmlFor="waterTariff-onboarding"
-                    className="form-label"
-                  >
-                    Initial water tariff
-                  </label>
-                  <input
-                    id="waterTariff-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="1.234567"
-                    value={initialWaterTariffPerUnit}
-                    onChange={(event) =>
-                      setInitialWaterTariffPerUnit(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label
-                    htmlFor="electricityTariff-onboarding"
-                    className="form-label"
-                  >
-                    Initial electricity tariff
-                  </label>
-                  <input
-                    id="electricityTariff-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="0.456789"
-                    value={initialElectricityTariffPerUnit}
-                    onChange={(event) =>
-                      setInitialElectricityTariffPerUnit(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="boilerKwh-onboarding" className="form-label">
-                    Boiler kWh/m3
-                  </label>
-                  <input
-                    id="boilerKwh-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="10.500000"
-                    value={boilerKwhPerCubicMeter}
-                    onChange={(event) =>
-                      setBoilerKwhPerCubicMeter(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label
-                    htmlFor="boilerEfficiency-onboarding"
-                    className="form-label"
-                  >
-                    Boiler efficiency (%)
-                  </label>
-                  <input
-                    id="boilerEfficiency-onboarding"
-                    type="text"
-                    className={`form-control ${getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").length > 0 ? "is-invalid" : ""}`}
-                    placeholder="85.00"
-                    value={boilerEfficiencyPercent}
-                    onChange={(event) =>
-                      setBoilerEfficiencyPercent(event.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={submitUtilitySetup}
-                  disabled={loading}
-                >
-                  Submit utility setup
-                </button>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Utility setup status</div>
-                <div>{utilitySetupMessage}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Onboarding Progress</h5>
-              <p className="text-secondary mb-3">
-                Check current onboarding status and the next required action.
-              </p>
-
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={loadOnboardingProgress}
-                  disabled={loading}
-                >
-                  Check onboarding progress
-                </button>
-              </div>
-
-              <div className="alert alert-light border mb-0" role="status">
-                <div className="fw-semibold mb-1">Progress status</div>
-                <div>{progressMessage}</div>
-                {onboardingProgress && (
-                  <div className="mt-2 text-secondary small">
-                    Account: {onboardingProgress.accountStatus}
-                    {` | Terms: ${onboardingProgress.termsAccepted ? "Done" : "Pending"}`}
-                    {` | Profile: ${onboardingProgress.profileComplete ? "Done" : "Pending"}`}
-                    {` | Utility: ${onboardingProgress.utilitySetupComplete ? "Done" : "Pending"}`}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <OnboardingView
+      shellHeader={renderShellHeader()}
+      loading={loading}
+      activeTerms={activeTerms}
+      termsMessage={termsMessage}
+      profileMessage={profileMessage}
+      utilitySetupMessage={utilitySetupMessage}
+      progressMessage={progressMessage}
+      onboardingProgress={onboardingProgress}
+      surname={surname}
+      dateOfBirth={dateOfBirth}
+      flatNumber={flatNumber}
+      mobileNumber={mobileNumber}
+      moveInDate={moveInDate}
+      openingColdWaterReading={openingColdWaterReading}
+      openingHotWaterReading={openingHotWaterReading}
+      openingElectricityReading={openingElectricityReading}
+      initialWaterTariffPerUnit={initialWaterTariffPerUnit}
+      initialElectricityTariffPerUnit={initialElectricityTariffPerUnit}
+      boilerKwhPerCubicMeter={boilerKwhPerCubicMeter}
+      boilerEfficiencyPercent={boilerEfficiencyPercent}
+      profileFieldErrors={profileFieldErrors}
+      utilityFieldErrors={utilityFieldErrors}
+      getFieldErrors={getFieldErrors}
+      onLoadActiveTerms={loadActiveTerms}
+      onAcceptTerms={acceptTerms}
+      onSubmitProfile={submitProfile}
+      onSubmitUtilitySetup={submitUtilitySetup}
+      onLoadOnboardingProgress={loadOnboardingProgress}
+      onSurnameChange={setSurname}
+      onDateOfBirthChange={setDateOfBirth}
+      onFlatNumberChange={setFlatNumber}
+      onMobileNumberChange={setMobileNumber}
+      onMoveInDateChange={setMoveInDate}
+      onOpeningColdWaterReadingChange={setOpeningColdWaterReading}
+      onOpeningHotWaterReadingChange={setOpeningHotWaterReading}
+      onOpeningElectricityReadingChange={setOpeningElectricityReading}
+      onInitialWaterTariffPerUnitChange={setInitialWaterTariffPerUnit}
+      onInitialElectricityTariffPerUnitChange={setInitialElectricityTariffPerUnit}
+      onBoilerKwhPerCubicMeterChange={setBoilerKwhPerCubicMeter}
+      onBoilerEfficiencyPercentChange={setBoilerEfficiencyPercent}
+    />
   );
 
   const renderDashboardRouteTabs = () => (
@@ -2175,7 +1633,9 @@ function App() {
       onWaterStandingChargePerDayChange={setWaterStandingChargePerDay}
       onWaterVatPercentChange={setWaterVatPercent}
       onElectricityTariffPerUnitChange={setElectricityTariffPerUnit}
-      onElectricityStandingChargePerDayChange={setElectricityStandingChargePerDay}
+      onElectricityStandingChargePerDayChange={
+        setElectricityStandingChargePerDay
+      }
       onElectricityVatPercentChange={setElectricityVatPercent}
       onSubmitReadings={submitReadings}
       onLoadLatestReadings={loadLatestReadings}

@@ -111,7 +111,9 @@ export function PaymentsDashboardView({
                     className="form-control"
                     placeholder="120.50"
                     value={paymentAmount}
-                    onChange={(event) => onPaymentAmountChange(event.target.value)}
+                    onChange={(event) =>
+                      onPaymentAmountChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -123,7 +125,9 @@ export function PaymentsDashboardView({
                     type="date"
                     className="form-control"
                     value={paymentDate}
-                    onChange={(event) => onPaymentDateChange(event.target.value)}
+                    onChange={(event) =>
+                      onPaymentDateChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
@@ -135,7 +139,9 @@ export function PaymentsDashboardView({
                     type="text"
                     className="form-control"
                     value={paymentMethod}
-                    onChange={(event) => onPaymentMethodChange(event.target.value)}
+                    onChange={(event) =>
+                      onPaymentMethodChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -163,7 +169,9 @@ export function PaymentsDashboardView({
                     className="form-control"
                     placeholder="Optional"
                     value={paymentNotes}
-                    onChange={(event) => onPaymentNotesChange(event.target.value)}
+                    onChange={(event) =>
+                      onPaymentNotesChange(event.target.value)
+                    }
                   />
                 </div>
               </div>
