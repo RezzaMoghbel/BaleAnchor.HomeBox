@@ -1,4 +1,5 @@
 using BaleAnchorUtility.Server.Application.Abstractions;
+using BaleAnchorUtility.Server.Application.Admin;
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Onboarding;
 using BaleAnchorUtility.Server.Application.Terms;
@@ -45,6 +46,7 @@ builder.Services
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.Configure<AuthOtpOptions>(builder.Configuration.GetSection(AuthOtpOptions.SectionName));
+builder.Services.Configure<AdminAccessOptions>(builder.Configuration.GetSection(AdminAccessOptions.SectionName));
 builder.Services.AddOptions<EmailTransportOptions>()
     .Bind(builder.Configuration.GetSection(EmailTransportOptions.SectionName))
     .ValidateOnStart();
@@ -52,6 +54,7 @@ builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<Emai
 
 builder.Services.AddSingleton<JsonCollectionStore>();
 builder.Services.AddScoped<IUserRepository, JsonUserRepository>();
+builder.Services.AddScoped<IAuditLogRepository, JsonAuditLogRepository>();
 builder.Services.AddScoped<IOtpChallengeRepository, JsonOtpChallengeRepository>();
 builder.Services.AddScoped<ISessionRepository, JsonSessionRepository>();
 builder.Services.AddScoped<ITermsVersionRepository, JsonTermsVersionRepository>();
@@ -62,6 +65,7 @@ builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<AdminApprovalService>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();

@@ -24,6 +24,12 @@ public sealed class JsonUserRepository : IUserRepository
         return users.FirstOrDefault(x => string.Equals(x.EmailNormalized, emailNormalized, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<IReadOnlyList<UserAccount>> GetByStatusAsync(UserAccountStatus status, CancellationToken cancellationToken)
+    {
+        var users = await store.GetAllAsync<UserAccount>(Collection, cancellationToken);
+        return users.Where(x => x.Status == status).ToList();
+    }
+
     public Task UpsertAsync(UserAccount user, CancellationToken cancellationToken)
     {
         return store.UpsertAsync(Collection, user.Id, user, cancellationToken);
