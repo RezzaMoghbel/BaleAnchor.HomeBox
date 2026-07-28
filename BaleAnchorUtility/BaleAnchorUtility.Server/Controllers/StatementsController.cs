@@ -12,11 +12,16 @@ public sealed class StatementsController : ControllerBase
 {
     private readonly AuthService authService;
     private readonly StatementSummaryService statementSummaryService;
+    private readonly StatementPdfExportService statementPdfExportService;
 
-    public StatementsController(AuthService authService, StatementSummaryService statementSummaryService)
+    public StatementsController(
+        AuthService authService,
+        StatementSummaryService statementSummaryService,
+        StatementPdfExportService statementPdfExportService)
     {
         this.authService = authService;
         this.statementSummaryService = statementSummaryService;
+        this.statementPdfExportService = statementPdfExportService;
     }
 
     [HttpGet("latest-summary")]
@@ -101,6 +106,49 @@ public sealed class StatementsController : ControllerBase
         {
             var response = await statementSummaryService.GetStatementPeriodsAsync(userId, cancellationToken);
             return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_STATEMENT_CONFLICT");
+        }
+    }
+
+    [HttpGet("export-pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ExportPeriodPdf(
+        [FromQuery] string? snapshotId,
+        [FromQuery] string? periodStartDate,
+        [FromQuery] string? periodEndDateExclusive,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await statementPdfExportService.ExportSelectedPeriodPdfAsync(
+                userId,
+                snapshotId,
+                periodStartDate,
+                periodEndDateExclusive,
+                cancellationToken);
+
+            return File(response.Content, response.ContentType, response.FileName);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "selection", "BILLING_STATEMENT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "BILLING_STATEMENT_NOT_FOUND");
         }
         catch (InvalidOperationException ex)
         {

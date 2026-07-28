@@ -131,6 +131,41 @@ public sealed class StatementsControllerTests
         Assert.Equal("s1", response.Items[0].SnapshotId);
     }
 
+    [Fact]
+    public async Task ExportPeriodPdf_Returns400_WhenSelectionMissing()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.ExportPeriodPdf(
+            snapshotId: null,
+            periodStartDate: null,
+            periodEndDateExclusive: null,
+            CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(action);
+        var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal("BILLING_STATEMENT_VALIDATION", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExportPeriodPdf_ReturnsFile_WhenSelectionValid()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.ExportPeriodPdf(
+            snapshotId: "s1",
+            periodStartDate: null,
+            periodEndDateExclusive: null,
+            CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(action);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.NotEmpty(file.FileContents);
+        Assert.Equal("statement-2026-07-01-to-2026-08-01.pdf", file.FileDownloadName);
+    }
+
     private static StatementsController CreateController(bool withSessionCookie, bool seedUser, bool includeSnapshot)
     {
         var users = new InMemoryUserRepository();
@@ -205,8 +240,14 @@ public sealed class StatementsControllerTests
                 CancellationToken.None).GetAwaiter().GetResult();
         }
 
-        var summaryService = new StatementSummaryService(users, snapshots, new InMemoryPaymentRepository());
-        var controller = new StatementsController(auth, summaryService)
+        var payments = new InMemoryPaymentRepository();
+        var summaryService = new StatementSummaryService(users, snapshots, payments);
+        var exportService = new StatementPdfExportService(
+            summaryService,
+            new FakeStatementPdfGenerator(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-10T10:00:00Z") });
+
+        var controller = new StatementsController(auth, summaryService, exportService)
         {
             ControllerContext = new ControllerContext
             {
