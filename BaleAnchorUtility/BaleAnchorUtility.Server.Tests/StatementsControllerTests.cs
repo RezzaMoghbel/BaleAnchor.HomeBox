@@ -51,6 +51,61 @@ public sealed class StatementsControllerTests
         Assert.Equal("40.00", response.PeriodTotal);
     }
 
+    [Fact]
+    public async Task GetSelectedSummary_Returns400_WhenSelectionIsInvalid()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.GetSelectedSummary(
+            snapshotId: "s1",
+            periodStartDate: "2026-07-01",
+            periodEndDateExclusive: "2026-08-01",
+            CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(action.Result);
+        var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal("BILLING_STATEMENT_VALIDATION", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task GetSelectedSummary_Returns404_WhenSelectionNotFound()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.GetSelectedSummary(
+            snapshotId: "missing",
+            periodStartDate: null,
+            periodEndDateExclusive: null,
+            CancellationToken.None);
+
+        var notFound = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(notFound.Value);
+
+        Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
+        Assert.Equal("BILLING_STATEMENT_NOT_FOUND", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task GetSelectedSummary_Returns200_WhenPeriodMatches()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        var action = await controller.GetSelectedSummary(
+            snapshotId: null,
+            periodStartDate: "2026-07-01",
+            periodEndDateExclusive: "2026-08-01",
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var response = Assert.IsType<Application.Billing.Dtos.LatestStatementSummaryResponse>(ok.Value);
+
+        Assert.Equal("u1", response.UserId);
+        Assert.Equal("2026-07-01", response.PeriodStartDate);
+        Assert.Equal("2026-08-01", response.PeriodEndDateExclusive);
+    }
+
     private static StatementsController CreateController(bool withSessionCookie, bool seedUser, bool includeSnapshot)
     {
         var users = new InMemoryUserRepository();

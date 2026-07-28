@@ -33,4 +33,26 @@ internal sealed class InMemoryCalculationSnapshotRepository : ICalculationSnapsh
 
         return Task.FromResult((IReadOnlyList<CalculationSnapshot>)results);
     }
+
+    public Task<CalculationSnapshot?> GetByIdAsync(string snapshotId, CancellationToken cancellationToken)
+    {
+        var snapshot = snapshots.FirstOrDefault(x => string.Equals(x.Id, snapshotId, StringComparison.Ordinal));
+        return Task.FromResult(snapshot);
+    }
+
+    public Task<CalculationSnapshot?> GetByUserAndPeriodAsync(
+        string userId,
+        string periodStartDate,
+        string periodEndDateExclusive,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = snapshots
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => string.Equals(x.PeriodStartDate, periodStartDate, StringComparison.Ordinal))
+            .Where(x => string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefault();
+
+        return Task.FromResult(snapshot);
+    }
 }

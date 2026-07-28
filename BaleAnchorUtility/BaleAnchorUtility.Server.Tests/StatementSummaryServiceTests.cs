@@ -70,6 +70,103 @@ public sealed class StatementSummaryServiceTests
             service.GetLatestSummaryAsync("u-active", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetSelectedSummaryAsync_ReturnsSummary_WhenSnapshotIdProvided()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s1", "u-active", "2026-06-01", "2026-07-01", 120m), CancellationToken.None);
+        await snapshots.AddAsync(CreateSnapshot("s2", "u-active", "2026-07-01", "2026-08-01", 80m), CancellationToken.None);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p2",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 80m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, payments);
+
+        var response = await service.GetSelectedSummaryAsync(
+            "u-active",
+            snapshotId: "s2",
+            periodStartDate: null,
+            periodEndDateExclusive: null,
+            CancellationToken.None);
+
+        Assert.Equal("2026-07-01", response.PeriodStartDate);
+        Assert.Equal("2026-08-01", response.PeriodEndDateExclusive);
+        Assert.Equal("0.00", response.PeriodDifference);
+        Assert.Equal("Paid in full", response.PeriodBalanceStatus);
+    }
+
+    [Fact]
+    public async Task GetSelectedSummaryAsync_ReturnsSummary_WhenPeriodProvided()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s1", "u-active", "2026-06-01", "2026-07-01", 50m), CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, new InMemoryPaymentRepository());
+
+        var response = await service.GetSelectedSummaryAsync(
+            "u-active",
+            snapshotId: null,
+            periodStartDate: "2026-06-01",
+            periodEndDateExclusive: "2026-07-01",
+            CancellationToken.None);
+
+        Assert.Equal("2026-06-01", response.PeriodStartDate);
+        Assert.Equal("2026-07-01", response.PeriodEndDateExclusive);
+        Assert.Equal("50.00", response.PeriodTotal);
+    }
+
+    [Fact]
+    public async Task GetSelectedSummaryAsync_ThrowsValidation_WhenSelectionMissing()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var service = new StatementSummaryService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            new InMemoryPaymentRepository());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.GetSelectedSummaryAsync("u-active", null, null, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetSelectedSummaryAsync_ThrowsNotFound_WhenSnapshotDoesNotExist()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var service = new StatementSummaryService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            new InMemoryPaymentRepository());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.GetSelectedSummaryAsync("u-active", "missing", null, null, CancellationToken.None));
+    }
+
     private static UserAccount CreateActiveUser(string id)
     {
         return new UserAccount
