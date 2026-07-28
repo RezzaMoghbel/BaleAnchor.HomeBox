@@ -56,3 +56,17 @@ Validation and behavior:
 - Reading dates must be strictly increasing and readings must not roll back.
 - Tariff entries are append-only by effective date; duplicate effective dates are rejected.
 - Conflict/business-rule failures return RFC 7807 ProblemDetails with domain-specific `errorCode` values.
+
+## Calculation Snapshots
+
+Latest-period calculation snapshot endpoints are available under `api/v1/billing/calculations/latest`.
+
+- `POST /api/v1/billing/calculations/latest`: runs server-side deterministic calculation for the latest period and stores an immutable snapshot.
+- `GET /api/v1/billing/calculations/latest`: returns the most recently generated snapshot for the authenticated user.
+
+Calculation behavior:
+
+- Requires at least two combined readings.
+- Uses dated tariffs within the period and marks split segments as estimated when tariff changes occur without a boundary reading.
+- Uses boiler assumptions from onboarding utility setup for boiler electricity derivation.
+- Persists engine version, input hash, and equation summary for auditability and statement reproducibility.

@@ -111,6 +111,25 @@ interface ActiveTariffResponse {
   electricityTariffPerUnit: string;
 }
 
+interface CalculateLatestPeriodResponse {
+  snapshotId: string;
+  userId: string;
+  periodStartDate: string;
+  periodEndDateExclusive: string;
+  daysInPeriod: number;
+  coldWaterUsed: string;
+  hotWaterUsed: string;
+  apartmentElectricityUsed: string;
+  boilerElectricityUsed: string;
+  waterTotal: string;
+  electricityTotal: string;
+  periodTotal: string;
+  containsEstimatedSegments: boolean;
+  engineVersion: string;
+  inputHash: string;
+  equationSummary: string;
+}
+
 interface ApiProblemDetails {
   title?: string;
   detail?: string;
@@ -189,6 +208,8 @@ function App() {
   const [activeTariff, setActiveTariff] = useState<ActiveTariffResponse | null>(
     null,
   );
+  const [latestCalculation, setLatestCalculation] =
+    useState<CalculateLatestPeriodResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   const formatValidationErrors = (errors?: Record<string, string[]>) => {
@@ -758,6 +779,56 @@ function App() {
     }
   };
 
+  const runLatestCalculation = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/calculations/latest", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Calculation failed. ${error.message}`);
+        return;
+      }
+
+      const body = (await response.json()) as CalculateLatestPeriodResponse;
+      setLatestCalculation(body);
+      setBillingMessage(`Calculation snapshot created: ${body.snapshotId}.`);
+    } catch {
+      setBillingMessage("Calculation failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLatestCalculation = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/billing/calculations/latest", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setBillingMessage(`Unable to load calculation snapshot. ${error.message}`);
+        setLatestCalculation(null);
+        return;
+      }
+
+      const body = (await response.json()) as CalculateLatestPeriodResponse;
+      setLatestCalculation(body);
+      setBillingMessage(`Loaded calculation snapshot ${body.snapshotId}.`);
+    } catch {
+      setBillingMessage("Unable to load calculation snapshot.");
+      setLatestCalculation(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="wrapper">
       <header className="top-header">
@@ -1301,6 +1372,22 @@ function App() {
                 >
                   Load active tariff
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={runLatestCalculation}
+                  disabled={loading}
+                >
+                  Run latest calculation
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={loadLatestCalculation}
+                  disabled={loading}
+                >
+                  Load latest calculation
+                </button>
               </div>
 
               <div className="alert alert-light border mt-3 mb-0" role="status">
@@ -1319,6 +1406,17 @@ function App() {
                     Tariff from {activeTariff.effectiveFromDate}
                     {` | Water: ${activeTariff.waterTariffPerUnit}`}
                     {` | Electricity: ${activeTariff.electricityTariffPerUnit}`}
+                  </div>
+                )}
+                {latestCalculation && (
+                  <div className="mt-2 text-secondary small">
+                    Calc {latestCalculation.periodStartDate} to {latestCalculation.periodEndDateExclusive}
+                    {` | Water total: ${latestCalculation.waterTotal}`}
+                    {` | Electricity total: ${latestCalculation.electricityTotal}`}
+                    {` | Period total: ${latestCalculation.periodTotal}`}
+                    {latestCalculation.containsEstimatedSegments
+                      ? " | Estimated segments applied"
+                      : ""}
                   </div>
                 )}
               </div>

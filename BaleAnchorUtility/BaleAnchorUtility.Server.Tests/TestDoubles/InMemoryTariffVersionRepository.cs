@@ -36,4 +36,18 @@ internal sealed class InMemoryTariffVersionRepository : ITariffVersionRepository
 
         return Task.FromResult(active);
     }
+
+    public Task<IReadOnlyList<TariffVersion>> GetByUserUpToDateAsync(string userId, string onDateInclusive, CancellationToken cancellationToken)
+    {
+        var lookupDate = DateOnly.ParseExact(onDateInclusive, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var results = versions
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => DateOnly.ParseExact(x.EffectiveFromDate, "yyyy-MM-dd", CultureInfo.InvariantCulture) <= lookupDate)
+            .OrderBy(x => DateOnly.ParseExact(x.EffectiveFromDate, "yyyy-MM-dd", CultureInfo.InvariantCulture))
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+
+        return Task.FromResult((IReadOnlyList<TariffVersion>)results);
+    }
 }

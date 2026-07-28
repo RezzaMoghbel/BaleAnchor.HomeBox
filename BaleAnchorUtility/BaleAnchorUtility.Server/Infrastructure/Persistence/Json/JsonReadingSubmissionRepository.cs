@@ -30,6 +30,17 @@ public sealed class JsonReadingSubmissionRepository : IReadingSubmissionReposito
             .FirstOrDefault();
     }
 
+    public async Task<IReadOnlyList<ReadingSubmission>> GetByUserIdAsync(string userId, CancellationToken cancellationToken)
+    {
+        var all = await store.GetAllAsync<ReadingSubmission>(Collection, cancellationToken);
+
+        return all
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .OrderBy(x => ParseDate(x.ReadingDate))
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+    }
+
     private static DateOnly ParseDate(string value)
     {
         return DateOnly.ParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture);

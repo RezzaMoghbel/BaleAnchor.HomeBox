@@ -41,6 +41,19 @@ public sealed class JsonTariffVersionRepository : ITariffVersionRepository
             .FirstOrDefault();
     }
 
+    public async Task<IReadOnlyList<TariffVersion>> GetByUserUpToDateAsync(string userId, string onDateInclusive, CancellationToken cancellationToken)
+    {
+        var targetDate = DateOnly.ParseExact(onDateInclusive, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var all = await store.GetAllAsync<TariffVersion>(Collection, cancellationToken);
+
+        return all
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => ParseDate(x.EffectiveFromDate) <= targetDate)
+            .OrderBy(x => ParseDate(x.EffectiveFromDate))
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+    }
+
     private static DateOnly ParseDate(string value)
     {
         return DateOnly.ParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture);

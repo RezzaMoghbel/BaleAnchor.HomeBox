@@ -24,4 +24,15 @@ internal sealed class InMemoryReadingSubmissionRepository : IReadingSubmissionRe
 
         return Task.FromResult(latest);
     }
+
+    public Task<IReadOnlyList<ReadingSubmission>> GetByUserIdAsync(string userId, CancellationToken cancellationToken)
+    {
+        var results = submissions
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .OrderBy(x => DateOnly.ParseExact(x.ReadingDate, "yyyy-MM-dd", CultureInfo.InvariantCulture))
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+
+        return Task.FromResult((IReadOnlyList<ReadingSubmission>)results);
+    }
 }

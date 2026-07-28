@@ -1,6 +1,8 @@
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Billing;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
+using BaleAnchorUtility.Server.Application.Calculations;
+using BaleAnchorUtility.Server.Application.Calculations.Dtos;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +14,16 @@ public sealed class BillingController : ControllerBase
 {
     private readonly AuthService authService;
     private readonly BillingInputService billingInputService;
+    private readonly CalculationSnapshotService calculationSnapshotService;
 
-    public BillingController(AuthService authService, BillingInputService billingInputService)
+    public BillingController(
+        AuthService authService,
+        BillingInputService billingInputService,
+        CalculationSnapshotService calculationSnapshotService)
     {
         this.authService = authService;
         this.billingInputService = billingInputService;
+        this.calculationSnapshotService = calculationSnapshotService;
     }
 
     [HttpPost("readings")]
@@ -108,6 +115,52 @@ public sealed class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return ConflictProblem(ex.Message, "BILLING_TARIFF_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpPost("calculations/latest")]
+    [ProducesResponseType(typeof(CalculateLatestPeriodResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<CalculateLatestPeriodResponse>> CalculateLatestPeriod(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await calculationSnapshotService.CalculateLatestPeriodAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_CALCULATION_CONFLICT");
+        }
+    }
+
+    [HttpGet("calculations/latest")]
+    [ProducesResponseType(typeof(CalculateLatestPeriodResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<CalculateLatestPeriodResponse>> GetLatestCalculation(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await calculationSnapshotService.GetLatestSnapshotAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_CALCULATION_NOT_AVAILABLE");
         }
     }
 
