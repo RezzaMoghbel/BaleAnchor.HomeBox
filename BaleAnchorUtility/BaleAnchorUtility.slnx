@@ -9,4 +9,5 @@
     <Deploy />
   </Project>
   <Project Path="BaleAnchorUtility.Server/BaleAnchorUtility.Server.csproj" />
+  <Project Path="BaleAnchorUtility.Server.Tests/BaleAnchorUtility.Server.Tests.csproj" />
 </Solution>
