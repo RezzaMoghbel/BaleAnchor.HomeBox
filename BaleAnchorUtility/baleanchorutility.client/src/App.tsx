@@ -57,6 +57,24 @@ interface OnboardingProgressResponse {
   nextStep: string;
 }
 
+interface PendingApprovalUserItem {
+  userId: string;
+  emailMasked: string;
+  submittedState: string;
+  updatedAtUtc: string;
+}
+
+interface PendingApprovalListResponse {
+  items: PendingApprovalUserItem[];
+  count: number;
+}
+
+interface AdminDecisionResponse {
+  userId: string;
+  newStatus: string;
+  message: string;
+}
+
 interface ApiProblemDetails {
   title?: string;
   detail?: string;
@@ -111,6 +129,14 @@ function App() {
   const [utilityFieldErrors, setUtilityFieldErrors] = useState<
     Record<string, string[]>
   >({});
+  const [pendingApprovals, setPendingApprovals] = useState<
+    PendingApprovalUserItem[]
+  >([]);
+  const [adminTargetUserId, setAdminTargetUserId] = useState("");
+  const [adminReason, setAdminReason] = useState("");
+  const [adminMessage, setAdminMessage] = useState(
+    "Admin approvals not loaded.",
+  );
   const [loading, setLoading] = useState(false);
 
   const formatValidationErrors = (errors?: Record<string, string[]>) => {
@@ -434,6 +460,74 @@ function App() {
     }
   };
 
+  const loadPendingApprovals = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/admin/approvals/pending", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setAdminMessage(`Unable to load pending approvals. ${error.message}`);
+        setPendingApprovals([]);
+        return;
+      }
+
+      const body = (await response.json()) as PendingApprovalListResponse;
+      setPendingApprovals(body.items);
+      setAdminMessage(`Loaded ${body.count} pending approval record(s).`);
+    } catch {
+      setAdminMessage("Failed to load pending approvals.");
+      setPendingApprovals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitAdminDecision = async (action: "approve" | "reject") => {
+    if (!adminTargetUserId || !adminReason) {
+      setAdminMessage("Target user ID and reason are required.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/v1/admin/approvals/${encodeURIComponent(adminTargetUserId)}/${action}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ reason: adminReason }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setAdminMessage(
+          `${action === "approve" ? "Approve" : "Reject"} failed. ${error.message}`,
+        );
+        return;
+      }
+
+      const body = (await response.json()) as AdminDecisionResponse;
+      setAdminMessage(
+        `${body.message} User ${body.userId} now in state ${body.newStatus}.`,
+      );
+      await loadPendingApprovals();
+    } catch {
+      setAdminMessage(
+        `${action === "approve" ? "Approve" : "Reject"} action failed.`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="wrapper">
       <header className="top-header">
@@ -672,6 +766,92 @@ function App() {
 
           <div className="card radius-10 border-0 shadow-sm mt-4">
             <div className="card-body">
+              <h5 className="mb-3">Admin Review Prototype</h5>
+              <p className="text-secondary mb-3">
+                Development-only pending approval review with reasoned
+                approve/reject actions.
+              </p>
+
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={loadPendingApprovals}
+                  disabled={loading}
+                >
+                  Load pending approvals
+                </button>
+              </div>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-4">
+                  <label htmlFor="adminTargetUserId" className="form-label">
+                    Target user ID
+                  </label>
+                  <input
+                    id="adminTargetUserId"
+                    type="text"
+                    className="form-control"
+                    placeholder="user id"
+                    value={adminTargetUserId}
+                    onChange={(event) => setAdminTargetUserId(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-5">
+                  <label htmlFor="adminReason" className="form-label">
+                    Decision reason
+                  </label>
+                  <input
+                    id="adminReason"
+                    type="text"
+                    className="form-control"
+                    placeholder="reason"
+                    value={adminReason}
+                    onChange={(event) => setAdminReason(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-success"
+                      onClick={() => submitAdminDecision("approve")}
+                      disabled={loading}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger"
+                      onClick={() => submitAdminDecision("reject")}
+                      disabled={loading}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="alert alert-light border mt-3 mb-0" role="status">
+                <div className="fw-semibold mb-1">Admin status</div>
+                <div>{adminMessage}</div>
+                {pendingApprovals.length > 0 && (
+                  <div className="mt-2 text-secondary small">
+                    {pendingApprovals
+                      .slice(0, 5)
+                      .map(
+                        (item) =>
+                          `${item.userId} (${item.emailMasked}) - ${item.submittedState}`,
+                      )
+                      .join(" | ")}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
               <h5 className="mb-3">Onboarding Progress</h5>
               <p className="text-secondary mb-3">
                 Check current onboarding status and the next required action.
@@ -741,9 +921,12 @@ function App() {
                     value={dateOfBirth}
                     onChange={(event) => setDateOfBirth(event.target.value)}
                   />
-                  {getFieldErrors(profileFieldErrors, "dateOfBirth").length > 0 && (
+                  {getFieldErrors(profileFieldErrors, "dateOfBirth").length >
+                    0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "dateOfBirth").join(" ")}
+                      {getFieldErrors(profileFieldErrors, "dateOfBirth").join(
+                        " ",
+                      )}
                     </div>
                   )}
                 </div>
@@ -759,9 +942,12 @@ function App() {
                     value={flatNumber}
                     onChange={(event) => setFlatNumber(event.target.value)}
                   />
-                  {getFieldErrors(profileFieldErrors, "flatNumber").length > 0 && (
+                  {getFieldErrors(profileFieldErrors, "flatNumber").length >
+                    0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "flatNumber").join(" ")}
+                      {getFieldErrors(profileFieldErrors, "flatNumber").join(
+                        " ",
+                      )}
                     </div>
                   )}
                 </div>
@@ -777,9 +963,12 @@ function App() {
                     value={mobileNumber}
                     onChange={(event) => setMobileNumber(event.target.value)}
                   />
-                  {getFieldErrors(profileFieldErrors, "mobileNumber").length > 0 && (
+                  {getFieldErrors(profileFieldErrors, "mobileNumber").length >
+                    0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(profileFieldErrors, "mobileNumber").join(" ")}
+                      {getFieldErrors(profileFieldErrors, "mobileNumber").join(
+                        " ",
+                      )}
                     </div>
                   )}
                 </div>
@@ -829,9 +1018,12 @@ function App() {
                     value={moveInDate}
                     onChange={(event) => setMoveInDate(event.target.value)}
                   />
-                  {getFieldErrors(utilityFieldErrors, "moveInDate").length > 0 && (
+                  {getFieldErrors(utilityFieldErrors, "moveInDate").length >
+                    0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "moveInDate").join(" ")}
+                      {getFieldErrors(utilityFieldErrors, "moveInDate").join(
+                        " ",
+                      )}
                     </div>
                   )}
                 </div>
@@ -849,9 +1041,13 @@ function App() {
                       setOpeningColdWaterReading(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "openingColdWaterReading").length > 0 && (
+                  {getFieldErrors(utilityFieldErrors, "openingColdWaterReading")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "openingColdWaterReading").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "openingColdWaterReading",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -869,9 +1065,13 @@ function App() {
                       setOpeningHotWaterReading(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "openingHotWaterReading").length > 0 && (
+                  {getFieldErrors(utilityFieldErrors, "openingHotWaterReading")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "openingHotWaterReading").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "openingHotWaterReading",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -889,9 +1089,15 @@ function App() {
                       setOpeningElectricityReading(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "openingElectricityReading").length > 0 && (
+                  {getFieldErrors(
+                    utilityFieldErrors,
+                    "openingElectricityReading",
+                  ).length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "openingElectricityReading").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "openingElectricityReading",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -909,9 +1115,15 @@ function App() {
                       setInitialWaterTariffPerUnit(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").length > 0 && (
+                  {getFieldErrors(
+                    utilityFieldErrors,
+                    "initialWaterTariffPerUnit",
+                  ).length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "initialWaterTariffPerUnit").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "initialWaterTariffPerUnit",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -929,9 +1141,15 @@ function App() {
                       setInitialElectricityTariffPerUnit(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").length > 0 && (
+                  {getFieldErrors(
+                    utilityFieldErrors,
+                    "initialElectricityTariffPerUnit",
+                  ).length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "initialElectricityTariffPerUnit").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "initialElectricityTariffPerUnit",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -949,9 +1167,13 @@ function App() {
                       setBoilerKwhPerCubicMeter(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").length > 0 && (
+                  {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "boilerKwhPerCubicMeter",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -969,9 +1191,13 @@ function App() {
                       setBoilerEfficiencyPercent(event.target.value)
                     }
                   />
-                  {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").length > 0 && (
+                  {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent").join(" ")}
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "boilerEfficiencyPercent",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
