@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
+import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardView";
 import {
   formatCurrencyGbp,
   formatDateRange,
@@ -2122,168 +2124,23 @@ function App() {
   );
 
   const renderAdminView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Admin workspace</h1>
-              <p className="hero-copy mb-0">
-                Role-bound area for approval, tenancy, and audit workflows. This
-                route is visible only to Admin and SuperAdmin sessions.
-              </p>
-            </div>
-          </section>
-
-          {renderDashboardRouteTabs()}
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Approval actions</h5>
-              <p className="text-secondary mb-3">
-                Review pending account submissions and apply reasoned approve,
-                reject, or role update actions.
-              </p>
-
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={() => void loadPendingApprovals()}
-                  disabled={loading}
-                >
-                  Load pending approvals
-                </button>
-              </div>
-
-              <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-4">
-                  <label htmlFor="adminTargetUserId" className="form-label">
-                    Target user ID
-                  </label>
-                  <input
-                    id="adminTargetUserId"
-                    type="text"
-                    className="form-control"
-                    placeholder="user id"
-                    value={adminTargetUserId}
-                    onChange={(event) =>
-                      setAdminTargetUserId(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-5">
-                  <label htmlFor="adminReason" className="form-label">
-                    Decision reason
-                  </label>
-                  <input
-                    id="adminReason"
-                    type="text"
-                    className="form-control"
-                    placeholder="reason"
-                    value={adminReason}
-                    onChange={(event) => setAdminReason(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <div className="d-flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline-success"
-                      onClick={() => void submitAdminDecision("approve")}
-                      disabled={loading}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger"
-                      onClick={() => void submitAdminDecision("reject")}
-                      disabled={loading}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="row g-3 align-items-end mt-1">
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="adminRoleTarget" className="form-label">
-                    New role
-                  </label>
-                  <select
-                    id="adminRoleTarget"
-                    className="form-select"
-                    value={adminRoleTarget}
-                    onChange={(event) => setAdminRoleTarget(event.target.value)}
-                  >
-                    <option value="Resident">Resident</option>
-                    <option value="Admin">Admin</option>
-                    <option value="SuperAdmin">SuperAdmin</option>
-                  </select>
-                </div>
-                <div className="col-12 col-lg-3">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={() => void submitRoleChange()}
-                    disabled={loading}
-                  >
-                    Update role
-                  </button>
-                </div>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Admin status</div>
-                <div>{adminMessage}</div>
-                {pendingApprovals.length > 0 && (
-                  <div className="mt-2 text-secondary small">
-                    Showing {pendingApprovals.length} pending account(s).
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Pending approvals</h5>
-              {pendingApprovals.length === 0 ? (
-                <p className="text-secondary mb-0">
-                  No pending approvals loaded yet.
-                </p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>User ID</th>
-                        <th>Email</th>
-                        <th>Submitted state</th>
-                        <th>Updated UTC</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingApprovals.slice(0, 20).map((item) => (
-                        <tr key={item.userId}>
-                          <td>{item.userId}</td>
-                          <td>{item.emailMasked}</td>
-                          <td>{item.submittedState}</td>
-                          <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <AdminDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      loading={loading}
+      adminTargetUserId={adminTargetUserId}
+      adminReason={adminReason}
+      adminRoleTarget={adminRoleTarget}
+      adminMessage={adminMessage}
+      pendingApprovals={pendingApprovals}
+      onAdminTargetUserIdChange={setAdminTargetUserId}
+      onAdminReasonChange={setAdminReason}
+      onAdminRoleTargetChange={setAdminRoleTarget}
+      onLoadPendingApprovals={loadPendingApprovals}
+      onSubmitAdminDecision={submitAdminDecision}
+      onSubmitRoleChange={submitRoleChange}
+      formatDisplayDateTime={formatDisplayDateTime}
+    />
   );
 
   const renderReadingsView = () => (
@@ -2893,7 +2750,9 @@ function App() {
                       </div>
                       <div>
                         Current balance:{" "}
-                        {formatCurrencyGbp(latestStatementSummary.currentBalance)}
+                        {formatCurrencyGbp(
+                          latestStatementSummary.currentBalance,
+                        )}
                       </div>
                       <div>
                         Balance status:{" "}
@@ -2924,7 +2783,9 @@ function App() {
                       </div>
                       <div>
                         Period total:{" "}
-                        {formatCurrencyGbp(selectedStatementSummary.periodTotal)}
+                        {formatCurrencyGbp(
+                          selectedStatementSummary.periodTotal,
+                        )}
                       </div>
                       <div>
                         Payment:{" "}
@@ -3105,119 +2966,13 @@ function App() {
   }
 
   return (
-    <div className="wrapper">
-      {renderShellHeader()}
-
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Resident dashboard overview</h1>
-              <p className="hero-copy mb-0">
-                Your secure utility workspace is now route-based. Use the tabs
-                below to manage onboarding, readings, payments, and statements.
-              </p>
-            </div>
-          </section>
-
-          {renderDashboardRouteTabs()}
-
-          <div className="row g-4 mb-4">
-            <div className="col-12 col-lg-4">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="mb-1 text-secondary">Session state</p>
-                      <h4 className="mb-0">
-                        {session?.isAuthenticated ? "Active" : "Inactive"}
-                      </h4>
-                    </div>
-                    <div className="widget-icon bg-light-primary text-primary">
-                      <i className="bi bi-shield-lock"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-12 col-lg-4">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="mb-1 text-secondary">User status</p>
-                      <h4 className="mb-0">
-                        {session?.userStatus ?? "Unknown"}
-                      </h4>
-                    </div>
-                    <div className="widget-icon bg-light-success text-success">
-                      <i className="bi bi-person-check"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-12 col-lg-4">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="mb-1 text-secondary">Role</p>
-                      <h4 className="mb-0">
-                        {session?.userRole ?? "Resident"}
-                      </h4>
-                    </div>
-                    <div className="widget-icon bg-light-danger text-danger">
-                      <i className="bi bi-person-badge"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Live status</h5>
-              <div className="alert alert-light border mb-3" role="status">
-                <div className="fw-semibold mb-1">Status</div>
-                <div>{statusMessage}</div>
-                {session?.expiresAtUtc && (
-                  <div className="mt-2 text-secondary small">
-                    Session expiry: {formatDisplayDateTime(session.expiresAtUtc)}
-                  </div>
-                )}
-              </div>
-
-              <p className="text-secondary mb-3">
-                Continue through the dedicated route pages to keep each utility
-                workflow isolated, testable, and ready for production hardening.
-              </p>
-              <div className="d-flex flex-wrap gap-2">
-                <span className="badge rounded-pill bg-light text-dark border">
-                  Email OTP onboarding
-                </span>
-                <span className="badge rounded-pill bg-light text-dark border">
-                  Combined readings
-                </span>
-                <span className="badge rounded-pill bg-light text-dark border">
-                  Independent tariffs
-                </span>
-                <span className="badge rounded-pill bg-light text-dark border">
-                  Transparent equations
-                </span>
-                <span className="badge rounded-pill bg-light text-dark border">
-                  PDF statements
-                </span>
-                <span className="badge rounded-pill bg-light text-dark border">
-                  PWA reminders
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <OverviewDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      session={session}
+      statusMessage={statusMessage}
+      formatDisplayDateTime={formatDisplayDateTime}
+    />
   );
 }
 
