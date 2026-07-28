@@ -36,10 +36,13 @@ public sealed class StatementPdfExportServiceTests
             },
             CancellationToken.None);
 
+        var exports = new InMemoryStatementExportRepository();
         var summaryService = new StatementSummaryService(users, snapshots, payments);
         var service = new StatementPdfExportService(
             summaryService,
             new FakeStatementPdfGenerator(),
+            exports,
+            snapshots,
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-10T10:00:00Z") });
 
         var response = await service.ExportSelectedPeriodPdfAsync(
@@ -52,6 +55,15 @@ public sealed class StatementPdfExportServiceTests
         Assert.Equal("application/pdf", response.ContentType);
         Assert.Equal("statement-2026-07-01-to-2026-08-01.pdf", response.FileName);
         Assert.NotEmpty(response.Content);
+        Assert.False(string.IsNullOrWhiteSpace(response.ExportId));
+        Assert.Equal("statement-template-v1", response.TemplateVersion);
+        Assert.Equal("fake-pdf-v1", response.RendererVersion);
+        Assert.False(string.IsNullOrWhiteSpace(response.ContentSha256));
+
+        var history = await service.GetExportHistoryAsync("u-active", CancellationToken.None);
+        Assert.Equal(1, history.Count);
+        Assert.Equal(response.ExportId, history.Items[0].ExportId);
+        Assert.Equal("statement-template-v1", history.Items[0].TemplateVersion);
     }
 
     private static UserAccount CreateActiveUser(string id)

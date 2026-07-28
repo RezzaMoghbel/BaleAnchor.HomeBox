@@ -164,6 +164,30 @@ public sealed class StatementsControllerTests
         Assert.Equal("application/pdf", file.ContentType);
         Assert.NotEmpty(file.FileContents);
         Assert.Equal("statement-2026-07-01-to-2026-08-01.pdf", file.FileDownloadName);
+        Assert.False(string.IsNullOrWhiteSpace(controller.Response.Headers["X-Statement-Export-Id"]));
+        Assert.Equal("statement-template-v1", controller.Response.Headers["X-Statement-Template-Version"]);
+        Assert.Equal("fake-pdf-v1", controller.Response.Headers["X-Statement-Renderer-Version"]);
+    }
+
+    [Fact]
+    public async Task GetExportHistory_Returns200_AfterExport()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true, includeSnapshot: true);
+
+        _ = await controller.ExportPeriodPdf(
+            snapshotId: "s1",
+            periodStartDate: null,
+            periodEndDateExclusive: null,
+            CancellationToken.None);
+
+        var action = await controller.GetExportHistory(CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var response = Assert.IsType<Application.Billing.Dtos.StatementExportHistoryResponse>(ok.Value);
+
+        Assert.Equal("u1", response.UserId);
+        Assert.Equal(1, response.Count);
+        Assert.Equal("statement-template-v1", response.Items[0].TemplateVersion);
+        Assert.Equal("fake-pdf-v1", response.Items[0].RendererVersion);
     }
 
     private static StatementsController CreateController(bool withSessionCookie, bool seedUser, bool includeSnapshot)
@@ -241,10 +265,13 @@ public sealed class StatementsControllerTests
         }
 
         var payments = new InMemoryPaymentRepository();
+        var exports = new InMemoryStatementExportRepository();
         var summaryService = new StatementSummaryService(users, snapshots, payments);
         var exportService = new StatementPdfExportService(
             summaryService,
             new FakeStatementPdfGenerator(),
+            exports,
+            snapshots,
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-10T10:00:00Z") });
 
         var controller = new StatementsController(auth, summaryService, exportService)

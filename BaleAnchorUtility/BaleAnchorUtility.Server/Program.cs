@@ -67,6 +67,7 @@ builder.Services.AddScoped<IReadingSubmissionRepository, JsonReadingSubmissionRe
 builder.Services.AddScoped<ITariffVersionRepository, JsonTariffVersionRepository>();
 builder.Services.AddScoped<ICalculationSnapshotRepository, JsonCalculationSnapshotRepository>();
 builder.Services.AddScoped<IPaymentRepository, JsonPaymentRepository>();
+builder.Services.AddScoped<IStatementExportRepository, JsonStatementExportRepository>();
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();

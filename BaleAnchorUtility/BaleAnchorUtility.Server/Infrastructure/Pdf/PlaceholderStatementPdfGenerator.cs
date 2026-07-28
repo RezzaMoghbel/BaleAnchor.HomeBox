@@ -5,6 +5,9 @@ namespace BaleAnchorUtility.Server.Infrastructure.Pdf;
 
 public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
 {
+    private const string TemplateVersion = "statement-template-v1";
+    private const string RendererVersion = "placeholder-pdf-v1";
+
     public Task<GeneratedPdfDocument> GeneratePeriodStatementAsync(StatementPdfModel model, CancellationToken cancellationToken)
     {
         var lines = new[]
@@ -24,6 +27,8 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
         {
             Content = bytes,
             ContentType = "application/pdf",
+            TemplateVersion = TemplateVersion,
+            RendererVersion = RendererVersion,
         });
     }
 

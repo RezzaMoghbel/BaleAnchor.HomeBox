@@ -12,6 +12,8 @@ internal sealed class FakeStatementPdfGenerator : IStatementPdfGenerator
         {
             Content = payload,
             ContentType = "application/pdf",
+            TemplateVersion = "statement-template-v1",
+            RendererVersion = "fake-pdf-v1",
         });
     }
 }

@@ -140,6 +140,11 @@ public sealed class StatementsController : ControllerBase
                 periodEndDateExclusive,
                 cancellationToken);
 
+            Response.Headers["X-Statement-Export-Id"] = response.ExportId;
+            Response.Headers["X-Statement-Template-Version"] = response.TemplateVersion;
+            Response.Headers["X-Statement-Renderer-Version"] = response.RendererVersion;
+            Response.Headers["X-Statement-Content-Sha256"] = response.ContentSha256;
+
             return File(response.Content, response.ContentType, response.FileName);
         }
         catch (ArgumentException ex)
@@ -149,6 +154,29 @@ public sealed class StatementsController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFoundProblem(ex.Message, "BILLING_STATEMENT_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_STATEMENT_CONFLICT");
+        }
+    }
+
+    [HttpGet("exports")]
+    [ProducesResponseType(typeof(StatementExportHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<StatementExportHistoryResponse>> GetExportHistory(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await statementPdfExportService.GetExportHistoryAsync(userId, cancellationToken);
+            return Ok(response);
         }
         catch (InvalidOperationException ex)
         {

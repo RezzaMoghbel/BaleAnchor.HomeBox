@@ -23,4 +23,6 @@ public sealed class GeneratedPdfDocument
 {
     public required byte[] Content { get; init; }
     public required string ContentType { get; init; }
+    public required string TemplateVersion { get; init; }
+    public required string RendererVersion { get; init; }
 }

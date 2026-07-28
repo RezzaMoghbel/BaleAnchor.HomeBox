@@ -86,6 +86,7 @@ Payment and balance endpoints are available under `api/v1/billing`.
 - `GET /api/v1/billing/statements/summary`: returns selected statement summary by `snapshotId` or by `periodStartDate` + `periodEndDateExclusive` query.
 - `GET /api/v1/billing/statements/periods`: returns newest-first statement periods with payment/difference status metadata for period selection UIs.
 - `GET /api/v1/billing/statements/export-pdf`: exports selected period statement PDF using `snapshotId` or period date query selection.
+- `GET /api/v1/billing/statements/exports`: returns export history metadata (template version, renderer version, content hash, timestamp) for the authenticated user.
 - `GET /api/v1/billing/payments/history`: returns payment history ordered newest-first by period.
 - `GET /api/v1/billing/payments/balance`: returns all-time calculated charges, total recorded payments, and current balance status.
 - `PUT /api/v1/billing/payments/{paymentId}`: updates a payment record owned by the authenticated user.
@@ -101,4 +102,5 @@ Validation and behavior:
 - Payment create/delete actions are audit logged with category `PAYMENT`.
 - Latest statement summary includes period difference status and all-time balance status using clear labels: `Amount outstanding`, `In credit`, `Paid in full`.
 - PDF export currently uses a placeholder PDF generator abstraction (`IStatementPdfGenerator`) so production renderer integration can be swapped in without API changes.
+- PDF export responses include metadata headers: `X-Statement-Export-Id`, `X-Statement-Template-Version`, `X-Statement-Renderer-Version`, and `X-Statement-Content-Sha256`.
 - Conflict and validation failures return RFC 7807 ProblemDetails with operation-specific `errorCode` values.
