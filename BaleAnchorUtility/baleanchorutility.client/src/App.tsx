@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  formatCurrencyGbp,
+  formatDateRange,
+  formatDisplayDate,
+  formatDisplayDateTime,
+} from "./shared/formatters";
 import { getFieldErrors, readProblemDetails } from "./shared/problemDetails";
 import "./App.css";
 
@@ -1637,7 +1643,7 @@ function App() {
                               ? ` | Account state: ${session.userStatus}`
                               : ""}
                             {session.expiresAtUtc
-                              ? ` | Expires: ${session.expiresAtUtc}`
+                              ? ` | Expires: ${formatDisplayDateTime(session.expiresAtUtc)}`
                               : ""}
                           </div>
                         )}
@@ -2266,7 +2272,7 @@ function App() {
                           <td>{item.userId}</td>
                           <td>{item.emailMasked}</td>
                           <td>{item.submittedState}</td>
-                          <td>{item.updatedAtUtc}</td>
+                          <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2560,9 +2566,12 @@ function App() {
                 )}
                 {latestCalculation && (
                   <div className="mt-2 text-secondary small">
-                    Calc {latestCalculation.periodStartDate} to{" "}
-                    {latestCalculation.periodEndDateExclusive}
-                    {` | Period total: ${latestCalculation.periodTotal}`}
+                    Calc{" "}
+                    {formatDateRange(
+                      latestCalculation.periodStartDate,
+                      latestCalculation.periodEndDateExclusive,
+                    )}
+                    {` | Period total: ${formatCurrencyGbp(latestCalculation.periodTotal)}`}
                     {latestCalculation.containsEstimatedSegments
                       ? " | Estimated segments applied"
                       : ""}
@@ -2705,19 +2714,23 @@ function App() {
                 <div>{paymentMessage}</div>
                 {latestPaymentSummary && (
                   <div className="mt-2 text-secondary small">
-                    Latest period: {latestPaymentSummary.periodStartDate} to{" "}
-                    {latestPaymentSummary.periodEndDateExclusive}
-                    {` | Total: ${latestPaymentSummary.periodTotal}`}
-                    {` | Paid: ${latestPaymentSummary.paymentAmount ?? "0.00"}`}
-                    {` | Difference: ${latestPaymentSummary.periodDifference}`}
+                    Latest period:{" "}
+                    {formatDateRange(
+                      latestPaymentSummary.periodStartDate,
+                      latestPaymentSummary.periodEndDateExclusive,
+                    )}
+                    {` | Total: ${formatCurrencyGbp(latestPaymentSummary.periodTotal)}`}
+                    {` | Paid: ${formatCurrencyGbp(latestPaymentSummary.paymentAmount ?? "0.00")}`}
+                    {` | Difference: ${formatCurrencyGbp(latestPaymentSummary.periodDifference)}`}
                     {` | Status: ${latestPaymentSummary.periodBalanceStatus}`}
                   </div>
                 )}
                 {balanceSummary && (
                   <div className="mt-2 text-secondary small">
-                    All-time charges: {balanceSummary.totalCalculatedCharges}
-                    {` | Payments: ${balanceSummary.totalRecordedPayments}`}
-                    {` | Balance: ${balanceSummary.balance}`}
+                    All-time charges:{" "}
+                    {formatCurrencyGbp(balanceSummary.totalCalculatedCharges)}
+                    {` | Payments: ${formatCurrencyGbp(balanceSummary.totalRecordedPayments)}`}
+                    {` | Balance: ${formatCurrencyGbp(balanceSummary.balance)}`}
                     {` | ${balanceSummary.balanceStatus}`}
                   </div>
                 )}
@@ -2748,11 +2761,13 @@ function App() {
                       {paymentHistory.slice(0, 10).map((item) => (
                         <tr key={item.paymentId}>
                           <td>
-                            {item.periodStartDate} to{" "}
-                            {item.periodEndDateExclusive}
+                            {formatDateRange(
+                              item.periodStartDate,
+                              item.periodEndDateExclusive,
+                            )}
                           </td>
-                          <td>{item.paymentDate}</td>
-                          <td>{item.amount}</td>
+                          <td>{formatDisplayDate(item.paymentDate)}</td>
+                          <td>{formatCurrencyGbp(item.amount)}</td>
                           <td>{item.method}</td>
                           <td>{item.verificationStatus}</td>
                         </tr>
@@ -2851,24 +2866,34 @@ function App() {
                   {latestStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period: {latestStatementSummary.periodStartDate} to{" "}
-                        {latestStatementSummary.periodEndDateExclusive}
+                        Period:{" "}
+                        {formatDateRange(
+                          latestStatementSummary.periodStartDate,
+                          latestStatementSummary.periodEndDateExclusive,
+                        )}
                       </div>
                       <div>
-                        Period total: {latestStatementSummary.periodTotal}
+                        Period total:{" "}
+                        {formatCurrencyGbp(latestStatementSummary.periodTotal)}
                       </div>
                       <div>
                         Payment:{" "}
-                        {latestStatementSummary.paymentAmount ?? "0.00"}
+                        {formatCurrencyGbp(
+                          latestStatementSummary.paymentAmount ?? "0.00",
+                        )}
                       </div>
                       <div>
-                        Difference: {latestStatementSummary.periodDifference}
+                        Difference:{" "}
+                        {formatCurrencyGbp(
+                          latestStatementSummary.periodDifference,
+                        )}
                       </div>
                       <div>
                         Status: {latestStatementSummary.periodBalanceStatus}
                       </div>
                       <div>
-                        Current balance: {latestStatementSummary.currentBalance}
+                        Current balance:{" "}
+                        {formatCurrencyGbp(latestStatementSummary.currentBalance)}
                       </div>
                       <div>
                         Balance status:{" "}
@@ -2891,18 +2916,27 @@ function App() {
                   {selectedStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period: {selectedStatementSummary.periodStartDate} to{" "}
-                        {selectedStatementSummary.periodEndDateExclusive}
+                        Period:{" "}
+                        {formatDateRange(
+                          selectedStatementSummary.periodStartDate,
+                          selectedStatementSummary.periodEndDateExclusive,
+                        )}
                       </div>
                       <div>
-                        Period total: {selectedStatementSummary.periodTotal}
+                        Period total:{" "}
+                        {formatCurrencyGbp(selectedStatementSummary.periodTotal)}
                       </div>
                       <div>
                         Payment:{" "}
-                        {selectedStatementSummary.paymentAmount ?? "0.00"}
+                        {formatCurrencyGbp(
+                          selectedStatementSummary.paymentAmount ?? "0.00",
+                        )}
                       </div>
                       <div>
-                        Difference: {selectedStatementSummary.periodDifference}
+                        Difference:{" "}
+                        {formatCurrencyGbp(
+                          selectedStatementSummary.periodDifference,
+                        )}
                       </div>
                       <div>
                         Status: {selectedStatementSummary.periodBalanceStatus}
@@ -2947,11 +2981,13 @@ function App() {
                       {statementPeriods.slice(0, 12).map((item) => (
                         <tr key={item.snapshotId}>
                           <td>
-                            {item.periodStartDate} to{" "}
-                            {item.periodEndDateExclusive}
+                            {formatDateRange(
+                              item.periodStartDate,
+                              item.periodEndDateExclusive,
+                            )}
                           </td>
-                          <td>{item.periodTotal}</td>
-                          <td>{item.periodDifference}</td>
+                          <td>{formatCurrencyGbp(item.periodTotal)}</td>
+                          <td>{formatCurrencyGbp(item.periodDifference)}</td>
                           <td>{item.periodBalanceStatus}</td>
                           <td>
                             <div className="d-flex flex-wrap gap-2">
@@ -3023,12 +3059,14 @@ function App() {
                         <tr key={item.exportId}>
                           <td>{item.exportId}</td>
                           <td>
-                            {item.periodStartDate} to{" "}
-                            {item.periodEndDateExclusive}
+                            {formatDateRange(
+                              item.periodStartDate,
+                              item.periodEndDateExclusive,
+                            )}
                           </td>
                           <td>{item.templateVersion}</td>
                           <td>{item.rendererVersion}</td>
-                          <td>{item.createdAtUtc}</td>
+                          <td>{formatDisplayDateTime(item.createdAtUtc)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3146,7 +3184,7 @@ function App() {
                 <div>{statusMessage}</div>
                 {session?.expiresAtUtc && (
                   <div className="mt-2 text-secondary small">
-                    Session expiry (UTC): {session.expiresAtUtc}
+                    Session expiry: {formatDisplayDateTime(session.expiresAtUtc)}
                   </div>
                 )}
               </div>
