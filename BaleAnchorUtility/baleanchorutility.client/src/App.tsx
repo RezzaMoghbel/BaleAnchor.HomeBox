@@ -57,6 +57,14 @@ interface OnboardingProgressResponse {
   nextStep: string;
 }
 
+interface ApiProblemDetails {
+  title?: string;
+  detail?: string;
+  status?: number;
+  errorCode?: string;
+  errors?: Record<string, string[]>;
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -94,6 +102,30 @@ function App() {
   );
   const [loading, setLoading] = useState(false);
 
+  const formatValidationErrors = (errors?: Record<string, string[]>) => {
+    if (!errors) {
+      return "";
+    }
+
+    const parts = Object.entries(errors)
+      .flatMap(([field, messages]) =>
+        messages.map((message) => `${field}: ${message}`),
+      )
+      .filter((x) => x.length > 0);
+
+    return parts.length > 0 ? ` ${parts.join(" | ")}` : "";
+  };
+
+  const readProblemDetails = async (response: Response) => {
+    try {
+      const body = (await response.json()) as ApiProblemDetails;
+      const detail = body.detail || body.title || "The request failed.";
+      return `${detail}${formatValidationErrors(body.errors)}`;
+    } catch {
+      return "The request failed.";
+    }
+  };
+
   const requestCode = async () => {
     setLoading(true);
     try {
@@ -104,6 +136,12 @@ function App() {
         },
         body: JSON.stringify({ email }),
       });
+
+      if (!response.ok) {
+        const errorMessage = await readProblemDetails(response);
+        setStatusMessage(`Failed to request OTP code. ${errorMessage}`);
+        return;
+      }
 
       const body = (await response.json()) as RequestCodeResponse;
       setStatusMessage(
@@ -128,6 +166,12 @@ function App() {
         credentials: "include",
       });
 
+      if (!response.ok) {
+        const errorMessage = await readProblemDetails(response);
+        setStatusMessage(`Failed to verify OTP code. ${errorMessage}`);
+        return;
+      }
+
       const body = (await response.json()) as VerifyCodeResponse;
       setStatusMessage(
         `${body.message} Current user status: ${body.userStatus}.`,
@@ -147,6 +191,12 @@ function App() {
         credentials: "include",
       });
 
+      if (!response.ok) {
+        const errorMessage = await readProblemDetails(response);
+        setStatusMessage(`Failed to retrieve session status. ${errorMessage}`);
+        return;
+      }
+
       const body = (await response.json()) as SessionStatusResponse;
       setSession(body);
       setStatusMessage(
@@ -162,10 +212,16 @@ function App() {
   const logout = async () => {
     setLoading(true);
     try {
-      await fetch("/api/v1/auth/logout", {
+      const response = await fetch("/api/v1/auth/logout", {
         method: "POST",
         credentials: "include",
       });
+
+      if (!response.ok) {
+        const errorMessage = await readProblemDetails(response);
+        setStatusMessage(`Failed to sign out. ${errorMessage}`);
+        return;
+      }
 
       setSession(null);
       setStatusMessage("Signed out successfully.");
@@ -185,7 +241,10 @@ function App() {
       });
 
       if (!response.ok) {
-        setTermsMessage("No active terms are currently published.");
+        const errorMessage = await readProblemDetails(response);
+        setTermsMessage(
+          `No active terms are currently published. ${errorMessage}`,
+        );
         setActiveTerms(null);
         return;
       }
@@ -217,9 +276,8 @@ function App() {
       );
 
       if (!response.ok) {
-        setTermsMessage(
-          "Terms acceptance failed. Ensure you are authenticated and using active terms.",
-        );
+        const errorMessage = await readProblemDetails(response);
+        setTermsMessage(`Terms acceptance failed. ${errorMessage}`);
         return;
       }
 
@@ -254,9 +312,8 @@ function App() {
       });
 
       if (!response.ok) {
-        setUtilitySetupMessage(
-          "Utility setup failed. Ensure terms and profile are complete first, then check input formats.",
-        );
+        const errorMessage = await readProblemDetails(response);
+        setUtilitySetupMessage(`Utility setup failed. ${errorMessage}`);
         return;
       }
 
@@ -289,9 +346,8 @@ function App() {
       });
 
       if (!response.ok) {
-        setProfileMessage(
-          "Profile submission failed. Ensure terms are accepted and all fields are valid.",
-        );
+        const errorMessage = await readProblemDetails(response);
+        setProfileMessage(`Profile submission failed. ${errorMessage}`);
         return;
       }
 
@@ -315,8 +371,11 @@ function App() {
       });
 
       if (!response.ok) {
+        const errorMessage = await readProblemDetails(response);
         setOnboardingProgress(null);
-        setProgressMessage("Unable to load onboarding progress. Sign in first.");
+        setProgressMessage(
+          `Unable to load onboarding progress. ${errorMessage}`,
+        );
         return;
       }
 
