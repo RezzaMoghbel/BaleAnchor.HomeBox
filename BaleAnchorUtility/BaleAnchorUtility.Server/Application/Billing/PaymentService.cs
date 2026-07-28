@@ -171,6 +171,38 @@ public sealed class PaymentService
         };
     }
 
+    public async Task<PaymentHistoryResponse> GetPaymentHistoryAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var payments = await paymentRepository.GetByUserIdAsync(user.Id, cancellationToken);
+
+        var items = payments
+            .OrderByDescending(x => x.PeriodEndDateExclusive, StringComparer.Ordinal)
+            .ThenByDescending(x => x.PaymentDate, StringComparer.Ordinal)
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .Select(x => new PaymentHistoryItemResponse
+            {
+                PaymentId = x.Id,
+                PeriodStartDate = x.PeriodStartDate,
+                PeriodEndDateExclusive = x.PeriodEndDateExclusive,
+                Amount = x.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+                PaymentDate = x.PaymentDate,
+                Method = x.Method,
+                Reference = x.Reference,
+                Notes = x.Notes,
+                Source = x.Source,
+                VerificationStatus = x.VerificationStatus,
+            })
+            .ToList();
+
+        return new PaymentHistoryResponse
+        {
+            UserId = user.Id,
+            Count = items.Count,
+            Items = items,
+        };
+    }
+
     public async Task<DeletePaymentResponse> DeletePaymentAsync(string userId, string paymentId, CancellationToken cancellationToken)
     {
         var user = await GetEligibleUserAsync(userId, cancellationToken);

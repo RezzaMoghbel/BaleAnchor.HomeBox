@@ -347,6 +347,87 @@ public sealed class BillingControllerTests
         Assert.Equal("BILLING_PAYMENT_VALIDATION", problem.Extensions["errorCode"]?.ToString());
     }
 
+    [Fact]
+    public async Task GetPaymentHistory_Returns401_WhenUnauthenticated()
+    {
+        var controller = CreateController(withSessionCookie: false, seedUser: false);
+
+        var action = await controller.GetPaymentHistory(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(action.Result);
+    }
+
+    [Fact]
+    public async Task GetPaymentHistory_ReturnsPayload_WhenPaymentsExist()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("u1", "resident@example.com", UserRole.Resident, UserAccountStatus.Active);
+        users.Seed(actor);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p1",
+                UserId = actor.Id,
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 100m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var billing = new BillingInputService(
+            users,
+            new InMemoryReadingSubmissionRepository(),
+            new InMemoryTariffVersionRepository(),
+            payments,
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<BillingInputService>.Instance);
+
+        var calc = new CalculationSnapshotService(
+            users,
+            new InMemoryReadingSubmissionRepository(),
+            new InMemoryTariffVersionRepository(),
+            new InMemoryUtilitySetupRepository(),
+            new InMemoryCalculationSnapshotRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var paymentService = new PaymentService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            payments,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<PaymentService>.Instance);
+
+        var controller = new BillingController(auth, billing, calc, paymentService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = NewHttpContext("/api/v1/billing/payments/history", withSessionCookie: true),
+            },
+        };
+
+        var action = await controller.GetPaymentHistory(CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var body = Assert.IsType<PaymentHistoryResponse>(ok.Value);
+
+        Assert.Equal("u1", body.UserId);
+        Assert.Equal(1, body.Count);
+        Assert.Equal("p1", body.Items[0].PaymentId);
+    }
+
     private static BillingController CreateController(bool withSessionCookie, bool seedUser)
     {
         var users = new InMemoryUserRepository();

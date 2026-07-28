@@ -251,6 +251,59 @@ public sealed class PaymentServiceTests
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetPaymentHistoryAsync_ReturnsNewestPeriodFirst()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p-old",
+                UserId = "u-active",
+                PeriodStartDate = "2026-06-01",
+                PeriodEndDateExclusive = "2026-07-01",
+                Amount = 75m,
+                PaymentDate = "2026-07-02",
+                Method = "Card",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.Parse("2026-07-02T00:00:00Z"),
+                UpdatedAtUtc = DateTimeOffset.Parse("2026-07-02T00:00:00Z"),
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p-new",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 100m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.Parse("2026-08-02T00:00:00Z"),
+                UpdatedAtUtc = DateTimeOffset.Parse("2026-08-02T00:00:00Z"),
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(users, new InMemoryCalculationSnapshotRepository(), payments);
+
+        var result = await service.GetPaymentHistoryAsync("u-active", CancellationToken.None);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("p-new", result.Items[0].PaymentId);
+        Assert.Equal("p-old", result.Items[1].PaymentId);
+        Assert.Equal("100.00", result.Items[0].Amount);
+    }
+
     private static PaymentService CreateService(
         InMemoryUserRepository users,
         InMemoryCalculationSnapshotRepository snapshots,

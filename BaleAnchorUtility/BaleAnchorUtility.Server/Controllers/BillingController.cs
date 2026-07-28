@@ -274,6 +274,29 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpGet("payments/history")]
+    [ProducesResponseType(typeof(PaymentHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PaymentHistoryResponse>> GetPaymentHistory(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.GetPaymentHistoryAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_HISTORY_CONFLICT");
+        }
+    }
+
     [HttpDelete("payments/{paymentId}")]
     [ProducesResponseType(typeof(DeletePaymentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
