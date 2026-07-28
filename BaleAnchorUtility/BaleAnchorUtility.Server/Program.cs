@@ -1,9 +1,12 @@
 using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Auth;
+using BaleAnchorUtility.Server.Application.Onboarding;
+using BaleAnchorUtility.Server.Application.Terms;
 using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Infrastructure.Email;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
+using BaleAnchorUtility.Server.Infrastructure.Startup;
 using BaleAnchorUtility.Server.Infrastructure.Time;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -42,14 +45,25 @@ builder.Services
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.Configure<AuthOtpOptions>(builder.Configuration.GetSection(AuthOtpOptions.SectionName));
+builder.Services.AddOptions<EmailTransportOptions>()
+    .Bind(builder.Configuration.GetSection(EmailTransportOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<EmailTransportOptions>, EmailTransportOptionsValidator>();
 
 builder.Services.AddSingleton<JsonCollectionStore>();
 builder.Services.AddScoped<IUserRepository, JsonUserRepository>();
 builder.Services.AddScoped<IOtpChallengeRepository, JsonOtpChallengeRepository>();
 builder.Services.AddScoped<ISessionRepository, JsonSessionRepository>();
-builder.Services.AddSingleton<IEmailSender, LoggingEmailSender>();
+builder.Services.AddScoped<ITermsVersionRepository, JsonTermsVersionRepository>();
+builder.Services.AddScoped<ITermsAcceptanceRepository, JsonTermsAcceptanceRepository>();
+builder.Services.AddSingleton<LoggingEmailSender>();
+builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<TermsService>();
+builder.Services.AddScoped<OnboardingService>();
+builder.Services.AddHostedService<TermsSeedHostedService>();
 
 var app = builder.Build();
 
@@ -103,7 +117,7 @@ app.UseStatusCodePages(async statusContext =>
             "RESOURCE_NOT_FOUND"),
         StatusCodes.Status409Conflict => (
             "Conflict",
-            "The request could not be completed because of a resource conflict.",
+            "The request conflicts with the current resource state. Review active terms and retry.",
             "RESOURCE_CONFLICT"),
         StatusCodes.Status422UnprocessableEntity => (
             "Unprocessable request",

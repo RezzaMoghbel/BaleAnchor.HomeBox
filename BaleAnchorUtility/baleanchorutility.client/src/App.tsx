@@ -21,11 +21,30 @@ interface SessionStatusResponse {
   expiresAtUtc?: string;
 }
 
+interface ActiveTermsResponse {
+  versionId: string;
+  versionLabel: string;
+  title: string;
+  contentMarkdown: string;
+  effectiveFromUtc: string;
+  publishedAtUtc: string;
+}
+
+interface AcceptTermsResponse {
+  termsVersionId: string;
+  acceptedAtUtc: string;
+  message: string;
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [statusMessage, setStatusMessage] = useState("Ready");
   const [session, setSession] = useState<SessionStatusResponse | null>(null);
+  const [activeTerms, setActiveTerms] = useState<ActiveTermsResponse | null>(
+    null,
+  );
+  const [termsMessage, setTermsMessage] = useState("No terms loaded.");
   const [loading, setLoading] = useState(false);
 
   const requestCode = async () => {
@@ -41,7 +60,7 @@ function App() {
 
       const body = (await response.json()) as RequestCodeResponse;
       setStatusMessage(
-        `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.`
+        `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.`,
       );
     } catch {
       setStatusMessage("Failed to request OTP code.");
@@ -63,7 +82,9 @@ function App() {
       });
 
       const body = (await response.json()) as VerifyCodeResponse;
-      setStatusMessage(`${body.message} Current user status: ${body.userStatus}.`);
+      setStatusMessage(
+        `${body.message} Current user status: ${body.userStatus}.`,
+      );
     } catch {
       setStatusMessage("Failed to verify OTP code.");
     } finally {
@@ -81,7 +102,9 @@ function App() {
 
       const body = (await response.json()) as SessionStatusResponse;
       setSession(body);
-      setStatusMessage(body.isAuthenticated ? "Session is active." : "No active session.");
+      setStatusMessage(
+        body.isAuthenticated ? "Session is active." : "No active session.",
+      );
     } catch {
       setStatusMessage("Failed to retrieve session status.");
     } finally {
@@ -101,6 +124,62 @@ function App() {
       setStatusMessage("Signed out successfully.");
     } catch {
       setStatusMessage("Failed to sign out.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadActiveTerms = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/terms/active", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        setTermsMessage("No active terms are currently published.");
+        setActiveTerms(null);
+        return;
+      }
+
+      const body = (await response.json()) as ActiveTermsResponse;
+      setActiveTerms(body);
+      setTermsMessage(`Loaded ${body.versionLabel}.`);
+    } catch {
+      setTermsMessage("Failed to load active terms.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const acceptTerms = async () => {
+    if (!activeTerms) {
+      setTermsMessage("Load active terms before accepting.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/v1/terms/${encodeURIComponent(activeTerms.versionId)}/accept`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) {
+        setTermsMessage(
+          "Terms acceptance failed. Ensure you are authenticated and using active terms.",
+        );
+        return;
+      }
+
+      const body = (await response.json()) as AcceptTermsResponse;
+      setTermsMessage(`${body.message} Accepted at ${body.acceptedAtUtc}.`);
+    } catch {
+      setTermsMessage("Failed to accept terms.");
     } finally {
       setLoading(false);
     }
@@ -211,8 +290,8 @@ function App() {
             <div className="card-body">
               <h5 className="mb-3">Authentication Prototype (OTP)</h5>
               <p className="text-secondary mb-3">
-                This slice validates the CLAUDE auth direction: request code, verify code, server-side session, and
-                secure cookie flow.
+                This slice validates the CLAUDE auth direction: request code,
+                verify code, server-side session, and secure cookie flow.
               </p>
 
               <div className="row g-3 align-items-end">
@@ -245,7 +324,12 @@ function App() {
                 </div>
                 <div className="col-12 col-lg-6">
                   <div className="d-flex flex-wrap gap-2">
-                    <button type="button" className="btn btn-primary" onClick={requestCode} disabled={loading || !email}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={requestCode}
+                      disabled={loading || !email}
+                    >
                       Request code
                     </button>
                     <button
@@ -256,10 +340,20 @@ function App() {
                     >
                       Verify code
                     </button>
-                    <button type="button" className="btn btn-outline-secondary" onClick={refreshSession} disabled={loading}>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={refreshSession}
+                      disabled={loading}
+                    >
                       Check session
                     </button>
-                    <button type="button" className="btn btn-outline-danger" onClick={logout} disabled={loading}>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger"
+                      onClick={logout}
+                      disabled={loading}
+                    >
                       Sign out
                     </button>
                   </div>
@@ -272,9 +366,55 @@ function App() {
                 {session && (
                   <div className="mt-2 text-secondary small">
                     Session: {session.isAuthenticated ? "Active" : "Inactive"}
-                    {session.emailMasked ? ` | User: ${session.emailMasked}` : ""}
-                    {session.userStatus ? ` | Account state: ${session.userStatus}` : ""}
-                    {session.expiresAtUtc ? ` | Expires: ${session.expiresAtUtc}` : ""}
+                    {session.emailMasked
+                      ? ` | User: ${session.emailMasked}`
+                      : ""}
+                    {session.userStatus
+                      ? ` | Account state: ${session.userStatus}`
+                      : ""}
+                    {session.expiresAtUtc
+                      ? ` | Expires: ${session.expiresAtUtc}`
+                      : ""}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Terms Prototype</h5>
+              <p className="text-secondary mb-3">
+                Required terms flow endpoint slice: load active terms, then
+                accept them while authenticated.
+              </p>
+
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={loadActiveTerms}
+                  disabled={loading}
+                >
+                  Load active terms
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-success"
+                  onClick={acceptTerms}
+                  disabled={loading || !activeTerms}
+                >
+                  Accept active terms
+                </button>
+              </div>
+
+              <div className="alert alert-light border mb-0" role="status">
+                <div className="fw-semibold mb-1">Terms status</div>
+                <div>{termsMessage}</div>
+                {activeTerms && (
+                  <div className="mt-2 text-secondary small">
+                    Version: {activeTerms.versionLabel} ({activeTerms.versionId}
+                    ){` | Effective: ${activeTerms.effectiveFromUtc}`}
                   </div>
                 )}
               </div>

@@ -13,6 +13,11 @@ public sealed class JsonUserRepository : IUserRepository
         this.store = store;
     }
 
+    public Task<UserAccount?> GetByIdAsync(string userId, CancellationToken cancellationToken)
+    {
+        return GetByIdFromCollectionAsync(userId, cancellationToken);
+    }
+
     public async Task<UserAccount?> GetByNormalizedEmailAsync(string emailNormalized, CancellationToken cancellationToken)
     {
         var users = await store.GetAllAsync<UserAccount>(Collection, cancellationToken);
@@ -22,5 +27,11 @@ public sealed class JsonUserRepository : IUserRepository
     public Task UpsertAsync(UserAccount user, CancellationToken cancellationToken)
     {
         return store.UpsertAsync(Collection, user.Id, user, cancellationToken);
+    }
+
+    private async Task<UserAccount?> GetByIdFromCollectionAsync(string userId, CancellationToken cancellationToken)
+    {
+        var users = await store.GetAllAsync<UserAccount>(Collection, cancellationToken);
+        return users.FirstOrDefault(x => string.Equals(x.Id, userId, StringComparison.Ordinal));
     }
 }
