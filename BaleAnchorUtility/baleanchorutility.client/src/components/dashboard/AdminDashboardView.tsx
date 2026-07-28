@@ -104,7 +104,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="reason"
                     value={adminReason}
-                    onChange={(event) => onAdminReasonChange(event.target.value)}
+                    onChange={(event) =>
+                      onAdminReasonChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
@@ -138,7 +140,9 @@ export function AdminDashboardView({
                     id="adminRoleTarget"
                     className="form-select"
                     value={adminRoleTarget}
-                    onChange={(event) => onAdminRoleTargetChange(event.target.value)}
+                    onChange={(event) =>
+                      onAdminRoleTargetChange(event.target.value)
+                    }
                   >
                     <option value="Resident">Resident</option>
                     <option value="Admin">Admin</option>

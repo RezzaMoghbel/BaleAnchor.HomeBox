@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
 import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardView";
+import { PaymentsDashboardView } from "./components/dashboard/PaymentsDashboardView";
+import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardView";
+import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import {
   formatCurrencyGbp,
   formatDateRange,
@@ -2144,801 +2147,97 @@ function App() {
   );
 
   const renderReadingsView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Readings and tariff controls</h1>
-              <p className="hero-copy mb-0">
-                Submit combined meter readings, maintain dated tariffs, and
-                refresh calculation snapshots for your billing period.
-              </p>
-            </div>
-          </section>
-
-          {renderDashboardRouteTabs()}
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Billing Inputs</h5>
-              <p className="text-secondary mb-3">
-                Submit combined meter readings and maintain dated tariffs for
-                independent billing inputs.
-              </p>
-
-              <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="readingDate" className="form-label">
-                    Reading date
-                  </label>
-                  <input
-                    id="readingDate"
-                    type="date"
-                    className="form-control"
-                    value={readingDate}
-                    onChange={(event) => setReadingDate(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="coldWaterReading" className="form-label">
-                    Cold water
-                  </label>
-                  <input
-                    id="coldWaterReading"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000"
-                    value={coldWaterReading}
-                    onChange={(event) =>
-                      setColdWaterReading(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="hotWaterReading" className="form-label">
-                    Hot water
-                  </label>
-                  <input
-                    id="hotWaterReading"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000"
-                    value={hotWaterReading}
-                    onChange={(event) => setHotWaterReading(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="electricityReading" className="form-label">
-                    Electricity
-                  </label>
-                  <input
-                    id="electricityReading"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000"
-                    value={electricityReading}
-                    onChange={(event) =>
-                      setElectricityReading(event.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={submitReadings}
-                  disabled={loading}
-                >
-                  Submit readings
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={loadLatestReadings}
-                  disabled={loading}
-                >
-                  Load latest readings
-                </button>
-              </div>
-
-              <hr />
-
-              <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-2">
-                  <label
-                    htmlFor="tariffEffectiveFromDate"
-                    className="form-label"
-                  >
-                    Tariff effective from
-                  </label>
-                  <input
-                    id="tariffEffectiveFromDate"
-                    type="date"
-                    className="form-control"
-                    value={tariffEffectiveFromDate}
-                    onChange={(event) =>
-                      setTariffEffectiveFromDate(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="waterTariffPerUnit" className="form-label">
-                    Water tariff per unit
-                  </label>
-                  <input
-                    id="waterTariffPerUnit"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000000"
-                    value={waterTariffPerUnit}
-                    onChange={(event) =>
-                      setWaterTariffPerUnit(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label
-                    htmlFor="waterStandingChargePerDay"
-                    className="form-label"
-                  >
-                    Water standing/day
-                  </label>
-                  <input
-                    id="waterStandingChargePerDay"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000000"
-                    value={waterStandingChargePerDay}
-                    onChange={(event) =>
-                      setWaterStandingChargePerDay(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="waterVatPercent" className="form-label">
-                    Water VAT %
-                  </label>
-                  <input
-                    id="waterVatPercent"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.00"
-                    value={waterVatPercent}
-                    onChange={(event) => setWaterVatPercent(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label
-                    htmlFor="electricityTariffPerUnit"
-                    className="form-label"
-                  >
-                    Electricity tariff per unit
-                  </label>
-                  <input
-                    id="electricityTariffPerUnit"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000000"
-                    value={electricityTariffPerUnit}
-                    onChange={(event) =>
-                      setElectricityTariffPerUnit(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label
-                    htmlFor="electricityStandingChargePerDay"
-                    className="form-label"
-                  >
-                    Elec standing/day
-                  </label>
-                  <input
-                    id="electricityStandingChargePerDay"
-                    type="text"
-                    className="form-control"
-                    placeholder="0.000000"
-                    value={electricityStandingChargePerDay}
-                    onChange={(event) =>
-                      setElectricityStandingChargePerDay(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="electricityVatPercent" className="form-label">
-                    Elec VAT %
-                  </label>
-                  <input
-                    id="electricityVatPercent"
-                    type="text"
-                    className="form-control"
-                    placeholder="5.00"
-                    value={electricityVatPercent}
-                    onChange={(event) =>
-                      setElectricityVatPercent(event.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-success"
-                  onClick={submitTariffVersion}
-                  disabled={loading}
-                >
-                  Save tariff version
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={loadActiveTariff}
-                  disabled={loading}
-                >
-                  Load active tariff
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={runLatestCalculation}
-                  disabled={loading}
-                >
-                  Run latest calculation
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={loadLatestCalculation}
-                  disabled={loading}
-                >
-                  Load latest calculation
-                </button>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Billing status</div>
-                <div>{billingMessage}</div>
-                {latestReadings && (
-                  <div className="mt-2 text-secondary small">
-                    Latest ({latestReadings.readingDate})
-                    {` | Cold: ${latestReadings.coldWaterReading}`}
-                    {` | Hot: ${latestReadings.hotWaterReading}`}
-                    {` | Electricity: ${latestReadings.electricityReading}`}
-                  </div>
-                )}
-                {activeTariff && (
-                  <div className="mt-2 text-secondary small">
-                    Tariff from {activeTariff.effectiveFromDate}
-                    {` | Water unit: ${activeTariff.waterTariffPerUnit}`}
-                    {` | Water standing/day: ${activeTariff.waterStandingChargePerDay}`}
-                    {` | Water VAT: ${activeTariff.waterVatPercent}%`}
-                    {` | Elec unit: ${activeTariff.electricityTariffPerUnit}`}
-                    {` | Elec standing/day: ${activeTariff.electricityStandingChargePerDay}`}
-                    {` | Elec VAT: ${activeTariff.electricityVatPercent}%`}
-                  </div>
-                )}
-                {latestCalculation && (
-                  <div className="mt-2 text-secondary small">
-                    Calc{" "}
-                    {formatDateRange(
-                      latestCalculation.periodStartDate,
-                      latestCalculation.periodEndDateExclusive,
-                    )}
-                    {` | Period total: ${formatCurrencyGbp(latestCalculation.periodTotal)}`}
-                    {latestCalculation.containsEstimatedSegments
-                      ? " | Estimated segments applied"
-                      : ""}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <ReadingsDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      loading={loading}
+      readingDate={readingDate}
+      coldWaterReading={coldWaterReading}
+      hotWaterReading={hotWaterReading}
+      electricityReading={electricityReading}
+      tariffEffectiveFromDate={tariffEffectiveFromDate}
+      waterTariffPerUnit={waterTariffPerUnit}
+      waterStandingChargePerDay={waterStandingChargePerDay}
+      waterVatPercent={waterVatPercent}
+      electricityTariffPerUnit={electricityTariffPerUnit}
+      electricityStandingChargePerDay={electricityStandingChargePerDay}
+      electricityVatPercent={electricityVatPercent}
+      billingMessage={billingMessage}
+      latestReadings={latestReadings}
+      activeTariff={activeTariff}
+      latestCalculation={latestCalculation}
+      onReadingDateChange={setReadingDate}
+      onColdWaterReadingChange={setColdWaterReading}
+      onHotWaterReadingChange={setHotWaterReading}
+      onElectricityReadingChange={setElectricityReading}
+      onTariffEffectiveFromDateChange={setTariffEffectiveFromDate}
+      onWaterTariffPerUnitChange={setWaterTariffPerUnit}
+      onWaterStandingChargePerDayChange={setWaterStandingChargePerDay}
+      onWaterVatPercentChange={setWaterVatPercent}
+      onElectricityTariffPerUnitChange={setElectricityTariffPerUnit}
+      onElectricityStandingChargePerDayChange={setElectricityStandingChargePerDay}
+      onElectricityVatPercentChange={setElectricityVatPercent}
+      onSubmitReadings={submitReadings}
+      onLoadLatestReadings={loadLatestReadings}
+      onSubmitTariffVersion={submitTariffVersion}
+      onLoadActiveTariff={loadActiveTariff}
+      onRunLatestCalculation={runLatestCalculation}
+      onLoadLatestCalculation={loadLatestCalculation}
+      formatDateRange={formatDateRange}
+      formatCurrencyGbp={formatCurrencyGbp}
+    />
   );
 
   const renderPaymentsView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Payments and balance tracking</h1>
-              <p className="hero-copy mb-0">
-                Record one payment for the latest period, review payment
-                history, and track the all-time balance state.
-              </p>
-            </div>
-          </section>
-
-          {renderDashboardRouteTabs()}
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Record latest-period payment</h5>
-
-              <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="paymentAmount" className="form-label">
-                    Amount
-                  </label>
-                  <input
-                    id="paymentAmount"
-                    type="text"
-                    className="form-control"
-                    placeholder="120.50"
-                    value={paymentAmount}
-                    onChange={(event) => setPaymentAmount(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="paymentDate" className="form-label">
-                    Payment date
-                  </label>
-                  <input
-                    id="paymentDate"
-                    type="date"
-                    className="form-control"
-                    value={paymentDate}
-                    onChange={(event) => setPaymentDate(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="paymentMethod" className="form-label">
-                    Method
-                  </label>
-                  <input
-                    id="paymentMethod"
-                    type="text"
-                    className="form-control"
-                    value={paymentMethod}
-                    onChange={(event) => setPaymentMethod(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-2">
-                  <label htmlFor="paymentReference" className="form-label">
-                    Reference
-                  </label>
-                  <input
-                    id="paymentReference"
-                    type="text"
-                    className="form-control"
-                    placeholder="Optional"
-                    value={paymentReference}
-                    onChange={(event) =>
-                      setPaymentReference(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="paymentNotes" className="form-label">
-                    Notes
-                  </label>
-                  <input
-                    id="paymentNotes"
-                    type="text"
-                    className="form-control"
-                    placeholder="Optional"
-                    value={paymentNotes}
-                    onChange={(event) => setPaymentNotes(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={recordLatestPeriodPayment}
-                  disabled={loading}
-                >
-                  Save payment
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => void loadLatestPeriodPaymentSummary()}
-                  disabled={loading}
-                >
-                  Load latest summary
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => void loadPaymentHistory()}
-                  disabled={loading}
-                >
-                  Load payment history
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={() => void loadAllTimeBalance()}
-                  disabled={loading}
-                >
-                  Load all-time balance
-                </button>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Payment status</div>
-                <div>{paymentMessage}</div>
-                {latestPaymentSummary && (
-                  <div className="mt-2 text-secondary small">
-                    Latest period:{" "}
-                    {formatDateRange(
-                      latestPaymentSummary.periodStartDate,
-                      latestPaymentSummary.periodEndDateExclusive,
-                    )}
-                    {` | Total: ${formatCurrencyGbp(latestPaymentSummary.periodTotal)}`}
-                    {` | Paid: ${formatCurrencyGbp(latestPaymentSummary.paymentAmount ?? "0.00")}`}
-                    {` | Difference: ${formatCurrencyGbp(latestPaymentSummary.periodDifference)}`}
-                    {` | Status: ${latestPaymentSummary.periodBalanceStatus}`}
-                  </div>
-                )}
-                {balanceSummary && (
-                  <div className="mt-2 text-secondary small">
-                    All-time charges:{" "}
-                    {formatCurrencyGbp(balanceSummary.totalCalculatedCharges)}
-                    {` | Payments: ${formatCurrencyGbp(balanceSummary.totalRecordedPayments)}`}
-                    {` | Balance: ${formatCurrencyGbp(balanceSummary.balance)}`}
-                    {` | ${balanceSummary.balanceStatus}`}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Recent payment history</h5>
-              {paymentHistory.length === 0 ? (
-                <p className="text-secondary mb-0">
-                  No payment history loaded yet.
-                </p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Method</th>
-                        <th>Verification</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paymentHistory.slice(0, 10).map((item) => (
-                        <tr key={item.paymentId}>
-                          <td>
-                            {formatDateRange(
-                              item.periodStartDate,
-                              item.periodEndDateExclusive,
-                            )}
-                          </td>
-                          <td>{formatDisplayDate(item.paymentDate)}</td>
-                          <td>{formatCurrencyGbp(item.amount)}</td>
-                          <td>{item.method}</td>
-                          <td>{item.verificationStatus}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <PaymentsDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      loading={loading}
+      paymentAmount={paymentAmount}
+      paymentDate={paymentDate}
+      paymentMethod={paymentMethod}
+      paymentReference={paymentReference}
+      paymentNotes={paymentNotes}
+      paymentMessage={paymentMessage}
+      latestPaymentSummary={latestPaymentSummary}
+      balanceSummary={balanceSummary}
+      paymentHistory={paymentHistory}
+      onPaymentAmountChange={setPaymentAmount}
+      onPaymentDateChange={setPaymentDate}
+      onPaymentMethodChange={setPaymentMethod}
+      onPaymentReferenceChange={setPaymentReference}
+      onPaymentNotesChange={setPaymentNotes}
+      onRecordLatestPeriodPayment={recordLatestPeriodPayment}
+      onLoadLatestPeriodPaymentSummary={() => loadLatestPeriodPaymentSummary()}
+      onLoadPaymentHistory={() => loadPaymentHistory()}
+      onLoadAllTimeBalance={() => loadAllTimeBalance()}
+      formatDateRange={formatDateRange}
+      formatDisplayDate={formatDisplayDate}
+      formatCurrencyGbp={formatCurrencyGbp}
+    />
   );
 
   const renderStatementsView = () => (
-    <div className="wrapper">
-      {renderShellHeader()}
-      <main className="page-content p-4">
-        <div className="container-fluid">
-          <section className="hero-shell card border-0 shadow-sm mb-4">
-            <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Statements and PDF exports</h1>
-              <p className="hero-copy mb-0">
-                Review latest and selected period statements, then export a
-                traceable PDF with versioned renderer metadata.
-              </p>
-            </div>
-          </section>
-
-          {renderDashboardRouteTabs()}
-
-          <div className="card radius-10 border-0 shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Statement actions</h5>
-              <div className="d-flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={loadLatestStatementSummary}
-                  disabled={loading}
-                >
-                  Load latest summary
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={loadStatementPeriods}
-                  disabled={loading}
-                >
-                  Load statement periods
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => void loadSelectedStatementSummary()}
-                  disabled={loading || !selectedSnapshotId}
-                >
-                  Load selected summary
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-success"
-                  onClick={() => void exportSelectedStatementPdf()}
-                  disabled={loading || !selectedSnapshotId}
-                >
-                  Export selected PDF
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={() => void loadStatementExportHistory()}
-                  disabled={loading}
-                >
-                  Load export history
-                </button>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Statement status</div>
-                <div>{statementMessage}</div>
-                {selectedSnapshotId && (
-                  <div className="mt-2 text-secondary small">
-                    Selected snapshot: {selectedSnapshotId}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="row g-4 mt-1">
-            <div className="col-12 col-xl-6">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">Latest statement summary</h5>
-                  {latestStatementSummary ? (
-                    <div className="text-secondary small">
-                      <div>
-                        Period:{" "}
-                        {formatDateRange(
-                          latestStatementSummary.periodStartDate,
-                          latestStatementSummary.periodEndDateExclusive,
-                        )}
-                      </div>
-                      <div>
-                        Period total:{" "}
-                        {formatCurrencyGbp(latestStatementSummary.periodTotal)}
-                      </div>
-                      <div>
-                        Payment:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.paymentAmount ?? "0.00",
-                        )}
-                      </div>
-                      <div>
-                        Difference:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.periodDifference,
-                        )}
-                      </div>
-                      <div>
-                        Status: {latestStatementSummary.periodBalanceStatus}
-                      </div>
-                      <div>
-                        Current balance:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.currentBalance,
-                        )}
-                      </div>
-                      <div>
-                        Balance status:{" "}
-                        {latestStatementSummary.currentBalanceStatus}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-secondary mb-0">
-                      No latest summary loaded yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 col-xl-6">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">Selected statement summary</h5>
-                  {selectedStatementSummary ? (
-                    <div className="text-secondary small">
-                      <div>
-                        Period:{" "}
-                        {formatDateRange(
-                          selectedStatementSummary.periodStartDate,
-                          selectedStatementSummary.periodEndDateExclusive,
-                        )}
-                      </div>
-                      <div>
-                        Period total:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.periodTotal,
-                        )}
-                      </div>
-                      <div>
-                        Payment:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.paymentAmount ?? "0.00",
-                        )}
-                      </div>
-                      <div>
-                        Difference:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.periodDifference,
-                        )}
-                      </div>
-                      <div>
-                        Status: {selectedStatementSummary.periodBalanceStatus}
-                      </div>
-                      <div>
-                        Estimated segments:{" "}
-                        {selectedStatementSummary.containsEstimatedSegments
-                          ? "Yes"
-                          : "No"}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-secondary mb-0">
-                      No selected summary loaded yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Statement periods</h5>
-              {statementPeriods.length === 0 ? (
-                <p className="text-secondary mb-0">
-                  No statement periods loaded yet.
-                </p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th>Total</th>
-                        <th>Difference</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {statementPeriods.slice(0, 12).map((item) => (
-                        <tr key={item.snapshotId}>
-                          <td>
-                            {formatDateRange(
-                              item.periodStartDate,
-                              item.periodEndDateExclusive,
-                            )}
-                          </td>
-                          <td>{formatCurrencyGbp(item.periodTotal)}</td>
-                          <td>{formatCurrencyGbp(item.periodDifference)}</td>
-                          <td>{item.periodBalanceStatus}</td>
-                          <td>
-                            <div className="d-flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${selectedSnapshotId === item.snapshotId ? "btn-primary" : "btn-outline-primary"}`}
-                                onClick={() =>
-                                  setSelectedSnapshotId(item.snapshotId)
-                                }
-                              >
-                                {selectedSnapshotId === item.snapshotId
-                                  ? "Selected"
-                                  : "Select"}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() =>
-                                  void loadSelectedStatementSummary(
-                                    item.snapshotId,
-                                  )
-                                }
-                                disabled={loading}
-                              >
-                                Load
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-success"
-                                onClick={() =>
-                                  void exportSelectedStatementPdf(
-                                    item.snapshotId,
-                                  )
-                                }
-                                disabled={loading}
-                              >
-                                Export
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Export history</h5>
-              {statementExportHistory.length === 0 ? (
-                <p className="text-secondary mb-0">No exports loaded yet.</p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Export ID</th>
-                        <th>Period</th>
-                        <th>Template</th>
-                        <th>Renderer</th>
-                        <th>Created UTC</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {statementExportHistory.slice(0, 10).map((item) => (
-                        <tr key={item.exportId}>
-                          <td>{item.exportId}</td>
-                          <td>
-                            {formatDateRange(
-                              item.periodStartDate,
-                              item.periodEndDateExclusive,
-                            )}
-                          </td>
-                          <td>{item.templateVersion}</td>
-                          <td>{item.rendererVersion}</td>
-                          <td>{formatDisplayDateTime(item.createdAtUtc)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    <StatementsDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      loading={loading}
+      statementMessage={statementMessage}
+      selectedSnapshotId={selectedSnapshotId}
+      latestStatementSummary={latestStatementSummary}
+      selectedStatementSummary={selectedStatementSummary}
+      statementPeriods={statementPeriods}
+      statementExportHistory={statementExportHistory}
+      onLoadLatestStatementSummary={loadLatestStatementSummary}
+      onLoadStatementPeriods={loadStatementPeriods}
+      onLoadSelectedStatementSummary={loadSelectedStatementSummary}
+      onExportSelectedStatementPdf={exportSelectedStatementPdf}
+      onLoadStatementExportHistory={() => loadStatementExportHistory()}
+      onSelectSnapshotId={setSelectedSnapshotId}
+      formatDateRange={formatDateRange}
+      formatCurrencyGbp={formatCurrencyGbp}
+      formatDisplayDateTime={formatDisplayDateTime}
+    />
   );
 
   if (pageMode === "login") {

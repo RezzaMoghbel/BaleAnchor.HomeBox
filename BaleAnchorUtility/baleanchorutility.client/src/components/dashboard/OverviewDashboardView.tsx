@@ -64,7 +64,9 @@ export function OverviewDashboardView({
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
                       <p className="mb-1 text-secondary">User status</p>
-                      <h4 className="mb-0">{session?.userStatus ?? "Unknown"}</h4>
+                      <h4 className="mb-0">
+                        {session?.userStatus ?? "Unknown"}
+                      </h4>
                     </div>
                     <div className="widget-icon bg-light-success text-success">
                       <i className="bi bi-person-check"></i>
@@ -79,7 +81,9 @@ export function OverviewDashboardView({
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
                       <p className="mb-1 text-secondary">Role</p>
-                      <h4 className="mb-0">{session?.userRole ?? "Resident"}</h4>
+                      <h4 className="mb-0">
+                        {session?.userRole ?? "Resident"}
+                      </h4>
                     </div>
                     <div className="widget-icon bg-light-danger text-danger">
                       <i className="bi bi-person-badge"></i>
@@ -98,7 +102,8 @@ export function OverviewDashboardView({
                 <div>{statusMessage}</div>
                 {session?.expiresAtUtc && (
                   <div className="mt-2 text-secondary small">
-                    Session expiry: {formatDisplayDateTime(session.expiresAtUtc)}
+                    Session expiry:{" "}
+                    {formatDisplayDateTime(session.expiresAtUtc)}
                   </div>
                 )}
               </div>
