@@ -90,7 +90,11 @@ public sealed class BillingInputServiceTests
                 UserId = "u-active",
                 EffectiveFromDate = "2026-07-01",
                 WaterTariffPerUnit = 1.11m,
+                WaterStandingChargePerDay = 0.01m,
+                WaterVatPercent = 0m,
                 ElectricityTariffPerUnit = 0.22m,
+                ElectricityStandingChargePerDay = 0.02m,
+                ElectricityVatPercent = 5m,
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
                 Version = 1,
@@ -106,7 +110,11 @@ public sealed class BillingInputServiceTests
                 {
                     EffectiveFromDate = "2026-07-01",
                     WaterTariffPerUnit = "1.15",
+                    WaterStandingChargePerDay = "0.01",
+                    WaterVatPercent = "0",
                     ElectricityTariffPerUnit = "0.25",
+                    ElectricityStandingChargePerDay = "0.02",
+                    ElectricityVatPercent = "5",
                 },
                 CancellationToken.None));
     }
@@ -125,7 +133,11 @@ public sealed class BillingInputServiceTests
                 UserId = "u-active",
                 EffectiveFromDate = "2026-07-01",
                 WaterTariffPerUnit = 1.10m,
+                WaterStandingChargePerDay = 0.01m,
+                WaterVatPercent = 0m,
                 ElectricityTariffPerUnit = 0.20m,
+                ElectricityStandingChargePerDay = 0.02m,
+                ElectricityVatPercent = 5m,
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
                 Version = 1,
@@ -139,7 +151,11 @@ public sealed class BillingInputServiceTests
                 UserId = "u-active",
                 EffectiveFromDate = "2026-07-15",
                 WaterTariffPerUnit = 1.25m,
+                WaterStandingChargePerDay = 0.01m,
+                WaterVatPercent = 0m,
                 ElectricityTariffPerUnit = 0.35m,
+                ElectricityStandingChargePerDay = 0.02m,
+                ElectricityVatPercent = 5m,
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
                 Version = 1,
@@ -152,7 +168,11 @@ public sealed class BillingInputServiceTests
 
         Assert.Equal("2026-07-15", active.EffectiveFromDate);
         Assert.Equal("1.25", active.WaterTariffPerUnit);
+        Assert.Equal("0.01", active.WaterStandingChargePerDay);
+        Assert.Equal("0", active.WaterVatPercent);
         Assert.Equal("0.35", active.ElectricityTariffPerUnit);
+        Assert.Equal("0.02", active.ElectricityStandingChargePerDay);
+        Assert.Equal("5", active.ElectricityVatPercent);
     }
 
     private static BillingInputService CreateService(

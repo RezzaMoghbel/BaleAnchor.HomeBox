@@ -11,6 +11,10 @@ public sealed class CalculationSnapshot
     public decimal HotWaterUsed { get; set; }
     public decimal ApartmentElectricityUsed { get; set; }
     public decimal BoilerElectricityUsed { get; set; }
+    public decimal ColdWaterTotal { get; set; }
+    public decimal HotWaterTotal { get; set; }
+    public decimal ApartmentElectricityTotal { get; set; }
+    public decimal BoilerElectricityTotal { get; set; }
     public decimal WaterTotal { get; set; }
     public decimal ElectricityTotal { get; set; }
     public decimal PeriodTotal { get; set; }

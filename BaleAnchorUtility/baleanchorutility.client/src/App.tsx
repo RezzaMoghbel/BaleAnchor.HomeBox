@@ -100,7 +100,11 @@ interface UpsertTariffResponse {
   userId: string;
   effectiveFromDate: string;
   waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
   electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
   message: string;
 }
 
@@ -108,7 +112,11 @@ interface ActiveTariffResponse {
   userId: string;
   effectiveFromDate: string;
   waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
   electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
 }
 
 interface CalculateLatestPeriodResponse {
@@ -121,6 +129,10 @@ interface CalculateLatestPeriodResponse {
   hotWaterUsed: string;
   apartmentElectricityUsed: string;
   boilerElectricityUsed: string;
+  coldWaterTotal: string;
+  hotWaterTotal: string;
+  apartmentElectricityTotal: string;
+  boilerElectricityTotal: string;
   waterTotal: string;
   electricityTotal: string;
   periodTotal: string;
@@ -199,7 +211,13 @@ function App() {
   const [electricityReading, setElectricityReading] = useState("");
   const [tariffEffectiveFromDate, setTariffEffectiveFromDate] = useState("");
   const [waterTariffPerUnit, setWaterTariffPerUnit] = useState("");
+  const [waterStandingChargePerDay, setWaterStandingChargePerDay] =
+    useState("");
+  const [waterVatPercent, setWaterVatPercent] = useState("");
   const [electricityTariffPerUnit, setElectricityTariffPerUnit] = useState("");
+  const [electricityStandingChargePerDay, setElectricityStandingChargePerDay] =
+    useState("");
+  const [electricityVatPercent, setElectricityVatPercent] = useState("");
   const [billingMessage, setBillingMessage] = useState(
     "Billing inputs have not been submitted.",
   );
@@ -712,10 +730,14 @@ function App() {
     if (
       !tariffEffectiveFromDate ||
       !waterTariffPerUnit ||
-      !electricityTariffPerUnit
+      !waterStandingChargePerDay ||
+      !waterVatPercent ||
+      !electricityTariffPerUnit ||
+      !electricityStandingChargePerDay ||
+      !electricityVatPercent
     ) {
       setBillingMessage(
-        "Effective date, water tariff, and electricity tariff are required.",
+        "Tariff effective date, unit rates, standing/day, and VAT values are required.",
       );
       return;
     }
@@ -731,7 +753,11 @@ function App() {
         body: JSON.stringify({
           effectiveFromDate: tariffEffectiveFromDate,
           waterTariffPerUnit,
+          waterStandingChargePerDay,
+          waterVatPercent,
           electricityTariffPerUnit,
+          electricityStandingChargePerDay,
+          electricityVatPercent,
         }),
       });
 
@@ -813,7 +839,9 @@ function App() {
 
       if (!response.ok) {
         const error = await readProblemDetails(response);
-        setBillingMessage(`Unable to load calculation snapshot. ${error.message}`);
+        setBillingMessage(
+          `Unable to load calculation snapshot. ${error.message}`,
+        );
         setLatestCalculation(null);
         return;
       }
@@ -1303,7 +1331,7 @@ function App() {
               <hr />
 
               <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-4">
+                <div className="col-12 col-lg-2">
                   <label
                     htmlFor="tariffEffectiveFromDate"
                     className="form-label"
@@ -1320,7 +1348,7 @@ function App() {
                     }
                   />
                 </div>
-                <div className="col-12 col-lg-4">
+                <div className="col-12 col-lg-2">
                   <label htmlFor="waterTariffPerUnit" className="form-label">
                     Water tariff per unit
                   </label>
@@ -1335,7 +1363,38 @@ function App() {
                     }
                   />
                 </div>
-                <div className="col-12 col-lg-4">
+                <div className="col-12 col-lg-2">
+                  <label
+                    htmlFor="waterStandingChargePerDay"
+                    className="form-label"
+                  >
+                    Water standing/day
+                  </label>
+                  <input
+                    id="waterStandingChargePerDay"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000000"
+                    value={waterStandingChargePerDay}
+                    onChange={(event) =>
+                      setWaterStandingChargePerDay(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <label htmlFor="waterVatPercent" className="form-label">
+                    Water VAT %
+                  </label>
+                  <input
+                    id="waterVatPercent"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.00"
+                    value={waterVatPercent}
+                    onChange={(event) => setWaterVatPercent(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
                   <label
                     htmlFor="electricityTariffPerUnit"
                     className="form-label"
@@ -1350,6 +1409,42 @@ function App() {
                     value={electricityTariffPerUnit}
                     onChange={(event) =>
                       setElectricityTariffPerUnit(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <label
+                    htmlFor="electricityStandingChargePerDay"
+                    className="form-label"
+                  >
+                    Elec standing/day
+                  </label>
+                  <input
+                    id="electricityStandingChargePerDay"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000000"
+                    value={electricityStandingChargePerDay}
+                    onChange={(event) =>
+                      setElectricityStandingChargePerDay(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <label
+                    htmlFor="electricityVatPercent"
+                    className="form-label"
+                  >
+                    Elec VAT %
+                  </label>
+                  <input
+                    id="electricityVatPercent"
+                    type="text"
+                    className="form-control"
+                    placeholder="5.00"
+                    value={electricityVatPercent}
+                    onChange={(event) =>
+                      setElectricityVatPercent(event.target.value)
                     }
                   />
                 </div>
@@ -1404,13 +1499,22 @@ function App() {
                 {activeTariff && (
                   <div className="mt-2 text-secondary small">
                     Tariff from {activeTariff.effectiveFromDate}
-                    {` | Water: ${activeTariff.waterTariffPerUnit}`}
-                    {` | Electricity: ${activeTariff.electricityTariffPerUnit}`}
+                    {` | Water unit: ${activeTariff.waterTariffPerUnit}`}
+                    {` | Water standing/day: ${activeTariff.waterStandingChargePerDay}`}
+                    {` | Water VAT: ${activeTariff.waterVatPercent}%`}
+                    {` | Elec unit: ${activeTariff.electricityTariffPerUnit}`}
+                    {` | Elec standing/day: ${activeTariff.electricityStandingChargePerDay}`}
+                    {` | Elec VAT: ${activeTariff.electricityVatPercent}%`}
                   </div>
                 )}
                 {latestCalculation && (
                   <div className="mt-2 text-secondary small">
-                    Calc {latestCalculation.periodStartDate} to {latestCalculation.periodEndDateExclusive}
+                    Calc {latestCalculation.periodStartDate} to{" "}
+                    {latestCalculation.periodEndDateExclusive}
+                    {` | Cold total: ${latestCalculation.coldWaterTotal}`}
+                    {` | Hot total: ${latestCalculation.hotWaterTotal}`}
+                    {` | Apartment total: ${latestCalculation.apartmentElectricityTotal}`}
+                    {` | Boiler total: ${latestCalculation.boilerElectricityTotal}`}
                     {` | Water total: ${latestCalculation.waterTotal}`}
                     {` | Electricity total: ${latestCalculation.electricityTotal}`}
                     {` | Period total: ${latestCalculation.periodTotal}`}

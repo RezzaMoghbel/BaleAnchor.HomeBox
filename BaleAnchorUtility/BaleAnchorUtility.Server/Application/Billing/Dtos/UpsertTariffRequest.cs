@@ -14,5 +14,21 @@ public sealed class UpsertTariffRequest
 
     [Required]
     [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string WaterStandingChargePerDay { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string WaterVatPercent { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
     public string ElectricityTariffPerUnit { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string ElectricityStandingChargePerDay { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string ElectricityVatPercent { get; init; } = string.Empty;
 }

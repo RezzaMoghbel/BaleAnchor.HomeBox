@@ -111,11 +111,20 @@ public sealed class BillingInputService
         var effectiveFromDate = ParseIsoDate(request.EffectiveFromDate, "Effective-from date must use yyyy-MM-dd format.");
 
         var waterTariff = ParseDecimal(request.WaterTariffPerUnit, "Water tariff is invalid.");
+        var waterStandingCharge = ParseDecimal(request.WaterStandingChargePerDay, "Water standing charge is invalid.");
+        var waterVatPercent = ParseDecimal(request.WaterVatPercent, "Water VAT percent is invalid.");
         var electricityTariff = ParseDecimal(request.ElectricityTariffPerUnit, "Electricity tariff is invalid.");
+        var electricityStandingCharge = ParseDecimal(request.ElectricityStandingChargePerDay, "Electricity standing charge is invalid.");
+        var electricityVatPercent = ParseDecimal(request.ElectricityVatPercent, "Electricity VAT percent is invalid.");
 
         if (waterTariff <= 0m || electricityTariff <= 0m)
         {
             throw new InvalidOperationException("Water and electricity tariffs must be greater than zero.");
+        }
+
+        if (waterVatPercent > 100m || electricityVatPercent > 100m)
+        {
+            throw new InvalidOperationException("VAT percent cannot exceed 100.");
         }
 
         var effectiveFrom = effectiveFromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -132,7 +141,11 @@ public sealed class BillingInputService
             UserId = user.Id,
             EffectiveFromDate = effectiveFrom,
             WaterTariffPerUnit = waterTariff,
+            WaterStandingChargePerDay = waterStandingCharge,
+            WaterVatPercent = waterVatPercent,
             ElectricityTariffPerUnit = electricityTariff,
+            ElectricityStandingChargePerDay = electricityStandingCharge,
+            ElectricityVatPercent = electricityVatPercent,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
             Version = 1,
@@ -147,7 +160,11 @@ public sealed class BillingInputService
             UserId = user.Id,
             EffectiveFromDate = version.EffectiveFromDate,
             WaterTariffPerUnit = version.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterStandingChargePerDay = version.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterVatPercent = version.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
             ElectricityTariffPerUnit = version.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityStandingChargePerDay = version.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityVatPercent = version.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
             Message = "Tariff version saved.",
         };
     }
@@ -167,7 +184,11 @@ public sealed class BillingInputService
             UserId = user.Id,
             EffectiveFromDate = active.EffectiveFromDate,
             WaterTariffPerUnit = active.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterStandingChargePerDay = active.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterVatPercent = active.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
             ElectricityTariffPerUnit = active.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityStandingChargePerDay = active.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityVatPercent = active.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
         };
     }
 

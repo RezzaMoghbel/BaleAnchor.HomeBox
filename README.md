@@ -55,6 +55,7 @@ Validation and behavior:
 - Only `Active` user accounts can submit or retrieve billing inputs.
 - Reading dates must be strictly increasing and readings must not roll back.
 - Tariff entries are append-only by effective date; duplicate effective dates are rejected.
+- Tariff versions include unit rates, standing/day, and VAT percent for both water and electricity.
 - Conflict/business-rule failures return RFC 7807 ProblemDetails with domain-specific `errorCode` values.
 
 ## Calculation Snapshots
@@ -68,5 +69,7 @@ Calculation behavior:
 
 - Requires at least two combined readings.
 - Uses dated tariffs within the period and marks split segments as estimated when tariff changes occur without a boundary reading.
+- Applies standing/day once for cold-water and apartment-electricity components only.
+- Applies VAT after component subtotal calculations per utility segment.
 - Uses boiler assumptions from onboarding utility setup for boiler electricity derivation.
 - Persists engine version, input hash, and equation summary for auditability and statement reproducibility.

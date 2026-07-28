@@ -99,16 +99,47 @@ public sealed class CalculationSnapshotService
         }
 
         var hasEstimatedSegments = periodTariffs.Count > 1;
-        var coldCost = AllocateAndPrice(coldUsed, days, periodTariffs, x => x.WaterTariffPerUnit);
-        var hotVolumeCost = AllocateAndPrice(hotUsed, days, periodTariffs, x => x.WaterTariffPerUnit);
-        var apartmentCost = AllocateAndPrice(apartmentUsed, days, periodTariffs, x => x.ElectricityTariffPerUnit);
-        var boilerCost = AllocateAndPrice(boilerUsed, days, periodTariffs, x => x.ElectricityTariffPerUnit);
+        var coldTotal = CalculateComponentTotal(
+            coldUsed,
+            days,
+            periodTariffs,
+            x => x.WaterTariffPerUnit,
+            x => x.WaterStandingChargePerDay,
+            x => x.WaterVatPercent,
+            includeStandingCharge: true);
 
-        var waterTotal = coldCost + hotVolumeCost;
-        var electricityTotal = apartmentCost + boilerCost;
+        var hotWaterTotal = CalculateComponentTotal(
+            hotUsed,
+            days,
+            periodTariffs,
+            x => x.WaterTariffPerUnit,
+            x => x.WaterStandingChargePerDay,
+            x => x.WaterVatPercent,
+            includeStandingCharge: false);
+
+        var apartmentElectricityTotal = CalculateComponentTotal(
+            apartmentUsed,
+            days,
+            periodTariffs,
+            x => x.ElectricityTariffPerUnit,
+            x => x.ElectricityStandingChargePerDay,
+            x => x.ElectricityVatPercent,
+            includeStandingCharge: true);
+
+        var boilerElectricityTotal = CalculateComponentTotal(
+            boilerUsed,
+            days,
+            periodTariffs,
+            x => x.ElectricityTariffPerUnit,
+            x => x.ElectricityStandingChargePerDay,
+            x => x.ElectricityVatPercent,
+            includeStandingCharge: false);
+
+        var waterTotal = coldTotal + hotWaterTotal;
+        var electricityTotal = apartmentElectricityTotal + boilerElectricityTotal;
         var periodTotal = waterTotal + electricityTotal;
 
-        var equation = $"Water=({coldUsed:0.###}+{hotUsed:0.###}) with dated tariffs; Electricity=({apartmentUsed:0.###}+{boilerUsed:0.###}) with dated tariffs; PeriodTotal={periodTotal:0.00}";
+        var equation = $"Cold=(usage*waterUnit + days*waterStanding) + waterVAT; Hot=(usage*waterUnit)+waterVAT; Apartment=(usage*elecUnit + days*elecStanding)+elecVAT; Boiler=(usage*elecUnit)+elecVAT; PeriodTotal={periodTotal:0.00}";
 
         var inputHash = ComputeInputHash(userId, start, end, setup, periodTariffs);
         var now = clock.UtcNow;
@@ -123,6 +154,10 @@ public sealed class CalculationSnapshotService
             HotWaterUsed = hotUsed,
             ApartmentElectricityUsed = apartmentUsed,
             BoilerElectricityUsed = boilerUsed,
+            ColdWaterTotal = decimal.Round(coldTotal, 2, MidpointRounding.AwayFromZero),
+            HotWaterTotal = decimal.Round(hotWaterTotal, 2, MidpointRounding.AwayFromZero),
+            ApartmentElectricityTotal = decimal.Round(apartmentElectricityTotal, 2, MidpointRounding.AwayFromZero),
+            BoilerElectricityTotal = decimal.Round(boilerElectricityTotal, 2, MidpointRounding.AwayFromZero),
             WaterTotal = decimal.Round(waterTotal, 2, MidpointRounding.AwayFromZero),
             ElectricityTotal = decimal.Round(electricityTotal, 2, MidpointRounding.AwayFromZero),
             PeriodTotal = decimal.Round(periodTotal, 2, MidpointRounding.AwayFromZero),
@@ -149,6 +184,10 @@ public sealed class CalculationSnapshotService
             HotWaterUsed = snapshot.HotWaterUsed.ToString("0.###", CultureInfo.InvariantCulture),
             ApartmentElectricityUsed = snapshot.ApartmentElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
             BoilerElectricityUsed = snapshot.BoilerElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
+            ColdWaterTotal = snapshot.ColdWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            HotWaterTotal = snapshot.HotWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            ApartmentElectricityTotal = snapshot.ApartmentElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            BoilerElectricityTotal = snapshot.BoilerElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
             WaterTotal = snapshot.WaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
             ElectricityTotal = snapshot.ElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
             PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
@@ -175,6 +214,10 @@ public sealed class CalculationSnapshotService
             HotWaterUsed = snapshot.HotWaterUsed.ToString("0.###", CultureInfo.InvariantCulture),
             ApartmentElectricityUsed = snapshot.ApartmentElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
             BoilerElectricityUsed = snapshot.BoilerElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
+            ColdWaterTotal = snapshot.ColdWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            HotWaterTotal = snapshot.HotWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            ApartmentElectricityTotal = snapshot.ApartmentElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
+            BoilerElectricityTotal = snapshot.BoilerElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
             WaterTotal = snapshot.WaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
             ElectricityTotal = snapshot.ElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
             PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
@@ -225,7 +268,11 @@ public sealed class CalculationSnapshotService
                     EndDateExclusive = segmentEnd,
                     Days = segmentEnd.DayNumber - currentStart.DayNumber,
                     WaterTariffPerUnit = currentTariff.WaterTariffPerUnit,
+                    WaterStandingChargePerDay = currentTariff.WaterStandingChargePerDay,
+                    WaterVatPercent = currentTariff.WaterVatPercent,
                     ElectricityTariffPerUnit = currentTariff.ElectricityTariffPerUnit,
+                    ElectricityStandingChargePerDay = currentTariff.ElectricityStandingChargePerDay,
+                    ElectricityVatPercent = currentTariff.ElectricityVatPercent,
                 });
             }
 
@@ -236,15 +283,27 @@ public sealed class CalculationSnapshotService
         return result;
     }
 
-    private static decimal AllocateAndPrice(decimal totalUsage, int totalDays, IReadOnlyList<TariffSegment> segments, Func<TariffSegment, decimal> unitRate)
+    private static decimal CalculateComponentTotal(
+        decimal totalUsage,
+        int totalDays,
+        IReadOnlyList<TariffSegment> segments,
+        Func<TariffSegment, decimal> unitRate,
+        Func<TariffSegment, decimal> standingRate,
+        Func<TariffSegment, decimal> vatPercent,
+        bool includeStandingCharge)
     {
-        if (totalUsage == 0m)
+        if (segments.Count == 0)
         {
             return 0m;
         }
 
+        if (totalDays <= 0)
+        {
+            throw new InvalidOperationException("Calculation period is invalid.");
+        }
+
         decimal allocatedUsage = 0m;
-        decimal totalCost = 0m;
+        decimal total = 0m;
 
         for (var index = 0; index < segments.Count; index++)
         {
@@ -254,10 +313,14 @@ public sealed class CalculationSnapshotService
                 : decimal.Round(totalUsage * segment.Days / totalDays, 6, MidpointRounding.AwayFromZero);
 
             allocatedUsage += segmentUsage;
-            totalCost += segmentUsage * unitRate(segment);
+            var usageSubtotal = segmentUsage * unitRate(segment);
+            var standingSubtotal = includeStandingCharge ? segment.Days * standingRate(segment) : 0m;
+            var subtotal = usageSubtotal + standingSubtotal;
+            var vatAmount = subtotal * vatPercent(segment) / 100m;
+            total += subtotal + vatAmount;
         }
 
-        return totalCost;
+        return total;
     }
 
     private static string ComputeInputHash(
@@ -280,7 +343,11 @@ public sealed class CalculationSnapshotService
             content.Append('|').Append(segment.StartDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
                 .Append('>').Append(segment.EndDateExclusive.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
                 .Append(':').Append(segment.WaterTariffPerUnit.ToString(CultureInfo.InvariantCulture))
-                .Append(':').Append(segment.ElectricityTariffPerUnit.ToString(CultureInfo.InvariantCulture));
+                .Append(':').Append(segment.WaterStandingChargePerDay.ToString(CultureInfo.InvariantCulture))
+                .Append(':').Append(segment.WaterVatPercent.ToString(CultureInfo.InvariantCulture))
+                .Append(':').Append(segment.ElectricityTariffPerUnit.ToString(CultureInfo.InvariantCulture))
+                .Append(':').Append(segment.ElectricityStandingChargePerDay.ToString(CultureInfo.InvariantCulture))
+                .Append(':').Append(segment.ElectricityVatPercent.ToString(CultureInfo.InvariantCulture));
         }
 
         using var sha = SHA256.Create();
@@ -304,6 +371,10 @@ public sealed class CalculationSnapshotService
         public required DateOnly EndDateExclusive { get; init; }
         public required int Days { get; init; }
         public required decimal WaterTariffPerUnit { get; init; }
+        public required decimal WaterStandingChargePerDay { get; init; }
+        public required decimal WaterVatPercent { get; init; }
         public required decimal ElectricityTariffPerUnit { get; init; }
+        public required decimal ElectricityStandingChargePerDay { get; init; }
+        public required decimal ElectricityVatPercent { get; init; }
     }
 }
