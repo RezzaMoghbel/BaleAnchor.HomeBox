@@ -54,6 +54,12 @@ public sealed class AdminApprovalsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AdminDecisionResponse>> Approve(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
     {
+        var validationError = ValidateDecisionInput(targetUserId, request);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
@@ -64,6 +70,10 @@ public sealed class AdminApprovalsController : ControllerBase
         {
             var response = await adminApprovalService.ApproveAsync(actor.Id, targetUserId, request.Reason, cancellationToken);
             return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "reason", "ADMIN_DECISION_VALIDATION");
         }
         catch (InvalidOperationException ex)
         {
@@ -78,6 +88,12 @@ public sealed class AdminApprovalsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AdminDecisionResponse>> Reject(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
     {
+        var validationError = ValidateDecisionInput(targetUserId, request);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
@@ -89,10 +105,35 @@ public sealed class AdminApprovalsController : ControllerBase
             var response = await adminApprovalService.RejectAsync(actor.Id, targetUserId, request.Reason, cancellationToken);
             return Ok(response);
         }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "reason", "ADMIN_DECISION_VALIDATION");
+        }
         catch (InvalidOperationException ex)
         {
             return ConflictProblem(ex.Message, "ADMIN_APPROVAL_CONFLICT");
         }
+    }
+
+    private ObjectResult? ValidateDecisionInput(string targetUserId, AdminDecisionRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(targetUserId))
+        {
+            return ValidationProblem(
+                "A valid target user id is required.",
+                "targetUserId",
+                "ADMIN_DECISION_VALIDATION");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 3)
+        {
+            return ValidationProblem(
+                "A decision reason with at least 3 non-space characters is required.",
+                "reason",
+                "ADMIN_DECISION_VALIDATION");
+        }
+
+        return null;
     }
 
     private async Task<Domain.Users.UserAccount?> ResolveAuthorizedActorAsync(CancellationToken cancellationToken)
@@ -134,6 +175,28 @@ public sealed class AdminApprovalsController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ValidationProblem(string detail, string field, string errorCode)
+    {
+        var problem = new ValidationProblemDetails(new Dictionary<string, string[]>
+        {
+            [field] = [detail],
+        })
+        {
+            Type = "https://api.baleanchor.local/errors/validation",
+            Title = "Validation failed",
+            Status = StatusCodes.Status400BadRequest,
+            Detail = "One or more validation errors occurred.",
+            Instance = HttpContext.Request.Path,
+        };
+
+        ApiProblemDetailsFactory.AddStandardExtensions(HttpContext, problem, errorCode);
+
+        return new BadRequestObjectResult(problem)
+        {
             ContentTypes = { "application/problem+json" },
         };
     }

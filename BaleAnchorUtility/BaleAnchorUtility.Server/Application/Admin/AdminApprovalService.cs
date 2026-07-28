@@ -73,7 +73,7 @@ public sealed class AdminApprovalService
         var trimmedReason = reason.Trim();
         if (trimmedReason.Length < 3)
         {
-            throw new InvalidOperationException("A decision reason of at least 3 characters is required.");
+            throw new ArgumentException("A decision reason of at least 3 characters is required.", nameof(reason));
         }
 
         var user = await userRepository.GetByIdAsync(targetUserId, cancellationToken)
