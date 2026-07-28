@@ -12,8 +12,11 @@ using BaleAnchorUtility.Server.Infrastructure.Pdf;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 using BaleAnchorUtility.Server.Infrastructure.Startup;
 using BaleAnchorUtility.Server.Infrastructure.Time;
+using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 

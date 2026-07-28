@@ -101,6 +101,6 @@ Validation and behavior:
 - Earlier payments are not deletable; only the latest payment is eligible for deletion.
 - Payment create/delete actions are audit logged with category `PAYMENT`.
 - Latest statement summary includes period difference status and all-time balance status using clear labels: `Amount outstanding`, `In credit`, `Paid in full`.
-- PDF export currently uses a placeholder PDF generator abstraction (`IStatementPdfGenerator`) so production renderer integration can be swapped in without API changes.
+- PDF export uses a QuestPDF-backed statement renderer behind `IStatementPdfGenerator`, so the export contract stays stable while the layout can evolve independently.
 - PDF export responses include metadata headers: `X-Statement-Export-Id`, `X-Statement-Template-Version`, `X-Statement-Renderer-Version`, and `X-Statement-Content-Sha256`.
 - Conflict and validation failures return RFC 7807 ProblemDetails with operation-specific `errorCode` values.

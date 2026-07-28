@@ -49,10 +49,18 @@ public sealed class StatementPdfExportService
             PeriodEndDateExclusive = summary.PeriodEndDateExclusive,
             PeriodTotal = summary.PeriodTotal,
             PaymentAmount = summary.PaymentAmount,
+            PaymentDate = summary.PaymentDate,
+            PaymentMethod = summary.PaymentMethod,
             PeriodDifference = summary.PeriodDifference,
             PeriodBalanceStatus = summary.PeriodBalanceStatus,
+            TotalCalculatedCharges = summary.TotalCalculatedCharges,
+            TotalRecordedPayments = summary.TotalRecordedPayments,
             CurrentBalance = summary.CurrentBalance,
             CurrentBalanceStatus = summary.CurrentBalanceStatus,
+            ContainsEstimatedSegments = summary.ContainsEstimatedSegments,
+            EngineVersion = summary.EngineVersion,
+            InputHash = summary.InputHash,
+            EquationSummary = summary.EquationSummary,
             GeneratedAtUtcIso = clock.UtcNow.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
         };
 

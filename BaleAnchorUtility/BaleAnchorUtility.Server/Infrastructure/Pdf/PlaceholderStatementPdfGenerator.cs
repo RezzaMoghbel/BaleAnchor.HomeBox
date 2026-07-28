@@ -1,28 +1,23 @@
-using System.Text;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using BaleAnchorUtility.Server.Application.Abstractions;
 
 namespace BaleAnchorUtility.Server.Infrastructure.Pdf;
 
 public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
 {
-    private const string TemplateVersion = "statement-template-v1";
-    private const string RendererVersion = "placeholder-pdf-v1";
+    private const string TemplateVersion = "statement-template-v2";
+    private const string RendererVersion = "questpdf-statement-v1";
+
+    static PlaceholderStatementPdfGenerator()
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+    }
 
     public Task<GeneratedPdfDocument> GeneratePeriodStatementAsync(StatementPdfModel model, CancellationToken cancellationToken)
     {
-        var lines = new[]
-        {
-            "BaleAnchor Utility Statement",
-            $"User: {model.UserId}",
-            $"Period: {model.PeriodStartDate} to {model.PeriodEndDateExclusive}",
-            $"Period total: GBP {model.PeriodTotal}",
-            $"Payment: GBP {model.PaymentAmount ?? "0.00"}",
-            $"Period difference: GBP {model.PeriodDifference} ({model.PeriodBalanceStatus})",
-            $"Current balance: GBP {model.CurrentBalance} ({model.CurrentBalanceStatus})",
-            $"Generated UTC: {model.GeneratedAtUtcIso}",
-        };
-
-        var bytes = BuildSinglePagePdf(lines);
+        var bytes = BuildStatementPdf(model);
         return Task.FromResult(new GeneratedPdfDocument
         {
             Content = bytes,
@@ -32,79 +27,115 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
         });
     }
 
-    private static byte[] BuildSinglePagePdf(IReadOnlyList<string> lines)
+    private static byte[] BuildStatementPdf(StatementPdfModel model)
     {
-        const string header = "%PDF-1.4\n";
-
-        var escapedLines = lines
-            .Select(EscapePdfText)
-            .ToList();
-
-        var contentBuilder = new StringBuilder();
-        contentBuilder.AppendLine("BT");
-        contentBuilder.AppendLine("/F1 12 Tf");
-        contentBuilder.AppendLine("40 800 Td");
-
-        for (var i = 0; i < escapedLines.Count; i++)
+        var document = Document.Create(container =>
         {
-            if (i == 0)
+            container.Page(page =>
             {
-                contentBuilder.Append('(').Append(escapedLines[i]).AppendLine(") Tj");
-            }
-            else
-            {
-                contentBuilder.AppendLine("0 -18 Td");
-                contentBuilder.Append('(').Append(escapedLines[i]).AppendLine(") Tj");
-            }
-        }
+                page.Size(PageSizes.A4);
+                page.Margin(30);
+                page.PageColor(Colors.White);
+                page.DefaultTextStyle(style => style.FontSize(10));
 
-        contentBuilder.AppendLine("ET");
-        var streamText = contentBuilder.ToString();
-        var streamBytes = Encoding.ASCII.GetBytes(streamText);
+                page.Header().Column(header =>
+                {
+                    header.Spacing(4);
+                    header.Item().Text("BaleAnchor Utility").FontSize(20).SemiBold();
+                    header.Item().Text("Independent resident utility statement").FontSize(11);
+                    header.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+                });
 
-        var objects = new List<string>
-        {
-            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
-            $"4 0 obj\n<< /Length {streamBytes.Length} >>\nstream\n{streamText}endstream\nendobj\n",
-            "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-        };
+                page.Content().Column(content =>
+                {
+                    content.Spacing(14);
 
-        var allBuilder = new StringBuilder();
-        allBuilder.Append(header);
+                    content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
+                    {
+                        section.Spacing(8);
+                        section.Item().Text("Statement summary").FontSize(13).SemiBold();
+                        section.Item().Row(row =>
+                        {
+                            row.RelativeItem().Element(container => AddSummaryField(container, "User", model.UserId));
+                            row.RelativeItem().Element(container => AddSummaryField(container, "Period", $"{model.PeriodStartDate} to {model.PeriodEndDateExclusive}"));
+                            row.RelativeItem().Element(container => AddSummaryField(container, "Generated UTC", model.GeneratedAtUtcIso));
+                        });
+                    });
 
-        var offsets = new List<int> { 0 };
-        for (var i = 0; i < objects.Count; i++)
-        {
-            offsets.Add(Encoding.ASCII.GetByteCount(allBuilder.ToString()));
-            allBuilder.Append(objects[i]);
-        }
+                    content.Item().Row(row =>
+                    {
+                        row.Spacing(10);
+                        row.RelativeItem().Element(container => AddMetricCard(container, "Period total", Currency(model.PeriodTotal), model.PeriodBalanceStatus));
+                        row.RelativeItem().Element(container => AddMetricCard(container, "Payment", PaymentText(model.PaymentAmount), model.PaymentDate is null ? "No payment recorded" : $"{model.PaymentDate} · {model.PaymentMethod ?? "Resident"}"));
+                        row.RelativeItem().Element(container => AddMetricCard(container, "Period difference", Currency(model.PeriodDifference), model.PeriodBalanceStatus));
+                        row.RelativeItem().Element(container => AddMetricCard(container, "Current balance", Currency(model.CurrentBalance), model.CurrentBalanceStatus));
+                    });
 
-        var xrefStart = Encoding.ASCII.GetByteCount(allBuilder.ToString());
-        allBuilder.Append("xref\n");
-        allBuilder.Append($"0 {objects.Count + 1}\n");
-        allBuilder.Append("0000000000 65535 f \n");
-        for (var i = 1; i <= objects.Count; i++)
-        {
-            allBuilder.Append(offsets[i].ToString("D10"));
-            allBuilder.Append(" 00000 n \n");
-        }
+                    content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
+                    {
+                        section.Spacing(8);
+                        section.Item().Text("Transparency and audit trail").FontSize(13).SemiBold();
 
-        allBuilder.Append("trailer\n");
-        allBuilder.Append($"<< /Size {objects.Count + 1} /Root 1 0 R >>\n");
-        allBuilder.Append("startxref\n");
-        allBuilder.Append(xrefStart);
-        allBuilder.Append("\n%%EOF\n");
+                        section.Item().Row(row =>
+                        {
+                            row.RelativeItem().Column(column =>
+                            {
+                                column.Spacing(4);
+                                column.Item().Text($"Total calculated charges: {Currency(model.TotalCalculatedCharges)}");
+                                column.Item().Text($"Total recorded payments: {Currency(model.TotalRecordedPayments)}");
+                                column.Item().Text($"Estimated segments: {(model.ContainsEstimatedSegments ? "Included" : "None")}");
+                                column.Item().Text($"Engine version: {model.EngineVersion}");
+                                column.Item().Text($"Input hash: {model.InputHash}");
+                            });
+                        });
 
-        return Encoding.ASCII.GetBytes(allBuilder.ToString());
+                        section.Item().PaddingTop(6).Text("Equation summary").FontSize(11).SemiBold();
+                        section.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Background(Colors.Grey.Lighten5).Padding(10).Text(model.EquationSummary);
+                    });
+
+                    content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
+                    {
+                        section.Spacing(6);
+                        section.Item().Text("Statement note").FontSize(11).SemiBold();
+                        section.Item().Text("This statement is generated from the resident's stored calculation snapshot and payment records. It is a record of the portal's calculation state, not a supplier invoice.");
+                    });
+                });
+
+                page.Footer().AlignCenter().Text(text =>
+                {
+                    text.Span("Generated by BaleAnchor Utility on ");
+                    text.Span(model.GeneratedAtUtcIso).SemiBold();
+                });
+            });
+        });
+
+        using var stream = new MemoryStream();
+        document.GeneratePdf(stream);
+        return stream.ToArray();
     }
 
-    private static string EscapePdfText(string value)
+    private static void AddSummaryField(IContainer container, string label, string value)
     {
-        return value
-            .Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("(", "\\(", StringComparison.Ordinal)
-            .Replace(")", "\\)", StringComparison.Ordinal);
+        container.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(column =>
+        {
+            column.Spacing(4);
+            column.Item().Text(label).FontSize(8).SemiBold();
+            column.Item().Text(value).FontSize(10);
+        });
     }
+
+    private static void AddMetricCard(IContainer container, string label, string value, string caption)
+    {
+        container.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(12).Column(column =>
+        {
+            column.Spacing(4);
+            column.Item().Text(label).FontSize(8).SemiBold();
+            column.Item().Text(value).FontSize(16).SemiBold();
+            column.Item().Text(caption).FontSize(8);
+        });
+    }
+
+    private static string Currency(string value) => $"£{value}";
+
+    private static string PaymentText(string? value) => string.IsNullOrWhiteSpace(value) ? "Not recorded" : $"£{value}";
 }
