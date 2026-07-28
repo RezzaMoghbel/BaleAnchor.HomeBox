@@ -47,6 +47,7 @@ Resident billing input endpoints are available under `POST/GET /api/v1/billing/*
 
 - `POST /api/v1/billing/readings`: submit combined cold-water, hot-water, and electricity readings.
 - `GET /api/v1/billing/readings/latest`: fetch the latest submitted readings for the authenticated user.
+- `DELETE /api/v1/billing/readings/latest`: delete the latest submitted reading only.
 - `POST /api/v1/billing/tariffs`: add a dated tariff version for water and electricity.
 - `GET /api/v1/billing/tariffs/active?onDate=yyyy-MM-dd`: fetch the applicable tariff for a date.
 
@@ -54,6 +55,7 @@ Validation and behavior:
 
 - Only `Active` user accounts can submit or retrieve billing inputs.
 - Reading dates must be strictly increasing and readings must not roll back.
+- The latest reading cannot be deleted if that reading closes a paid period; delete the linked payment first.
 - Tariff entries are append-only by effective date; duplicate effective dates are rejected.
 - Tariff versions include unit rates, standing/day, and VAT percent for both water and electricity.
 - Conflict/business-rule failures return RFC 7807 ProblemDetails with domain-specific `errorCode` values.

@@ -35,4 +35,15 @@ internal sealed class InMemoryReadingSubmissionRepository : IReadingSubmissionRe
 
         return Task.FromResult((IReadOnlyList<ReadingSubmission>)results);
     }
+
+    public Task DeleteAsync(string readingId, CancellationToken cancellationToken)
+    {
+        var index = submissions.FindIndex(x => string.Equals(x.Id, readingId, StringComparison.Ordinal));
+        if (index >= 0)
+        {
+            submissions.RemoveAt(index);
+        }
+
+        return Task.CompletedTask;
+    }
 }

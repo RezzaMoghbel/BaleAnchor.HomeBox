@@ -41,6 +41,11 @@ public sealed class JsonReadingSubmissionRepository : IReadingSubmissionReposito
             .ToList();
     }
 
+    public Task DeleteAsync(string readingId, CancellationToken cancellationToken)
+    {
+        return store.DeleteAsync(Collection, readingId, cancellationToken);
+    }
+
     private static DateOnly ParseDate(string value)
     {
         return DateOnly.ParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture);

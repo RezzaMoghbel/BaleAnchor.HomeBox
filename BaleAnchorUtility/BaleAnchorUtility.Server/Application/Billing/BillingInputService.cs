@@ -11,6 +11,7 @@ public sealed class BillingInputService
     private readonly IUserRepository userRepository;
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
+    private readonly IPaymentRepository paymentRepository;
     private readonly ISystemClock clock;
     private readonly ILogger<BillingInputService> logger;
 
@@ -18,12 +19,14 @@ public sealed class BillingInputService
         IUserRepository userRepository,
         IReadingSubmissionRepository readingSubmissionRepository,
         ITariffVersionRepository tariffVersionRepository,
+        IPaymentRepository paymentRepository,
         ISystemClock clock,
         ILogger<BillingInputService> logger)
     {
         this.userRepository = userRepository;
         this.readingSubmissionRepository = readingSubmissionRepository;
         this.tariffVersionRepository = tariffVersionRepository;
+        this.paymentRepository = paymentRepository;
         this.clock = clock;
         this.logger = logger;
     }
@@ -189,6 +192,49 @@ public sealed class BillingInputService
             ElectricityTariffPerUnit = active.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
             ElectricityStandingChargePerDay = active.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
             ElectricityVatPercent = active.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+        };
+    }
+
+    public async Task<DeleteLatestReadingResponse> DeleteLatestReadingAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        if (readings.Count == 0)
+        {
+            throw new InvalidOperationException("No readings exist to delete.");
+        }
+
+        var latest = readings[^1];
+
+        if (readings.Count >= 2)
+        {
+            var previous = readings[^2];
+            var payment = await paymentRepository.GetByUserAndPeriodAsync(
+                user.Id,
+                previous.ReadingDate,
+                latest.ReadingDate,
+                cancellationToken);
+
+            if (payment is not null)
+            {
+                throw new InvalidOperationException("The latest reading closes a paid period. Delete the linked payment first.");
+            }
+        }
+
+        await readingSubmissionRepository.DeleteAsync(latest.Id, cancellationToken);
+
+        logger.LogInformation(
+            "Latest reading {ReadingId} dated {ReadingDate} deleted for user {UserId}.",
+            latest.Id,
+            latest.ReadingDate,
+            user.Id);
+
+        return new DeleteLatestReadingResponse
+        {
+            UserId = user.Id,
+            DeletedReadingId = latest.Id,
+            DeletedReadingDate = latest.ReadingDate,
+            Message = "The latest reading was deleted successfully.",
         };
     }
 

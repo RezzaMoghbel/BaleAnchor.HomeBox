@@ -16,7 +16,7 @@ public sealed class BillingInputServiceTests
 
         var readings = new InMemoryReadingSubmissionRepository();
         var tariffs = new InMemoryTariffVersionRepository();
-        var service = CreateService(users, readings, tariffs);
+        var service = CreateService(users, readings, tariffs, new InMemoryPaymentRepository());
 
         var response = await service.SubmitReadingsAsync(
             "u-active",
@@ -61,7 +61,7 @@ public sealed class BillingInputServiceTests
             },
             CancellationToken.None);
 
-        var service = CreateService(users, readings, new InMemoryTariffVersionRepository());
+        var service = CreateService(users, readings, new InMemoryTariffVersionRepository(), new InMemoryPaymentRepository());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.SubmitReadingsAsync(
@@ -101,7 +101,7 @@ public sealed class BillingInputServiceTests
             },
             CancellationToken.None);
 
-        var service = CreateService(users, new InMemoryReadingSubmissionRepository(), tariffs);
+        var service = CreateService(users, new InMemoryReadingSubmissionRepository(), tariffs, new InMemoryPaymentRepository());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.UpsertTariffAsync(
@@ -162,7 +162,7 @@ public sealed class BillingInputServiceTests
             },
             CancellationToken.None);
 
-        var service = CreateService(users, new InMemoryReadingSubmissionRepository(), tariffs);
+        var service = CreateService(users, new InMemoryReadingSubmissionRepository(), tariffs, new InMemoryPaymentRepository());
 
         var active = await service.GetActiveTariffAsync("u-active", "2026-07-20", CancellationToken.None);
 
@@ -175,15 +175,127 @@ public sealed class BillingInputServiceTests
         Assert.Equal("5", active.ElectricityVatPercent);
     }
 
+    [Fact]
+    public async Task DeleteLatestReadingAsync_DeletesLatestReading_WhenNoLinkedPaymentExists()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active", "resident@example.com"));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r1",
+                UserId = "u-active",
+                ReadingDate = "2026-07-01",
+                ColdWaterReading = 10m,
+                HotWaterReading = 10m,
+                ElectricityReading = 10m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r2",
+                UserId = "u-active",
+                ReadingDate = "2026-08-01",
+                ColdWaterReading = 15m,
+                HotWaterReading = 15m,
+                ElectricityReading = 20m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(users, readings, new InMemoryTariffVersionRepository(), new InMemoryPaymentRepository());
+
+        var response = await service.DeleteLatestReadingAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("r2", response.DeletedReadingId);
+
+        var latest = await readings.GetLatestByUserIdAsync("u-active", CancellationToken.None);
+        Assert.NotNull(latest);
+        Assert.Equal("r1", latest!.Id);
+    }
+
+    [Fact]
+    public async Task DeleteLatestReadingAsync_RejectsDelete_WhenLatestPeriodHasPayment()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active", "resident@example.com"));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r1",
+                UserId = "u-active",
+                ReadingDate = "2026-07-01",
+                ColdWaterReading = 10m,
+                HotWaterReading = 10m,
+                ElectricityReading = 10m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r2",
+                UserId = "u-active",
+                ReadingDate = "2026-08-01",
+                ColdWaterReading = 15m,
+                HotWaterReading = 15m,
+                ElectricityReading = 20m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.PaymentRecord
+            {
+                Id = "p1",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 100m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(users, readings, new InMemoryTariffVersionRepository(), payments);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.DeleteLatestReadingAsync("u-active", CancellationToken.None));
+    }
+
     private static BillingInputService CreateService(
         InMemoryUserRepository users,
         InMemoryReadingSubmissionRepository readings,
-        InMemoryTariffVersionRepository tariffs)
+        InMemoryTariffVersionRepository tariffs,
+        InMemoryPaymentRepository payments)
     {
         return new BillingInputService(
             users,
             readings,
             tariffs,
+            payments,
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-28T12:00:00Z") },
             NullLogger<BillingInputService>.Instance);
     }

@@ -4,6 +4,7 @@ using BaleAnchorUtility.Server.Application.Billing.Dtos;
 using BaleAnchorUtility.Server.Application.Calculations;
 using BaleAnchorUtility.Server.Controllers;
 using BaleAnchorUtility.Server.Domain.Auth;
+using BaleAnchorUtility.Server.Domain.Billing;
 using BaleAnchorUtility.Server.Domain.Calculations;
 using BaleAnchorUtility.Server.Domain.Users;
 using BaleAnchorUtility.Server.Tests.TestDoubles;
@@ -75,6 +76,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryPaymentRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -142,6 +144,107 @@ public sealed class BillingControllerTests
         Assert.Equal("4.00", body.PeriodTotal);
     }
 
+    [Fact]
+    public async Task DeleteLatestReading_Returns409_WhenLatestPeriodHasPayment()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("u1", "resident@example.com", UserRole.Resident, UserAccountStatus.Active);
+        users.Seed(actor);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(
+            new ReadingSubmission
+            {
+                Id = "r1",
+                UserId = actor.Id,
+                ReadingDate = "2026-07-01",
+                ColdWaterReading = 10m,
+                HotWaterReading = 10m,
+                ElectricityReading = 10m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        await readings.AddAsync(
+            new ReadingSubmission
+            {
+                Id = "r2",
+                UserId = actor.Id,
+                ReadingDate = "2026-08-01",
+                ColdWaterReading = 12m,
+                HotWaterReading = 12m,
+                ElectricityReading = 12m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p1",
+                UserId = actor.Id,
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 100m,
+                PaymentDate = "2026-08-02",
+                Method = "Direct Debit",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var billing = new BillingInputService(
+            users,
+            readings,
+            new InMemoryTariffVersionRepository(),
+            payments,
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<BillingInputService>.Instance);
+
+        var calc = new CalculationSnapshotService(
+            users,
+            readings,
+            new InMemoryTariffVersionRepository(),
+            new InMemoryUtilitySetupRepository(),
+            new InMemoryCalculationSnapshotRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var paymentService = new PaymentService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            payments,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<PaymentService>.Instance);
+
+        var controller = new BillingController(auth, billing, calc, paymentService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = NewHttpContext("/api/v1/billing/readings/latest", withSessionCookie: true),
+            },
+        };
+
+        var action = await controller.DeleteLatestReading(CancellationToken.None);
+        var conflict = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(conflict.Value);
+
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("BILLING_READING_DELETE_CONFLICT", problem.Extensions["errorCode"]?.ToString());
+    }
+
     private static BillingController CreateController(bool withSessionCookie, bool seedUser)
     {
         var users = new InMemoryUserRepository();
@@ -163,6 +266,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryPaymentRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 

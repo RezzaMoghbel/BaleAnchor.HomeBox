@@ -75,6 +75,29 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpDelete("readings/latest")]
+    [ProducesResponseType(typeof(DeleteLatestReadingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DeleteLatestReadingResponse>> DeleteLatestReading(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.DeleteLatestReadingAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_READING_DELETE_CONFLICT");
+        }
+    }
+
     [HttpPost("tariffs")]
     [ProducesResponseType(typeof(UpsertTariffResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
