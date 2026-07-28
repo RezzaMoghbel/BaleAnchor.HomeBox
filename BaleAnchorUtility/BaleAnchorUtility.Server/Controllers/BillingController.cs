@@ -15,15 +15,18 @@ public sealed class BillingController : ControllerBase
     private readonly AuthService authService;
     private readonly BillingInputService billingInputService;
     private readonly CalculationSnapshotService calculationSnapshotService;
+    private readonly PaymentService paymentService;
 
     public BillingController(
         AuthService authService,
         BillingInputService billingInputService,
-        CalculationSnapshotService calculationSnapshotService)
+        CalculationSnapshotService calculationSnapshotService,
+        PaymentService paymentService)
     {
         this.authService = authService;
         this.billingInputService = billingInputService;
         this.calculationSnapshotService = calculationSnapshotService;
+        this.paymentService = paymentService;
     }
 
     [HttpPost("readings")]
@@ -164,6 +167,122 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPost("calculations/latest/payment")]
+    [ProducesResponseType(typeof(RecordLatestPeriodPaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordLatestPeriodPaymentResponse>> RecordLatestPeriodPayment(
+        [FromBody] RecordLatestPeriodPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.RecordLatestPeriodPaymentAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Method), StringComparison.Ordinal)
+                ? "method"
+                : string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Reference), StringComparison.Ordinal)
+                    ? "reference"
+                    : string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Notes), StringComparison.Ordinal)
+                        ? "notes"
+                        : "request";
+
+            return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
+    [HttpGet("calculations/latest/payment")]
+    [ProducesResponseType(typeof(LatestPeriodPaymentSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<LatestPeriodPaymentSummaryResponse>> GetLatestPeriodPaymentSummary(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.GetLatestPeriodSummaryAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpGet("payments/balance")]
+    [ProducesResponseType(typeof(AllTimeBalanceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AllTimeBalanceResponse>> GetAllTimeBalance(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.GetAllTimeBalanceAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BALANCE_CONFLICT");
+        }
+    }
+
+    [HttpDelete("payments/{paymentId}")]
+    [ProducesResponseType(typeof(DeletePaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DeletePaymentResponse>> DeletePayment(string paymentId, CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.DeletePaymentAsync(userId, paymentId, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "paymentId", "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "BILLING_PAYMENT_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
     private async Task<string?> ResolveUserIdAsync(CancellationToken cancellationToken)
     {
         Request.Cookies.TryGetValue(authService.SessionCookieName, out var rawToken);
@@ -189,6 +308,44 @@ public sealed class BillingController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult NotFoundProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status404NotFound,
+            "Resource not found",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status404NotFound,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ValidationProblem(string detail, string field, string errorCode)
+    {
+        var problem = new ValidationProblemDetails(new Dictionary<string, string[]>
+        {
+            [field] = [detail],
+        })
+        {
+            Type = "https://api.baleanchor.local/errors/validation",
+            Title = "Validation failed",
+            Status = StatusCodes.Status400BadRequest,
+            Detail = "One or more validation errors occurred.",
+            Instance = HttpContext.Request.Path,
+        };
+
+        ApiProblemDetailsFactory.AddStandardExtensions(HttpContext, problem, errorCode);
+
+        return new BadRequestObjectResult(problem)
+        {
             ContentTypes = { "application/problem+json" },
         };
     }

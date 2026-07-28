@@ -1431,10 +1431,7 @@ function App() {
                   />
                 </div>
                 <div className="col-12 col-lg-2">
-                  <label
-                    htmlFor="electricityVatPercent"
-                    className="form-label"
-                  >
+                  <label htmlFor="electricityVatPercent" className="form-label">
                     Elec VAT %
                   </label>
                   <input

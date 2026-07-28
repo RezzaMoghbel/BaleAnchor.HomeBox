@@ -73,3 +73,22 @@ Calculation behavior:
 - Applies VAT after component subtotal calculations per utility segment.
 - Uses boiler assumptions from onboarding utility setup for boiler electricity derivation.
 - Persists engine version, input hash, and equation summary for auditability and statement reproducibility.
+
+## Payments And Balance APIs
+
+Payment and balance endpoints are available under `api/v1/billing`.
+
+- `POST /api/v1/billing/calculations/latest/payment`: records one payment for the latest calculated period.
+- `GET /api/v1/billing/calculations/latest/payment`: returns latest period total, payment (if any), and period difference/status.
+- `GET /api/v1/billing/payments/balance`: returns all-time calculated charges, total recorded payments, and current balance status.
+- `DELETE /api/v1/billing/payments/{paymentId}`: deletes only the latest payment in user history.
+
+Validation and behavior:
+
+- Only `Active` user accounts can manage payments.
+- Exactly one payment is allowed per period.
+- Payment date must use `yyyy-MM-dd` and cannot be in the future.
+- Payment amount must be greater than zero and stored with decimal-safe rounding.
+- Earlier payments are not deletable; only the latest payment is eligible for deletion.
+- Payment create/delete actions are audit logged with category `PAYMENT`.
+- Conflict and validation failures return RFC 7807 ProblemDetails with operation-specific `errorCode` values.

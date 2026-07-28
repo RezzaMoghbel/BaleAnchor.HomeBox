@@ -22,4 +22,15 @@ internal sealed class InMemoryCalculationSnapshotRepository : ICalculationSnapsh
 
         return Task.FromResult(latest);
     }
+
+    public Task<IReadOnlyList<CalculationSnapshot>> GetByUserIdAsync(string userId, CancellationToken cancellationToken)
+    {
+        var results = snapshots
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .OrderBy(x => x.PeriodStartDate, StringComparer.Ordinal)
+            .ThenBy(x => x.CreatedAtUtc)
+            .ToList();
+
+        return Task.FromResult((IReadOnlyList<CalculationSnapshot>)results);
+    }
 }

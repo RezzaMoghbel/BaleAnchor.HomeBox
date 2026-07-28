@@ -65,6 +65,7 @@ builder.Services.AddScoped<IUtilitySetupRepository, JsonUtilitySetupRepository>(
 builder.Services.AddScoped<IReadingSubmissionRepository, JsonReadingSubmissionRepository>();
 builder.Services.AddScoped<ITariffVersionRepository, JsonTariffVersionRepository>();
 builder.Services.AddScoped<ICalculationSnapshotRepository, JsonCalculationSnapshotRepository>();
+builder.Services.AddScoped<IPaymentRepository, JsonPaymentRepository>();
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
@@ -74,6 +75,7 @@ builder.Services.AddScoped<AdminApprovalService>();
 builder.Services.AddScoped<AdminRoleService>();
 builder.Services.AddScoped<BillingInputService>();
 builder.Services.AddScoped<CalculationSnapshotService>();
+builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();

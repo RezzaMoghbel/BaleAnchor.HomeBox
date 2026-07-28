@@ -93,6 +93,30 @@ public sealed class JsonCollectionStore
         }
     }
 
+    public async Task DeleteAsync(string collectionName, string id, CancellationToken cancellationToken)
+    {
+        var collectionPath = EnsureCollectionPath(collectionName);
+        var filePath = Path.Combine(collectionPath, $"{id}.json");
+        if (!File.Exists(filePath))
+        {
+            return;
+        }
+
+        var gate = CollectionLocks.GetOrAdd(collectionName, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     private string EnsureCollectionPath(string collectionName)
     {
         return Path.Combine(rootPath, collectionName);
