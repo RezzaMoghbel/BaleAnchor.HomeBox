@@ -75,6 +75,13 @@ interface AdminDecisionResponse {
   message: string;
 }
 
+interface AdminRoleChangeResponse {
+  userId: string;
+  previousRole: string;
+  newRole: string;
+  message: string;
+}
+
 interface ApiProblemDetails {
   title?: string;
   detail?: string;
@@ -134,6 +141,7 @@ function App() {
   >([]);
   const [adminTargetUserId, setAdminTargetUserId] = useState("");
   const [adminReason, setAdminReason] = useState("");
+  const [adminRoleTarget, setAdminRoleTarget] = useState("Admin");
   const [adminMessage, setAdminMessage] = useState(
     "Admin approvals not loaded.",
   );
@@ -528,6 +536,44 @@ function App() {
     }
   };
 
+  const submitRoleChange = async () => {
+    if (!adminTargetUserId || !adminReason || !adminRoleTarget) {
+      setAdminMessage("Target user ID, role, and reason are required.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/v1/admin/roles/${encodeURIComponent(adminTargetUserId)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ role: adminRoleTarget, reason: adminReason }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await readProblemDetails(response);
+        setAdminMessage(`Role update failed. ${error.message}`);
+        return;
+      }
+
+      const body = (await response.json()) as AdminRoleChangeResponse;
+      setAdminMessage(
+        `${body.message} User ${body.userId}: ${body.previousRole} -> ${body.newRole}.`,
+      );
+      await loadPendingApprovals();
+    } catch {
+      setAdminMessage("Role update failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="wrapper">
       <header className="top-header">
@@ -832,6 +878,34 @@ function App() {
                       Reject
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <div className="row g-3 align-items-end mt-1">
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="adminRoleTarget" className="form-label">
+                    New role
+                  </label>
+                  <select
+                    id="adminRoleTarget"
+                    className="form-select"
+                    value={adminRoleTarget}
+                    onChange={(event) => setAdminRoleTarget(event.target.value)}
+                  >
+                    <option value="Resident">Resident</option>
+                    <option value="Admin">Admin</option>
+                    <option value="SuperAdmin">SuperAdmin</option>
+                  </select>
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={submitRoleChange}
+                    disabled={loading}
+                  >
+                    Update role
+                  </button>
                 </div>
               </div>
 

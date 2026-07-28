@@ -66,6 +66,7 @@ builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApprovalService>();
+builder.Services.AddScoped<AdminRoleService>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();

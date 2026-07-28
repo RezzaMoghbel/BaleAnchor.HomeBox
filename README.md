@@ -30,3 +30,13 @@ Admin approval endpoints are role-protected (`Admin`/`SuperAdmin`).
 Example environment variable override:
 
 - `AdminAccess__BootstrapAdminEmails__0=admin@example.com`
+
+## Admin Role Management
+
+Admin role changes are available via `POST /api/v1/admin/roles/{targetUserId}` in `BaleAnchorUtility.Server`.
+
+- Access gate: authenticated `Admin` or `SuperAdmin` (plus bootstrap email fallback for first-time setup).
+- Enforcement: only `SuperAdmin` can change roles.
+- Safety rule: `SuperAdmin` cannot remove their own `SuperAdmin` role.
+- Validation: role and reason are strictly validated and return RFC 7807 validation payloads on HTTP 400.
+- Audit: every role change is written to `AuditLogs` with category `ADMIN_ROLE` and action `CHANGE_ROLE`.
