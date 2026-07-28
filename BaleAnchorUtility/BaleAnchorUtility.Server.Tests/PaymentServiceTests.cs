@@ -176,6 +176,81 @@ public sealed class PaymentServiceTests
         Assert.Equal("Amount outstanding", result.BalanceStatus);
     }
 
+    [Fact]
+    public async Task UpdatePaymentAsync_UpdatesMutableFields()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p1",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 80m,
+                PaymentDate = "2026-08-01",
+                Method = "Card",
+                Reference = "OLD-REF",
+                Notes = "Old note",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.Parse("2026-08-01T00:00:00Z"),
+                UpdatedAtUtc = DateTimeOffset.Parse("2026-08-01T00:00:00Z"),
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(users, new InMemoryCalculationSnapshotRepository(), payments);
+
+        var response = await service.UpdatePaymentAsync(
+            "u-active",
+            "p1",
+            new UpdatePaymentRequest
+            {
+                Amount = "95.50",
+                PaymentDate = "2026-08-03",
+                Method = "Direct Debit",
+                Reference = "NEW-REF",
+                Notes = "Updated note",
+            },
+            CancellationToken.None);
+
+        Assert.Equal("95.50", response.Amount);
+        Assert.Equal("2026-08-03", response.PaymentDate);
+        Assert.Equal("Direct Debit", response.Method);
+        Assert.Equal("NEW-REF", response.Reference);
+        Assert.Equal("Updated note", response.Notes);
+
+        var stored = await payments.GetByIdAsync("p1", CancellationToken.None);
+        Assert.NotNull(stored);
+        Assert.Equal(2, stored!.Version);
+        Assert.Equal(95.50m, stored.Amount);
+    }
+
+    [Fact]
+    public async Task UpdatePaymentAsync_ThrowsNotFound_WhenPaymentMissing()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var service = CreateService(users, new InMemoryCalculationSnapshotRepository(), new InMemoryPaymentRepository());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.UpdatePaymentAsync(
+                "u-active",
+                "missing",
+                new UpdatePaymentRequest
+                {
+                    Amount = "10",
+                    PaymentDate = "2026-08-01",
+                    Method = "Card",
+                },
+                CancellationToken.None));
+    }
+
     private static PaymentService CreateService(
         InMemoryUserRepository users,
         InMemoryCalculationSnapshotRepository snapshots,

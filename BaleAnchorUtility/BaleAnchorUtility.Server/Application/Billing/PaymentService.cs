@@ -223,6 +223,83 @@ public sealed class PaymentService
         };
     }
 
+    public async Task<UpdatePaymentResponse> UpdatePaymentAsync(
+        string userId,
+        string paymentId,
+        UpdatePaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(paymentId))
+        {
+            throw new ArgumentException("Payment id is required.", nameof(paymentId));
+        }
+
+        var payment = await paymentRepository.GetByIdAsync(paymentId, cancellationToken)
+            ?? throw new KeyNotFoundException("The requested payment was not found.");
+
+        if (!string.Equals(payment.UserId, user.Id, StringComparison.Ordinal))
+        {
+            throw new KeyNotFoundException("The requested payment was not found.");
+        }
+
+        var amount = ParseAmount(request.Amount);
+        var paymentDate = ParseDate(request.PaymentDate, "Payment date must use yyyy-MM-dd format.");
+        if (paymentDate > DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
+        {
+            throw new InvalidOperationException("Payment date cannot be in the future.");
+        }
+
+        var method = request.Method.Trim();
+        if (method.Length < 2 || method.Length > 40)
+        {
+            throw new ArgumentException("Payment method must be between 2 and 40 characters.", nameof(request.Method));
+        }
+
+        payment.Amount = amount;
+        payment.PaymentDate = paymentDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        payment.Method = method;
+        payment.Reference = NormalizeOptional(request.Reference, 100, nameof(request.Reference));
+        payment.Notes = NormalizeOptional(request.Notes, 300, nameof(request.Notes));
+        payment.UpdatedAtUtc = clock.UtcNow;
+        payment.Version += 1;
+
+        await paymentRepository.AddAsync(payment, cancellationToken);
+        await auditLogRepository.AddAsync(
+            new AuditLogEntry
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ActorUserId = user.Id,
+                TargetUserId = user.Id,
+                Category = "PAYMENT",
+                Action = "UPDATE_PAYMENT",
+                Reason = "Payment updated by resident",
+                Metadata = $"paymentId:{payment.Id};period:{payment.PeriodStartDate}_{payment.PeriodEndDateExclusive};amount:{payment.Amount.ToString("0.00", CultureInfo.InvariantCulture)}",
+                CreatedAtUtc = clock.UtcNow,
+                Version = 1,
+            },
+            cancellationToken);
+
+        logger.LogInformation("Payment {PaymentId} updated for user {UserId}.", payment.Id, user.Id);
+
+        return new UpdatePaymentResponse
+        {
+            PaymentId = payment.Id,
+            UserId = payment.UserId,
+            PeriodStartDate = payment.PeriodStartDate,
+            PeriodEndDateExclusive = payment.PeriodEndDateExclusive,
+            Amount = payment.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            PaymentDate = payment.PaymentDate,
+            Method = payment.Method,
+            Reference = payment.Reference,
+            Notes = payment.Notes,
+            Source = payment.Source,
+            VerificationStatus = payment.VerificationStatus,
+            Message = "Payment updated.",
+        };
+    }
+
     private async Task<UserAccount> GetEligibleUserAsync(string userId, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)

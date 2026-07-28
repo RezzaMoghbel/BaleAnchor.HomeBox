@@ -245,6 +245,108 @@ public sealed class BillingControllerTests
         Assert.Equal("BILLING_READING_DELETE_CONFLICT", problem.Extensions["errorCode"]?.ToString());
     }
 
+    [Fact]
+    public async Task UpdatePayment_Returns404_WhenPaymentDoesNotExist()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true);
+
+        var action = await controller.UpdatePayment(
+            "missing",
+            new UpdatePaymentRequest
+            {
+                Amount = "100.00",
+                PaymentDate = "2026-08-10",
+                Method = "Direct Debit",
+            },
+            CancellationToken.None);
+
+        var notFound = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(notFound.Value);
+
+        Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
+        Assert.Equal("BILLING_PAYMENT_NOT_FOUND", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task UpdatePayment_Returns400_WhenMethodIsInvalid()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("u1", "resident@example.com", UserRole.Resident, UserAccountStatus.Active);
+        users.Seed(actor);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p1",
+                UserId = actor.Id,
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 100m,
+                PaymentDate = "2026-08-02",
+                Method = "Card",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var billing = new BillingInputService(
+            users,
+            new InMemoryReadingSubmissionRepository(),
+            new InMemoryTariffVersionRepository(),
+            payments,
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<BillingInputService>.Instance);
+
+        var calc = new CalculationSnapshotService(
+            users,
+            new InMemoryReadingSubmissionRepository(),
+            new InMemoryTariffVersionRepository(),
+            new InMemoryUtilitySetupRepository(),
+            new InMemoryCalculationSnapshotRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var paymentService = new PaymentService(
+            users,
+            new InMemoryCalculationSnapshotRepository(),
+            payments,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<PaymentService>.Instance);
+
+        var controller = new BillingController(auth, billing, calc, paymentService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = NewHttpContext("/api/v1/billing/payments/p1", withSessionCookie: true),
+            },
+        };
+
+        var action = await controller.UpdatePayment(
+            "p1",
+            new UpdatePaymentRequest
+            {
+                Amount = "100.00",
+                PaymentDate = "2026-07-10",
+                Method = "A",
+            },
+            CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(action.Result);
+        var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.True(problem.Errors.ContainsKey("method"));
+        Assert.Equal("BILLING_PAYMENT_VALIDATION", problem.Extensions["errorCode"]?.ToString());
+    }
+
     private static BillingController CreateController(bool withSessionCookie, bool seedUser)
     {
         var users = new InMemoryUserRepository();

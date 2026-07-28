@@ -306,6 +306,52 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPut("payments/{paymentId}")]
+    [ProducesResponseType(typeof(UpdatePaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpdatePaymentResponse>> UpdatePayment(
+        string paymentId,
+        [FromBody] UpdatePaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.UpdatePaymentAsync(userId, paymentId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = string.Equals(ex.ParamName, nameof(paymentId), StringComparison.Ordinal)
+                ? "paymentId"
+                : string.Equals(ex.ParamName, nameof(UpdatePaymentRequest.Method), StringComparison.Ordinal)
+                    ? "method"
+                    : string.Equals(ex.ParamName, nameof(UpdatePaymentRequest.Reference), StringComparison.Ordinal)
+                        ? "reference"
+                        : string.Equals(ex.ParamName, nameof(UpdatePaymentRequest.Notes), StringComparison.Ordinal)
+                            ? "notes"
+                            : "request";
+
+            return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "BILLING_PAYMENT_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
     private async Task<string?> ResolveUserIdAsync(CancellationToken cancellationToken)
     {
         Request.Cookies.TryGetValue(authService.SessionCookieName, out var rawToken);
