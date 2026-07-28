@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/ProjectDocuments/">
+    <File Path="ProjectDouments/BUSINESS_PLAN.md" />
+    <File Path="ProjectDouments/CLAUDE.md" />
+    <File Path="ProjectDouments/README_FILES.md" />
+  </Folder>
+  <Project Path="baleanchorutility.client/baleanchorutility.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="BaleAnchorUtility.Server/BaleAnchorUtility.Server.csproj" />
+</Solution>
