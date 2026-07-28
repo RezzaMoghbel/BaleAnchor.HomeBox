@@ -6,5 +6,6 @@ public sealed class SessionStatusResponse
     public string? UserId { get; init; }
     public string? EmailMasked { get; init; }
     public string? UserStatus { get; init; }
+    public string? UserRole { get; init; }
     public string? ExpiresAtUtc { get; init; }
 }

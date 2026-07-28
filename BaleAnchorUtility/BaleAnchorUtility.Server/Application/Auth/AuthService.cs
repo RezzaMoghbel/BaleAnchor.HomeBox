@@ -250,6 +250,7 @@ public sealed class AuthService
             UserId = session.UserId,
             EmailMasked = MaskEmail(session.EmailNormalized),
             UserStatus = user?.Status.ToString(),
+            UserRole = user?.Role.ToString(),
             ExpiresAtUtc = session.ExpiresAtUtc.ToString("O"),
         };
     }

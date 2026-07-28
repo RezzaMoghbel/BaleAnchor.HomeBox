@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getFieldErrors, readProblemDetails } from "./shared/problemDetails";
 import "./App.css";
 
 interface RequestCodeResponse {
@@ -19,6 +20,7 @@ interface SessionStatusResponse {
   userId?: string;
   emailMasked?: string;
   userStatus?: string;
+  userRole?: string;
   expiresAtUtc?: string;
 }
 
@@ -56,31 +58,6 @@ interface OnboardingProgressResponse {
   profileComplete: boolean;
   utilitySetupComplete: boolean;
   nextStep: string;
-}
-
-interface PendingApprovalUserItem {
-  userId: string;
-  emailMasked: string;
-  submittedState: string;
-  updatedAtUtc: string;
-}
-
-interface PendingApprovalListResponse {
-  items: PendingApprovalUserItem[];
-  count: number;
-}
-
-interface AdminDecisionResponse {
-  userId: string;
-  newStatus: string;
-  message: string;
-}
-
-interface AdminRoleChangeResponse {
-  userId: string;
-  previousRole: string;
-  newRole: string;
-  message: string;
 }
 
 interface SubmitReadingsResponse {
@@ -259,19 +236,6 @@ interface StatementExportHistoryResponse {
   items: StatementExportHistoryItemResponse[];
 }
 
-interface ApiProblemDetails {
-  title?: string;
-  detail?: string;
-  status?: number;
-  errorCode?: string;
-  errors?: Record<string, string[]>;
-}
-
-interface ParsedProblemDetails {
-  message: string;
-  errors: Record<string, string[]>;
-}
-
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -316,15 +280,6 @@ function App() {
   const [utilityFieldErrors, setUtilityFieldErrors] = useState<
     Record<string, string[]>
   >({});
-  const [pendingApprovals, setPendingApprovals] = useState<
-    PendingApprovalUserItem[]
-  >([]);
-  const [adminTargetUserId, setAdminTargetUserId] = useState("");
-  const [adminReason, setAdminReason] = useState("");
-  const [adminRoleTarget, setAdminRoleTarget] = useState("Admin");
-  const [adminMessage, setAdminMessage] = useState(
-    "Admin approvals not loaded.",
-  );
   const [readingDate, setReadingDate] = useState("");
   const [coldWaterReading, setColdWaterReading] = useState("");
   const [hotWaterReading, setHotWaterReading] = useState("");
@@ -378,57 +333,6 @@ function App() {
     StatementExportHistoryItemResponse[]
   >([]);
   const [loading, setLoading] = useState(false);
-
-  const formatValidationErrors = (errors?: Record<string, string[]>) => {
-    if (!errors) {
-      return "";
-    }
-
-    const parts = Object.entries(errors)
-      .flatMap(([field, messages]) =>
-        messages.map((message) => `${field}: ${message}`),
-      )
-      .filter((x) => x.length > 0);
-
-    return parts.length > 0 ? ` ${parts.join(" | ")}` : "";
-  };
-
-  const getFieldErrors = (
-    errors: Record<string, string[]>,
-    fieldName: string,
-  ) => {
-    const direct = errors[fieldName];
-    if (direct && direct.length > 0) {
-      return direct;
-    }
-
-    const wanted = fieldName.toLowerCase();
-    const matchEntry = Object.entries(errors).find(([key]) => {
-      const normalized = key.replace(/^\$\./, "").toLowerCase();
-      return normalized === wanted;
-    });
-
-    return matchEntry?.[1] ?? [];
-  };
-
-  const readProblemDetails = async (
-    response: Response,
-  ): Promise<ParsedProblemDetails> => {
-    try {
-      const body = (await response.json()) as ApiProblemDetails;
-      const detail = body.detail || body.title || "The request failed.";
-      const errors = body.errors ?? {};
-      return {
-        message: `${detail}${formatValidationErrors(errors)}`,
-        errors,
-      };
-    } catch {
-      return {
-        message: "The request failed.",
-        errors: {},
-      };
-    }
-  };
 
   const requestCode = async () => {
     setLoading(true);
@@ -714,112 +618,6 @@ function App() {
     } catch {
       setOnboardingProgress(null);
       setProgressMessage("Failed to load onboarding progress.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPendingApprovals = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/v1/admin/approvals/pending", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setAdminMessage(`Unable to load pending approvals. ${error.message}`);
-        setPendingApprovals([]);
-        return;
-      }
-
-      const body = (await response.json()) as PendingApprovalListResponse;
-      setPendingApprovals(body.items);
-      setAdminMessage(`Loaded ${body.count} pending approval record(s).`);
-    } catch {
-      setAdminMessage("Failed to load pending approvals.");
-      setPendingApprovals([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitAdminDecision = async (action: "approve" | "reject") => {
-    if (!adminTargetUserId || !adminReason) {
-      setAdminMessage("Target user ID and reason are required.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/v1/admin/approvals/${encodeURIComponent(adminTargetUserId)}/${action}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ reason: adminReason }),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setAdminMessage(
-          `${action === "approve" ? "Approve" : "Reject"} failed. ${error.message}`,
-        );
-        return;
-      }
-
-      const body = (await response.json()) as AdminDecisionResponse;
-      setAdminMessage(
-        `${body.message} User ${body.userId} now in state ${body.newStatus}.`,
-      );
-      await loadPendingApprovals();
-    } catch {
-      setAdminMessage(
-        `${action === "approve" ? "Approve" : "Reject"} action failed.`,
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitRoleChange = async () => {
-    if (!adminTargetUserId || !adminReason || !adminRoleTarget) {
-      setAdminMessage("Target user ID, role, and reason are required.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/v1/admin/roles/${encodeURIComponent(adminTargetUserId)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ role: adminRoleTarget, reason: adminReason }),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setAdminMessage(`Role update failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as AdminRoleChangeResponse;
-      setAdminMessage(
-        `${body.message} User ${body.userId}: ${body.previousRole} -> ${body.newRole}.`,
-      );
-      await loadPendingApprovals();
-    } catch {
-      setAdminMessage("Role update failed.");
     } finally {
       setLoading(false);
     }
@@ -1258,17 +1056,23 @@ function App() {
     }
   };
 
-  const loadSelectedStatementSummary = async () => {
-    if (!selectedSnapshotId) {
+  const loadSelectedStatementSummary = async (snapshotId?: string) => {
+    const snapshot = snapshotId ?? selectedSnapshotId;
+
+    if (!snapshot) {
       setStatementMessage(
         "Select a period snapshot before loading selected summary.",
       );
       return;
     }
 
+    if (snapshot !== selectedSnapshotId) {
+      setSelectedSnapshotId(snapshot);
+    }
+
     setLoading(true);
     try {
-      const query = new URLSearchParams({ snapshotId: selectedSnapshotId });
+      const query = new URLSearchParams({ snapshotId: snapshot });
       const response = await fetch(
         `/api/v1/billing/statements/summary?${query.toString()}`,
         {
@@ -1299,15 +1103,21 @@ function App() {
     }
   };
 
-  const exportSelectedStatementPdf = async () => {
-    if (!selectedSnapshotId) {
+  const exportSelectedStatementPdf = async (snapshotId?: string) => {
+    const snapshot = snapshotId ?? selectedSnapshotId;
+
+    if (!snapshot) {
       setStatementMessage("Select a period snapshot before exporting PDF.");
       return;
     }
 
+    if (snapshot !== selectedSnapshotId) {
+      setSelectedSnapshotId(snapshot);
+    }
+
     setLoading(true);
     try {
-      const query = new URLSearchParams({ snapshotId: selectedSnapshotId });
+      const query = new URLSearchParams({ snapshotId: snapshot });
       const response = await fetch(
         `/api/v1/billing/statements/export-pdf?${query.toString()}`,
         {
@@ -1332,7 +1142,7 @@ function App() {
           ?.split("filename=")
           .at(1)
           ?.replaceAll('"', "")
-          ?.trim() || `statement-${selectedSnapshotId}.pdf`;
+          ?.trim() || `statement-${snapshot}.pdf`;
 
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -1397,10 +1207,13 @@ function App() {
     const isLoginPath = path === "/" || path === "/login";
     const isOnboardingPath = path === "/onboarding";
     const isDashboardPath = path.startsWith("/dashboard");
+    const isAdminPath = path.startsWith("/dashboard/admin");
 
     const isAuthenticated = currentSession?.isAuthenticated === true;
     const status = currentSession?.userStatus?.trim().toLowerCase();
+    const role = currentSession?.userRole?.trim().toLowerCase();
     const needsOnboarding = isAuthenticated && status !== "active";
+    const isAdminUser = role === "admin" || role === "superadmin";
 
     if (!isAuthenticated) {
       return isLoginPath ? null : "/login";
@@ -1408,6 +1221,10 @@ function App() {
 
     if (needsOnboarding) {
       return isOnboardingPath ? null : "/onboarding";
+    }
+
+    if (isAdminPath && !isAdminUser) {
+      return "/dashboard";
     }
 
     return isDashboardPath ? null : "/dashboard";
@@ -1439,9 +1256,32 @@ function App() {
     ? "payments"
     : location.pathname.startsWith("/dashboard/statements")
       ? "statements"
+      : location.pathname.startsWith("/dashboard/admin")
+        ? "admin"
       : location.pathname.startsWith("/dashboard/readings")
         ? "readings"
         : "overview";
+
+  const userRole = session?.userRole?.trim().toLowerCase() ?? "";
+  const isAdminUser = userRole === "admin" || userRole === "superadmin";
+
+  useEffect(() => {
+    if (dashboardSection !== "statements") {
+      return;
+    }
+
+    if (statementPeriods.length === 0) {
+      void loadStatementPeriods();
+    }
+
+    if (statementExportHistory.length === 0) {
+      void loadStatementExportHistory(true);
+    }
+  }, [
+    dashboardSection,
+    statementExportHistory.length,
+    statementPeriods.length,
+  ]);
 
   const shellLinkClass = (path: string) =>
     `shell-nav-link${pageMode === path ? " shell-nav-link--active" : ""}`;
@@ -2124,6 +1964,45 @@ function App() {
       >
         Statements
       </Link>
+      {isAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "admin" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/admin"
+        >
+          Admin
+        </Link>
+      )}
+    </div>
+  );
+
+  const renderAdminView = () => (
+    <div className="wrapper">
+      {renderShellHeader()}
+      <main className="page-content p-4">
+        <div className="container-fluid">
+          <section className="hero-shell card border-0 shadow-sm mb-4">
+            <div className="card-body p-4 p-xl-5">
+              <h1 className="hero-title mb-3">Admin workspace</h1>
+              <p className="hero-copy mb-0">
+                Role-bound area for approval, tenancy, and audit workflows.
+                This route is visible only to Admin and SuperAdmin sessions.
+              </p>
+            </div>
+          </section>
+
+          {renderDashboardRouteTabs()}
+
+          <div className="card radius-10 border-0 shadow-sm">
+            <div className="card-body">
+              <h5 className="mb-3">Next slice queued</h5>
+              <p className="text-secondary mb-0">
+                Admin operations will be migrated into this page in the next
+                implementation step, separated from resident dashboard routes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 
@@ -2655,7 +2534,7 @@ function App() {
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
-                  onClick={loadSelectedStatementSummary}
+                  onClick={() => void loadSelectedStatementSummary()}
                   disabled={loading || !selectedSnapshotId}
                 >
                   Load selected summary
@@ -2663,7 +2542,7 @@ function App() {
                 <button
                   type="button"
                   className="btn btn-outline-success"
-                  onClick={exportSelectedStatementPdf}
+                  onClick={() => void exportSelectedStatementPdf()}
                   disabled={loading || !selectedSnapshotId}
                 >
                   Export selected PDF
@@ -2787,7 +2666,7 @@ function App() {
                         <th>Total</th>
                         <th>Difference</th>
                         <th>Status</th>
-                        <th></th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2801,17 +2680,43 @@ function App() {
                           <td>{item.periodDifference}</td>
                           <td>{item.periodBalanceStatus}</td>
                           <td>
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${selectedSnapshotId === item.snapshotId ? "btn-primary" : "btn-outline-primary"}`}
-                              onClick={() =>
-                                setSelectedSnapshotId(item.snapshotId)
-                              }
-                            >
-                              {selectedSnapshotId === item.snapshotId
-                                ? "Selected"
-                                : "Select"}
-                            </button>
+                            <div className="d-flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${selectedSnapshotId === item.snapshotId ? "btn-primary" : "btn-outline-primary"}`}
+                                onClick={() =>
+                                  setSelectedSnapshotId(item.snapshotId)
+                                }
+                              >
+                                {selectedSnapshotId === item.snapshotId
+                                  ? "Selected"
+                                  : "Select"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() =>
+                                  void loadSelectedStatementSummary(
+                                    item.snapshotId,
+                                  )
+                                }
+                                disabled={loading}
+                              >
+                                Load
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-success"
+                                onClick={() =>
+                                  void exportSelectedStatementPdf(
+                                    item.snapshotId,
+                                  )
+                                }
+                                disabled={loading}
+                              >
+                                Export
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2881,6 +2786,10 @@ function App() {
 
   if (dashboardSection === "statements") {
     return renderStatementsView();
+  }
+
+  if (dashboardSection === "admin") {
+    return renderAdminView();
   }
 
   return (
@@ -3191,123 +3100,6 @@ function App() {
                   <div className="mt-2 text-secondary small">
                     Version: {activeTerms.versionLabel} ({activeTerms.versionId}
                     ){` | Effective: ${activeTerms.effectiveFromUtc}`}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card radius-10 border-0 shadow-sm mt-4">
-            <div className="card-body">
-              <h5 className="mb-3">Admin Review Prototype</h5>
-              <p className="text-secondary mb-3">
-                Role-based pending approval review with reasoned approve/reject
-                actions. For first-time setup, add your account email to
-                BootstrapAdminEmails.
-              </p>
-
-              <div className="d-flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={loadPendingApprovals}
-                  disabled={loading}
-                >
-                  Load pending approvals
-                </button>
-              </div>
-
-              <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg-4">
-                  <label htmlFor="adminTargetUserId" className="form-label">
-                    Target user ID
-                  </label>
-                  <input
-                    id="adminTargetUserId"
-                    type="text"
-                    className="form-control"
-                    placeholder="user id"
-                    value={adminTargetUserId}
-                    onChange={(event) =>
-                      setAdminTargetUserId(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-12 col-lg-5">
-                  <label htmlFor="adminReason" className="form-label">
-                    Decision reason
-                  </label>
-                  <input
-                    id="adminReason"
-                    type="text"
-                    className="form-control"
-                    placeholder="reason"
-                    value={adminReason}
-                    onChange={(event) => setAdminReason(event.target.value)}
-                  />
-                </div>
-                <div className="col-12 col-lg-3">
-                  <div className="d-flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline-success"
-                      onClick={() => submitAdminDecision("approve")}
-                      disabled={loading}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger"
-                      onClick={() => submitAdminDecision("reject")}
-                      disabled={loading}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="row g-3 align-items-end mt-1">
-                <div className="col-12 col-lg-3">
-                  <label htmlFor="adminRoleTarget" className="form-label">
-                    New role
-                  </label>
-                  <select
-                    id="adminRoleTarget"
-                    className="form-select"
-                    value={adminRoleTarget}
-                    onChange={(event) => setAdminRoleTarget(event.target.value)}
-                  >
-                    <option value="Resident">Resident</option>
-                    <option value="Admin">Admin</option>
-                    <option value="SuperAdmin">SuperAdmin</option>
-                  </select>
-                </div>
-                <div className="col-12 col-lg-3">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={submitRoleChange}
-                    disabled={loading}
-                  >
-                    Update role
-                  </button>
-                </div>
-              </div>
-
-              <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Admin status</div>
-                <div>{adminMessage}</div>
-                {pendingApprovals.length > 0 && (
-                  <div className="mt-2 text-secondary small">
-                    {pendingApprovals
-                      .slice(0, 5)
-                      .map(
-                        (item) =>
-                          `${item.userId} (${item.emailMasked}) - ${item.submittedState}`,
-                      )
-                      .join(" | ")}
                   </div>
                 )}
               </div>
