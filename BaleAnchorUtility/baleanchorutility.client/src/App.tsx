@@ -36,6 +36,12 @@ interface AcceptTermsResponse {
   message: string;
 }
 
+interface CompleteUtilitySetupResponse {
+  userId: string;
+  status: string;
+  message: string;
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -45,6 +51,20 @@ function App() {
     null,
   );
   const [termsMessage, setTermsMessage] = useState("No terms loaded.");
+  const [moveInDate, setMoveInDate] = useState("");
+  const [openingColdWaterReading, setOpeningColdWaterReading] = useState("");
+  const [openingHotWaterReading, setOpeningHotWaterReading] = useState("");
+  const [openingElectricityReading, setOpeningElectricityReading] =
+    useState("");
+  const [initialWaterTariffPerUnit, setInitialWaterTariffPerUnit] =
+    useState("");
+  const [initialElectricityTariffPerUnit, setInitialElectricityTariffPerUnit] =
+    useState("");
+  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] = useState("");
+  const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] = useState("");
+  const [utilitySetupMessage, setUtilitySetupMessage] = useState(
+    "No utility setup submitted.",
+  );
   const [loading, setLoading] = useState(false);
 
   const requestCode = async () => {
@@ -180,6 +200,45 @@ function App() {
       setTermsMessage(`${body.message} Accepted at ${body.acceptedAtUtc}.`);
     } catch {
       setTermsMessage("Failed to accept terms.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitUtilitySetup = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/onboarding/utility-setup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          moveInDate,
+          openingColdWaterReading,
+          openingHotWaterReading,
+          openingElectricityReading,
+          initialWaterTariffPerUnit,
+          initialElectricityTariffPerUnit,
+          boilerKwhPerCubicMeter,
+          boilerEfficiencyPercent,
+        }),
+      });
+
+      if (!response.ok) {
+        setUtilitySetupMessage(
+          "Utility setup failed. Ensure terms and profile are complete first, then check input formats.",
+        );
+        return;
+      }
+
+      const body = (await response.json()) as CompleteUtilitySetupResponse;
+      setUtilitySetupMessage(`${body.message} Status: ${body.status}.`);
+      setStatusMessage(`Utility setup complete for user ${body.userId}.`);
+      await refreshSession();
+    } catch {
+      setUtilitySetupMessage("Failed to submit utility setup.");
     } finally {
       setLoading(false);
     }
@@ -417,6 +476,152 @@ function App() {
                     ){` | Effective: ${activeTerms.effectiveFromUtc}`}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Onboarding Utility Setup</h5>
+              <p className="text-secondary mb-3">
+                Next vertical slice: move-in date, opening readings, initial
+                tariffs, and boiler assumptions.
+              </p>
+
+              <div className="row g-3">
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="moveInDate" className="form-label">
+                    Move-in date
+                  </label>
+                  <input
+                    id="moveInDate"
+                    type="date"
+                    className="form-control"
+                    value={moveInDate}
+                    onChange={(event) => setMoveInDate(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="coldWater" className="form-label">
+                    Opening cold-water
+                  </label>
+                  <input
+                    id="coldWater"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={openingColdWaterReading}
+                    onChange={(event) =>
+                      setOpeningColdWaterReading(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="hotWater" className="form-label">
+                    Opening hot-water
+                  </label>
+                  <input
+                    id="hotWater"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={openingHotWaterReading}
+                    onChange={(event) =>
+                      setOpeningHotWaterReading(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="electricity" className="form-label">
+                    Opening electricity
+                  </label>
+                  <input
+                    id="electricity"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.000"
+                    value={openingElectricityReading}
+                    onChange={(event) =>
+                      setOpeningElectricityReading(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="waterTariff" className="form-label">
+                    Initial water tariff
+                  </label>
+                  <input
+                    id="waterTariff"
+                    type="text"
+                    className="form-control"
+                    placeholder="1.234567"
+                    value={initialWaterTariffPerUnit}
+                    onChange={(event) =>
+                      setInitialWaterTariffPerUnit(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="electricityTariff" className="form-label">
+                    Initial electricity tariff
+                  </label>
+                  <input
+                    id="electricityTariff"
+                    type="text"
+                    className="form-control"
+                    placeholder="0.456789"
+                    value={initialElectricityTariffPerUnit}
+                    onChange={(event) =>
+                      setInitialElectricityTariffPerUnit(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="boilerKwh" className="form-label">
+                    Boiler kWh/m3
+                  </label>
+                  <input
+                    id="boilerKwh"
+                    type="text"
+                    className="form-control"
+                    placeholder="10.500000"
+                    value={boilerKwhPerCubicMeter}
+                    onChange={(event) =>
+                      setBoilerKwhPerCubicMeter(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="boilerEfficiency" className="form-label">
+                    Boiler efficiency (%)
+                  </label>
+                  <input
+                    id="boilerEfficiency"
+                    type="text"
+                    className="form-control"
+                    placeholder="85.00"
+                    value={boilerEfficiencyPercent}
+                    onChange={(event) =>
+                      setBoilerEfficiencyPercent(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={submitUtilitySetup}
+                  disabled={loading}
+                >
+                  Submit utility setup
+                </button>
+              </div>
+
+              <div className="alert alert-light border mt-3 mb-0" role="status">
+                <div className="fw-semibold mb-1">Utility setup status</div>
+                <div>{utilitySetupMessage}</div>
               </div>
             </div>
           </div>

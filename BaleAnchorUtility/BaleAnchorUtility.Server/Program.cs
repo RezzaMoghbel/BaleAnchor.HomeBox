@@ -56,6 +56,7 @@ builder.Services.AddScoped<IOtpChallengeRepository, JsonOtpChallengeRepository>(
 builder.Services.AddScoped<ISessionRepository, JsonSessionRepository>();
 builder.Services.AddScoped<ITermsVersionRepository, JsonTermsVersionRepository>();
 builder.Services.AddScoped<ITermsAcceptanceRepository, JsonTermsAcceptanceRepository>();
+builder.Services.AddScoped<IUtilitySetupRepository, JsonUtilitySetupRepository>();
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
