@@ -135,6 +135,7 @@ Current progress in this phase:
 - Fixed visible development OTP is implemented for configured seed emails.
 - Representative resident demo data is now seeded for the active resident flow.
 - Development reset/reseed endpoints now exist under `/api/system/dev-seed`.
+- Operational usage and removal steps are documented in `SEED_ACCESS_RUNBOOK.md`.
 
 Exit criteria:
 
