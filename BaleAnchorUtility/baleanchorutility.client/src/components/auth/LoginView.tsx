@@ -209,7 +209,10 @@ export function LoginView({
                         )}
                       </div>
 
-                      <DevelopmentSeedAccessCard />
+                      <DevelopmentSeedAccessCard
+                        loading={loading}
+                        onUseSeedEmail={onEmailChange}
+                      />
                     </div>
                   </div>
                 </div>

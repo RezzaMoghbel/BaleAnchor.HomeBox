@@ -27,6 +27,21 @@ export interface DevelopmentSeedStatusResponse {
   seedEmails: string[];
 }
 
+export interface DevelopmentSeedOperationResponse {
+  message: string;
+  usersChanged: number;
+  sessionsChanged: number;
+  otpChallengesChanged: number;
+  termsAcceptancesChanged: number;
+  utilitySetupsChanged: number;
+  tariffsChanged: number;
+  readingsChanged: number;
+  calculationSnapshotsChanged: number;
+  paymentsChanged: number;
+  statementExportsChanged: number;
+  auditLogsChanged: number;
+}
+
 export interface ActiveTermsResponse {
   versionId: string;
   versionLabel: string;

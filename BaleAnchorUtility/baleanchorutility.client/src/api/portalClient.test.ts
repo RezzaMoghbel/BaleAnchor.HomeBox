@@ -107,4 +107,106 @@ describe("portalClient", () => {
     expect(result.suggestedName).toBe("statement-abc.pdf");
     await expect(result.blob.text()).resolves.toBe("pdf-data");
   });
+
+  it("loads development seed status details", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          enabled: true,
+          environment: "Development",
+          fixedOtpCode: "123456",
+          seedEmails: [
+            "superadmin@baleanchor.local",
+            "resident.active@baleanchor.local",
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    await expect(portalClient.getDevelopmentSeedStatus()).resolves.toEqual({
+      enabled: true,
+      environment: "Development",
+      fixedOtpCode: "123456",
+      seedEmails: [
+        "superadmin@baleanchor.local",
+        "resident.active@baleanchor.local",
+      ],
+    });
+  });
+
+  it("posts to reseed development data", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: "Development seed data reset and recreated.",
+          usersChanged: 8,
+          sessionsChanged: 1,
+          otpChallengesChanged: 1,
+          termsAcceptancesChanged: 2,
+          utilitySetupsChanged: 1,
+          tariffsChanged: 2,
+          readingsChanged: 2,
+          calculationSnapshotsChanged: 1,
+          paymentsChanged: 1,
+          statementExportsChanged: 1,
+          auditLogsChanged: 1,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const result = await portalClient.reseedDevelopmentData();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/system/dev-seed", {
+      method: "POST",
+    });
+    expect(result.message).toBe("Development seed data reset and recreated.");
+    expect(result.usersChanged).toBe(8);
+  });
+
+  it("deletes development seed data", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: "Development seed data removed.",
+          usersChanged: 4,
+          sessionsChanged: 2,
+          otpChallengesChanged: 1,
+          termsAcceptancesChanged: 1,
+          utilitySetupsChanged: 1,
+          tariffsChanged: 2,
+          readingsChanged: 2,
+          calculationSnapshotsChanged: 1,
+          paymentsChanged: 1,
+          statementExportsChanged: 1,
+          auditLogsChanged: 1,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const result = await portalClient.deleteDevelopmentSeedData();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/system/dev-seed", {
+      method: "DELETE",
+    });
+    expect(result.message).toBe("Development seed data removed.");
+    expect(result.usersChanged).toBe(4);
+  });
 });
