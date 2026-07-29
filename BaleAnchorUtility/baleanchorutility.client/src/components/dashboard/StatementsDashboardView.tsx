@@ -1,34 +1,9 @@
 import type { ReactNode } from "react";
-
-interface StatementSummary {
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  paymentAmount?: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-  currentBalance?: string;
-  currentBalanceStatus?: string;
-  containsEstimatedSegments?: boolean;
-}
-
-interface StatementPeriodItem {
-  snapshotId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-}
-
-interface StatementExportHistoryItem {
-  exportId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  templateVersion: string;
-  rendererVersion: string;
-  createdAtUtc: string;
-}
+import type {
+  StatementExportHistoryItemResponse,
+  StatementPeriodItemResponse,
+  StatementSummaryResponse,
+} from "../../shared/contracts";
 
 interface StatementsDashboardViewProps {
   shellHeader: ReactNode;
@@ -36,10 +11,10 @@ interface StatementsDashboardViewProps {
   loading: boolean;
   statementMessage: string;
   selectedSnapshotId: string;
-  latestStatementSummary: StatementSummary | null;
-  selectedStatementSummary: StatementSummary | null;
-  statementPeriods: StatementPeriodItem[];
-  statementExportHistory: StatementExportHistoryItem[];
+  latestStatementSummary: StatementSummaryResponse | null;
+  selectedStatementSummary: StatementSummaryResponse | null;
+  statementPeriods: StatementPeriodItemResponse[];
+  statementExportHistory: StatementExportHistoryItemResponse[];
   onLoadLatestStatementSummary: () => Promise<void>;
   onLoadStatementPeriods: () => Promise<void>;
   onLoadSelectedStatementSummary: (snapshotId?: string) => Promise<void>;

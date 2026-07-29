@@ -10,6 +10,14 @@ This repository is configured to use a project-scoped Copilot agent and instruct
 
 When editing core app files, prioritize `ProjectDouments/CLAUDE.md` requirements and keep API validation/error behavior aligned with the RFC 7807 ProblemDetails contract defined in the instruction files.
 
+## Client Shared Contracts
+
+Resident portal client response and cross-view shape contracts now live in `BaleAnchorUtility/baleanchorutility.client/src/shared/contracts.ts`.
+
+- Use that module for API response types and reused dashboard/auth/onboarding view shapes.
+- Keep component-local prop interfaces local, but import shared contract types instead of redefining server-facing data shapes in multiple views.
+- When server DTOs change, update the shared contracts module first so route components and `App.tsx` stay version-aligned.
+
 ## SMTP Configuration
 
 Server email transport is configured in `BaleAnchorUtility/BaleAnchorUtility.Server/appsettings.json` under `EmailTransport`.

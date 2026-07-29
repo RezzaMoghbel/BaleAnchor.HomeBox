@@ -1,15 +1,9 @@
 import type { ReactNode } from "react";
-
-interface LoginSession {
-  isAuthenticated: boolean;
-  emailMasked?: string;
-  userStatus?: string;
-  expiresAtUtc?: string;
-}
+import type { SessionStatusResponse } from "../../shared/contracts";
 
 interface LoginViewProps {
   shellHeader: ReactNode;
-  session: LoginSession | null;
+  session: SessionStatusResponse | null;
   email: string;
   code: string;
   loading: boolean;
@@ -133,7 +127,9 @@ export function LoginView({
                             className="form-control form-control-lg"
                             placeholder="resident@example.com"
                             value={email}
-                            onChange={(event) => onEmailChange(event.target.value)}
+                            onChange={(event) =>
+                              onEmailChange(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12 col-md-5">
@@ -146,7 +142,9 @@ export function LoginView({
                             className="form-control form-control-lg"
                             placeholder="123456"
                             value={code}
-                            onChange={(event) => onCodeChange(event.target.value)}
+                            onChange={(event) =>
+                              onCodeChange(event.target.value)
+                            }
                             maxLength={6}
                           />
                         </div>
@@ -195,8 +193,11 @@ export function LoginView({
                         <div>{statusMessage}</div>
                         {session && (
                           <div className="mt-2 text-secondary small">
-                            Session: {session.isAuthenticated ? "Active" : "Inactive"}
-                            {session.emailMasked ? ` | User: ${session.emailMasked}` : ""}
+                            Session:{" "}
+                            {session.isAuthenticated ? "Active" : "Inactive"}
+                            {session.emailMasked
+                              ? ` | User: ${session.emailMasked}`
+                              : ""}
                             {session.userStatus
                               ? ` | Account state: ${session.userStatus}`
                               : ""}

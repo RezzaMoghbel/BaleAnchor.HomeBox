@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-
-interface PendingApprovalItem {
-  userId: string;
-  emailMasked: string;
-  submittedState: string;
-  updatedAtUtc: string;
-}
+import type { PendingApprovalUserItem } from "../../shared/contracts";
 
 interface AdminDashboardViewProps {
   shellHeader: ReactNode;
@@ -15,7 +9,7 @@ interface AdminDashboardViewProps {
   adminReason: string;
   adminRoleTarget: string;
   adminMessage: string;
-  pendingApprovals: PendingApprovalItem[];
+  pendingApprovals: PendingApprovalUserItem[];
   onAdminTargetUserIdChange: (value: string) => void;
   onAdminReasonChange: (value: string) => void;
   onAdminRoleTargetChange: (value: string) => void;

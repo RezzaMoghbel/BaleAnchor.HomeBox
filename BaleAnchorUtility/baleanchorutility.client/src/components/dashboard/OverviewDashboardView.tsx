@@ -1,16 +1,10 @@
 import type { ReactNode } from "react";
-
-interface SessionOverview {
-  isAuthenticated?: boolean;
-  userStatus?: string;
-  userRole?: string;
-  expiresAtUtc?: string;
-}
+import type { SessionStatusResponse } from "../../shared/contracts";
 
 interface OverviewDashboardViewProps {
   shellHeader: ReactNode;
   routeTabs: ReactNode;
-  session: SessionOverview | null;
+  session: SessionStatusResponse | null;
   statusMessage: string;
   formatDisplayDateTime: (value?: string) => string;
 }

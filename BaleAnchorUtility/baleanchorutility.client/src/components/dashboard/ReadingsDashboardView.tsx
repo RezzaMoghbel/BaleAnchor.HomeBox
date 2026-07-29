@@ -1,28 +1,9 @@
 import type { ReactNode } from "react";
-
-interface LatestReadings {
-  readingDate: string;
-  coldWaterReading: string;
-  hotWaterReading: string;
-  electricityReading: string;
-}
-
-interface ActiveTariff {
-  effectiveFromDate: string;
-  waterTariffPerUnit: string;
-  waterStandingChargePerDay: string;
-  waterVatPercent: string;
-  electricityTariffPerUnit: string;
-  electricityStandingChargePerDay: string;
-  electricityVatPercent: string;
-}
-
-interface LatestCalculation {
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  containsEstimatedSegments: boolean;
-}
+import type {
+  ActiveTariffResponse,
+  CalculateLatestPeriodResponse,
+  LatestReadingsResponse,
+} from "../../shared/contracts";
 
 interface ReadingsDashboardViewProps {
   shellHeader: ReactNode;
@@ -40,9 +21,9 @@ interface ReadingsDashboardViewProps {
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
   billingMessage: string;
-  latestReadings: LatestReadings | null;
-  activeTariff: ActiveTariff | null;
-  latestCalculation: LatestCalculation | null;
+  latestReadings: LatestReadingsResponse | null;
+  activeTariff: ActiveTariffResponse | null;
+  latestCalculation: CalculateLatestPeriodResponse | null;
   onReadingDateChange: (value: string) => void;
   onColdWaterReadingChange: (value: string) => void;
   onHotWaterReadingChange: (value: string) => void;

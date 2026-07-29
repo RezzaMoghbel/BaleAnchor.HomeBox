@@ -1,28 +1,19 @@
 import type { ReactNode } from "react";
-
-interface ActiveTerms {
-  versionId: string;
-  versionLabel: string;
-  effectiveFromUtc: string;
-}
-
-interface OnboardingProgress {
-  accountStatus: string;
-  termsAccepted: boolean;
-  profileComplete: boolean;
-  utilitySetupComplete: boolean;
-  nextStep: string;
-}
+import type {
+  ActiveTermsResponse,
+  FieldErrors,
+  OnboardingProgressResponse,
+} from "../../shared/contracts";
 
 interface OnboardingViewProps {
   shellHeader: ReactNode;
   loading: boolean;
-  activeTerms: ActiveTerms | null;
+  activeTerms: ActiveTermsResponse | null;
   termsMessage: string;
   profileMessage: string;
   utilitySetupMessage: string;
   progressMessage: string;
-  onboardingProgress: OnboardingProgress | null;
+  onboardingProgress: OnboardingProgressResponse | null;
   surname: string;
   dateOfBirth: string;
   flatNumber: string;
@@ -35,9 +26,9 @@ interface OnboardingViewProps {
   initialElectricityTariffPerUnit: string;
   boilerKwhPerCubicMeter: string;
   boilerEfficiencyPercent: string;
-  profileFieldErrors: Record<string, string[]>;
-  utilityFieldErrors: Record<string, string[]>;
-  getFieldErrors: (errors: Record<string, string[]>, fieldName: string) => string[];
+  profileFieldErrors: FieldErrors;
+  utilityFieldErrors: FieldErrors;
+  getFieldErrors: (errors: FieldErrors, fieldName: string) => string[];
   onLoadActiveTerms: () => Promise<void>;
   onAcceptTerms: () => Promise<void>;
   onSubmitProfile: () => Promise<void>;
@@ -166,8 +157,8 @@ export function OnboardingView({
                 <div>{termsMessage}</div>
                 {activeTerms && (
                   <div className="mt-2 text-secondary small">
-                    Version: {activeTerms.versionLabel} ({activeTerms.versionId})
-                    {` | Effective: ${activeTerms.effectiveFromUtc}`}
+                    Version: {activeTerms.versionLabel} ({activeTerms.versionId}
+                    ){` | Effective: ${activeTerms.effectiveFromUtc}`}
                   </div>
                 )}
               </div>
@@ -210,7 +201,9 @@ export function OnboardingView({
                     type="date"
                     className={`form-control ${getFieldErrors(profileFieldErrors, "dateOfBirth").length > 0 ? "is-invalid" : ""}`}
                     value={dateOfBirth}
-                    onChange={(event) => onDateOfBirthChange(event.target.value)}
+                    onChange={(event) =>
+                      onDateOfBirthChange(event.target.value)
+                    }
                   />
                   {getFieldErrors(profileFieldErrors, "dateOfBirth").length >
                     0 && (
@@ -255,7 +248,9 @@ export function OnboardingView({
                     className={`form-control ${getFieldErrors(profileFieldErrors, "mobileNumber").length > 0 ? "is-invalid" : ""}`}
                     placeholder="07123456789"
                     value={mobileNumber}
-                    onChange={(event) => onMobileNumberChange(event.target.value)}
+                    onChange={(event) =>
+                      onMobileNumberChange(event.target.value)
+                    }
                   />
                   {getFieldErrors(profileFieldErrors, "mobileNumber").length >
                     0 && (
@@ -430,7 +425,9 @@ export function OnboardingView({
                     placeholder="0.456789"
                     value={initialElectricityTariffPerUnit}
                     onChange={(event) =>
-                      onInitialElectricityTariffPerUnitChange(event.target.value)
+                      onInitialElectricityTariffPerUnitChange(
+                        event.target.value,
+                      )
                     }
                   />
                 </div>

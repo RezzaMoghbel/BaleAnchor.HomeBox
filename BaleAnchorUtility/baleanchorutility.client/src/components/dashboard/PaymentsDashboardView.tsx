@@ -1,30 +1,9 @@
 import type { ReactNode } from "react";
-
-interface LatestPeriodPaymentSummary {
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  paymentAmount?: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-}
-
-interface BalanceSummary {
-  totalCalculatedCharges: string;
-  totalRecordedPayments: string;
-  balance: string;
-  balanceStatus: string;
-}
-
-interface PaymentHistoryItem {
-  paymentId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  paymentDate: string;
-  amount: string;
-  method: string;
-  verificationStatus: string;
-}
+import type {
+  AllTimeBalanceResponse,
+  LatestPeriodPaymentSummaryResponse,
+  PaymentHistoryItemResponse,
+} from "../../shared/contracts";
 
 interface PaymentsDashboardViewProps {
   shellHeader: ReactNode;
@@ -36,9 +15,9 @@ interface PaymentsDashboardViewProps {
   paymentReference: string;
   paymentNotes: string;
   paymentMessage: string;
-  latestPaymentSummary: LatestPeriodPaymentSummary | null;
-  balanceSummary: BalanceSummary | null;
-  paymentHistory: PaymentHistoryItem[];
+  latestPaymentSummary: LatestPeriodPaymentSummaryResponse | null;
+  balanceSummary: AllTimeBalanceResponse | null;
+  paymentHistory: PaymentHistoryItemResponse[];
   onPaymentAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
   onPaymentMethodChange: (value: string) => void;

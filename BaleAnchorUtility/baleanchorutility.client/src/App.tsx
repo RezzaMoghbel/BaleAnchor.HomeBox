@@ -7,6 +7,35 @@ import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardV
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import { LoginView } from "./components/auth/LoginView";
 import { OnboardingView } from "./components/onboarding/OnboardingView";
+import type {
+  AcceptTermsResponse,
+  ActiveTariffResponse,
+  ActiveTermsResponse,
+  AdminDecisionResponse,
+  AdminRoleChangeResponse,
+  AllTimeBalanceResponse,
+  CalculateLatestPeriodResponse,
+  CompleteProfileResponse,
+  CompleteUtilitySetupResponse,
+  LatestPeriodPaymentSummaryResponse,
+  LatestReadingsResponse,
+  OnboardingProgressResponse,
+  PaymentHistoryItemResponse,
+  PaymentHistoryResponse,
+  PendingApprovalListResponse,
+  PendingApprovalUserItem,
+  RecordLatestPeriodPaymentResponse,
+  RequestCodeResponse,
+  SessionStatusResponse,
+  StatementExportHistoryItemResponse,
+  StatementExportHistoryResponse,
+  StatementPeriodItemResponse,
+  StatementPeriodListResponse,
+  StatementSummaryResponse,
+  SubmitReadingsResponse,
+  UpsertTariffResponse,
+  VerifyCodeResponse,
+} from "./shared/contracts";
 import {
   formatCurrencyGbp,
   formatDateRange,
@@ -15,289 +44,35 @@ import {
 } from "./shared/formatters";
 import { getFieldErrors, readProblemDetails } from "./shared/problemDetails";
 import "./App.css";
-
-interface RequestCodeResponse {
-  message: string;
-  resendAfterSeconds: number;
-  expiresInSeconds: number;
-}
-
-interface VerifyCodeResponse {
-  authenticated: boolean;
-  userStatus: string;
-  message: string;
-}
-
-interface SessionStatusResponse {
-  isAuthenticated: boolean;
-  userId?: string;
-  emailMasked?: string;
-  userStatus?: string;
-  userRole?: string;
-  expiresAtUtc?: string;
-}
-
-interface ActiveTermsResponse {
-  versionId: string;
-  versionLabel: string;
-  title: string;
-  contentMarkdown: string;
-  effectiveFromUtc: string;
-  publishedAtUtc: string;
-}
-
-interface AcceptTermsResponse {
-  termsVersionId: string;
-  acceptedAtUtc: string;
-  message: string;
-}
-
-interface CompleteUtilitySetupResponse {
-  userId: string;
-  status: string;
-  message: string;
-}
-
-interface CompleteProfileResponse {
-  userId: string;
-  status: string;
-  message: string;
-}
-
-interface OnboardingProgressResponse {
-  userId: string;
-  accountStatus: string;
-  termsAccepted: boolean;
-  profileComplete: boolean;
-  utilitySetupComplete: boolean;
-  nextStep: string;
-}
-
-interface PendingApprovalUserItem {
-  userId: string;
-  emailMasked: string;
-  submittedState: string;
-  updatedAtUtc: string;
-}
-
-interface PendingApprovalListResponse {
-  items: PendingApprovalUserItem[];
-  count: number;
-}
-
-interface AdminDecisionResponse {
-  userId: string;
-  newStatus: string;
-  message: string;
-}
-
-interface AdminRoleChangeResponse {
-  userId: string;
-  previousRole: string;
-  newRole: string;
-  message: string;
-}
-
-interface SubmitReadingsResponse {
-  userId: string;
-  readingDate: string;
-  message: string;
-}
-
-interface LatestReadingsResponse {
-  userId: string;
-  readingDate: string;
-  coldWaterReading: string;
-  hotWaterReading: string;
-  electricityReading: string;
-}
-
-interface UpsertTariffResponse {
-  userId: string;
-  effectiveFromDate: string;
-  waterTariffPerUnit: string;
-  waterStandingChargePerDay: string;
-  waterVatPercent: string;
-  electricityTariffPerUnit: string;
-  electricityStandingChargePerDay: string;
-  electricityVatPercent: string;
-  message: string;
-}
-
-interface ActiveTariffResponse {
-  userId: string;
-  effectiveFromDate: string;
-  waterTariffPerUnit: string;
-  waterStandingChargePerDay: string;
-  waterVatPercent: string;
-  electricityTariffPerUnit: string;
-  electricityStandingChargePerDay: string;
-  electricityVatPercent: string;
-}
-
-interface CalculateLatestPeriodResponse {
-  snapshotId: string;
-  userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  daysInPeriod: number;
-  coldWaterUsed: string;
-  hotWaterUsed: string;
-  apartmentElectricityUsed: string;
-  boilerElectricityUsed: string;
-  coldWaterTotal: string;
-  hotWaterTotal: string;
-  apartmentElectricityTotal: string;
-  boilerElectricityTotal: string;
-  waterTotal: string;
-  electricityTotal: string;
-  periodTotal: string;
-  containsEstimatedSegments: boolean;
-  engineVersion: string;
-  inputHash: string;
-  equationSummary: string;
-}
-
-interface RecordLatestPeriodPaymentResponse {
-  paymentId: string;
-  userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  amount: string;
-  paymentDate: string;
-  method: string;
-  reference?: string;
-  notes?: string;
-  source: string;
-  verificationStatus: string;
-  message: string;
-}
-
-interface LatestPeriodPaymentSummaryResponse {
-  userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  hasPayment: boolean;
-  paymentId?: string;
-  paymentAmount?: string;
-  paymentDate?: string;
-  paymentMethod?: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-}
-
-interface PaymentHistoryItemResponse {
-  paymentId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  amount: string;
-  paymentDate: string;
-  method: string;
-  reference?: string;
-  notes?: string;
-  source: string;
-  verificationStatus: string;
-}
-
-interface PaymentHistoryResponse {
-  userId: string;
-  count: number;
-  items: PaymentHistoryItemResponse[];
-}
-
-interface AllTimeBalanceResponse {
-  userId: string;
-  totalCalculatedCharges: string;
-  totalRecordedPayments: string;
-  balance: string;
-  balanceStatus: string;
-}
-
-interface StatementSummaryResponse {
-  userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  hasPayment: boolean;
-  paymentId?: string;
-  paymentAmount?: string;
-  paymentDate?: string;
-  paymentMethod?: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-  totalCalculatedCharges: string;
-  totalRecordedPayments: string;
-  currentBalance: string;
-  currentBalanceStatus: string;
-  containsEstimatedSegments: boolean;
-  engineVersion: string;
-  inputHash: string;
-  equationSummary: string;
-}
-
-interface StatementPeriodItemResponse {
-  snapshotId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  periodTotal: string;
-  hasPayment: boolean;
-  paymentAmount?: string;
-  paymentDate?: string;
-  periodDifference: string;
-  periodBalanceStatus: string;
-  containsEstimatedSegments: boolean;
-}
-
-interface StatementPeriodListResponse {
-  userId: string;
-  count: number;
-  items: StatementPeriodItemResponse[];
-}
-
-interface StatementExportHistoryItemResponse {
-  exportId: string;
-  snapshotId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
-  fileName: string;
-  contentType: string;
-  contentSha256: string;
-  templateVersion: string;
-  rendererVersion: string;
-  createdAtUtc: string;
-}
-
-interface StatementExportHistoryResponse {
-  userId: string;
-  count: number;
-  items: StatementExportHistoryItemResponse[];
-}
-
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [statusMessage, setStatusMessage] = useState("Ready");
+
   const [session, setSession] = useState<SessionStatusResponse | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [activeTerms, setActiveTerms] = useState<ActiveTermsResponse | null>(
-    null,
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [statusMessage, setStatusMessage] = useState(
+    "No authentication action run yet.",
   );
-  const [termsMessage, setTermsMessage] = useState("No terms loaded.");
+
+  const [activeTerms, setActiveTerms] =
+    useState<ActiveTermsResponse | null>(null);
+  const [termsMessage, setTermsMessage] = useState(
+    "Active terms not loaded.",
+  );
+
   const [surname, setSurname] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [flatNumber, setFlatNumber] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [profileMessage, setProfileMessage] = useState(
-    "No profile details submitted.",
+    "Profile details not submitted.",
   );
-  const [onboardingProgress, setOnboardingProgress] =
-    useState<OnboardingProgressResponse | null>(null);
-  const [progressMessage, setProgressMessage] = useState(
-    "Onboarding progress not checked.",
-  );
+  const [profileFieldErrors, setProfileFieldErrors] = useState<
+    Record<string, string[]>
+  >({});
+
   const [moveInDate, setMoveInDate] = useState("");
   const [openingColdWaterReading, setOpeningColdWaterReading] = useState("");
   const [openingHotWaterReading, setOpeningHotWaterReading] = useState("");
@@ -310,14 +85,18 @@ function App() {
   const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] = useState("");
   const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] = useState("");
   const [utilitySetupMessage, setUtilitySetupMessage] = useState(
-    "No utility setup submitted.",
+    "Utility setup not submitted.",
   );
-  const [profileFieldErrors, setProfileFieldErrors] = useState<
-    Record<string, string[]>
-  >({});
   const [utilityFieldErrors, setUtilityFieldErrors] = useState<
     Record<string, string[]>
   >({});
+
+  const [onboardingProgress, setOnboardingProgress] =
+    useState<OnboardingProgressResponse | null>(null);
+  const [progressMessage, setProgressMessage] = useState(
+    "Onboarding progress not loaded.",
+  );
+
   const [pendingApprovals, setPendingApprovals] = useState<
     PendingApprovalUserItem[]
   >([]);
@@ -1541,7 +1320,9 @@ function App() {
       onOpeningHotWaterReadingChange={setOpeningHotWaterReading}
       onOpeningElectricityReadingChange={setOpeningElectricityReading}
       onInitialWaterTariffPerUnitChange={setInitialWaterTariffPerUnit}
-      onInitialElectricityTariffPerUnitChange={setInitialElectricityTariffPerUnit}
+      onInitialElectricityTariffPerUnitChange={
+        setInitialElectricityTariffPerUnit
+      }
       onBoilerKwhPerCubicMeterChange={setBoilerKwhPerCubicMeter}
       onBoilerEfficiencyPercentChange={setBoilerEfficiencyPercent}
     />
