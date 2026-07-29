@@ -8,13 +8,16 @@ using BaleAnchorUtility.Server.Application.Terms;
 using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Infrastructure.Email;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
+using BaleAnchorUtility.Server.Infrastructure.Middleware;
 using BaleAnchorUtility.Server.Infrastructure.Pdf;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 using BaleAnchorUtility.Server.Infrastructure.Startup;
 using BaleAnchorUtility.Server.Infrastructure.Time;
 using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.RateLimiting;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -51,13 +54,76 @@ builder.Services
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
-builder.Services.Configure<AuthOtpOptions>(builder.Configuration.GetSection(AuthOtpOptions.SectionName));
-builder.Services.Configure<AdminAccessOptions>(builder.Configuration.GetSection(AdminAccessOptions.SectionName));
-builder.Services.Configure<SeedAccessOptions>(builder.Configuration.GetSection(SeedAccessOptions.SectionName));
+builder.Services.AddOptions<AuthOtpOptions>()
+    .Bind(builder.Configuration.GetSection(AuthOtpOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<AuthOtpOptions>, AuthOtpOptionsValidator>();
+builder.Services.AddOptions<AdminAccessOptions>()
+    .Bind(builder.Configuration.GetSection(AdminAccessOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<AdminAccessOptions>, AdminAccessOptionsValidator>();
+builder.Services.AddOptions<SeedAccessOptions>()
+    .Bind(builder.Configuration.GetSection(SeedAccessOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<SeedAccessOptions>, SeedAccessOptionsValidator>();
 builder.Services.AddOptions<EmailTransportOptions>()
     .Bind(builder.Configuration.GetSection(EmailTransportOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<EmailTransportOptions>, EmailTransportOptionsValidator>();
+builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            context.HttpContext,
+            StatusCodes.Status429TooManyRequests,
+            "Too many requests",
+            "You have sent too many requests in a short period. Please retry later.",
+            "RATE_LIMITED");
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        }
+
+        await ApiProblemDetailsFactory.WriteAsync(context.HttpContext, problem);
+    };
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var path = httpContext.Request.Path.Value ?? string.Empty;
+        var isAuthOtpRoute = path.StartsWith("/api/v1/auth/request-code", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/auth/verify-code", StringComparison.OrdinalIgnoreCase);
+
+        if (isAuthOtpRoute)
+        {
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: $"auth:{ip}",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 12,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    AutoReplenishment = true,
+                });
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"global:{ip}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true,
+            });
+    });
+});
 
 builder.Services.AddSingleton<JsonCollectionStore>();
 builder.Services.AddScoped<IUserRepository, JsonUserRepository>();
@@ -94,6 +160,7 @@ builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<DevelopmentSeedDataService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();
 builder.Services.AddHostedService<DevelopmentSeedHostedService>();
+builder.Services.AddHostedService<JsonIndexRebuildHostedService>();
 
 var app = builder.Build();
 
@@ -173,6 +240,10 @@ app.UseStatusCodePages(async statusContext =>
     await ApiProblemDetailsFactory.WriteAsync(httpContext, problem);
 });
 
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseRateLimiter();
+app.UseMiddleware<CsrfOriginProtectionMiddleware>();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -184,6 +255,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
 
 app.MapFallbackToFile("/index.html");
 

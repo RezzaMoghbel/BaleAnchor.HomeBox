@@ -199,8 +199,12 @@ function App() {
     upsertFlat,
     loadTenancies,
     upsertTenancy,
+    beginTenancyEdit,
+    clearTenancyForm,
     loadTenantGaps,
     upsertTenantGap,
+    beginTenantGapEdit,
+    clearTenantGapForm,
     submitAdminDecision,
     submitRoleChange,
   } = useAdminWorkflow({ setLoading });
@@ -755,8 +759,12 @@ function App() {
       onUpsertFlat={upsertFlat}
       onLoadTenancies={loadTenancies}
       onUpsertTenancy={upsertTenancy}
+      onBeginTenancyEdit={beginTenancyEdit}
+      onClearTenancyForm={clearTenancyForm}
       onLoadTenantGaps={loadTenantGaps}
       onUpsertTenantGap={upsertTenantGap}
+      onBeginTenantGapEdit={beginTenantGapEdit}
+      onClearTenantGapForm={clearTenantGapForm}
       onSubmitAdminDecision={submitAdminDecision}
       onSubmitRoleChange={submitRoleChange}
       formatDisplayDateTime={formatDisplayDateTime}

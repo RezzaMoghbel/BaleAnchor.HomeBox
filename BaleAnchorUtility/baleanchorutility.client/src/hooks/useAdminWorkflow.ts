@@ -83,9 +83,9 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   const [tenancyFilterUserId, setTenancyFilterUserId] = useState("");
   const [tenancyFilterFlatNumber, setTenancyFilterFlatNumber] = useState("");
 
-  const [tenantGaps, setTenantGaps] = useState<TenantGapAllocationSummaryItem[]>(
-    [],
-  );
+  const [tenantGaps, setTenantGaps] = useState<
+    TenantGapAllocationSummaryItem[]
+  >([]);
   const [gapFlatNumberInput, setGapFlatNumberInput] = useState("");
   const [gapFromDateInput, setGapFromDateInput] = useState("");
   const [gapToDateExclusiveInput, setGapToDateExclusiveInput] = useState("");
@@ -439,6 +439,28 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     }
   };
 
+  const beginTenancyEdit = (item: TenancySummaryItem) => {
+    setTenancyIdInput(item.tenancyId);
+    setTenancyUserIdInput(item.userId);
+    setTenancyFlatNumberInput(item.flatNumber);
+    setTenancyMoveInDateInput(item.moveInDate);
+    setTenancyMoveOutDateInput(item.moveOutDate ?? "");
+    setTenancyStatusInput(item.status);
+    setTenancyNotesInput(item.notes ?? "");
+    setAdminMessage(`Loaded tenancy ${item.tenancyId} into edit form.`);
+  };
+
+  const clearTenancyForm = () => {
+    setTenancyIdInput("");
+    setTenancyUserIdInput("");
+    setTenancyFlatNumberInput("");
+    setTenancyMoveInDateInput("");
+    setTenancyMoveOutDateInput("");
+    setTenancyStatusInput("");
+    setTenancyNotesInput("");
+    setAdminMessage("Tenancy form reset.");
+  };
+
   const loadTenantGaps = async () => {
     setLoading(true);
     try {
@@ -450,7 +472,9 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     } catch (error) {
       setTenantGaps([]);
       if (error instanceof PortalApiError) {
-        setAdminMessage(`Unable to load tenant-gap allocations. ${error.message}`);
+        setAdminMessage(
+          `Unable to load tenant-gap allocations. ${error.message}`,
+        );
       } else {
         setAdminMessage("Unable to load tenant-gap allocations.");
       }
@@ -480,13 +504,37 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
       await Promise.all([loadTenantGaps(), loadAuditLogs()]);
     } catch (error) {
       if (error instanceof PortalApiError) {
-        setAdminMessage(`Tenant-gap allocation update failed. ${error.message}`);
+        setAdminMessage(
+          `Tenant-gap allocation update failed. ${error.message}`,
+        );
       } else {
         setAdminMessage("Tenant-gap allocation update failed.");
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const beginTenantGapEdit = (item: TenantGapAllocationSummaryItem) => {
+    setGapFlatNumberInput(item.flatNumber);
+    setGapFromDateInput(item.fromDate);
+    setGapToDateExclusiveInput(item.toDateExclusive);
+    setGapAssignedUserIdInput(item.assignedUserId);
+    setGapAmountInput(item.amount);
+    setGapStatusInput(item.status);
+    setAdminMessage(
+      `Loaded gap allocation ${item.allocationId} into edit form.`,
+    );
+  };
+
+  const clearTenantGapForm = () => {
+    setGapFlatNumberInput("");
+    setGapFromDateInput("");
+    setGapToDateExclusiveInput("");
+    setGapAssignedUserIdInput("");
+    setGapAmountInput("");
+    setGapStatusInput("");
+    setAdminMessage("Tenant-gap allocation form reset.");
   };
 
   const submitAdminDecision = async (action: "approve" | "reject") => {
@@ -661,8 +709,12 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     upsertFlat,
     loadTenancies,
     upsertTenancy,
+    beginTenancyEdit,
+    clearTenancyForm,
     loadTenantGaps,
     upsertTenantGap,
+    beginTenantGapEdit,
+    clearTenantGapForm,
     submitAdminDecision,
     submitRoleChange,
   };

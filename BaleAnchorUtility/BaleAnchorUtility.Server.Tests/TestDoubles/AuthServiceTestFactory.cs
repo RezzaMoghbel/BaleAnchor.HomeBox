@@ -14,6 +14,11 @@ internal static class AuthServiceTestFactory
             SessionCookieName = "bau.sid",
         });
 
+        var seedOptions = Options.Create(new SeedAccessOptions
+        {
+            Enabled = false,
+        });
+
         return new AuthService(
             users,
             new NoOpOtpChallengeRepository(),
@@ -21,6 +26,8 @@ internal static class AuthServiceTestFactory
             new NoOpEmailSender(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-28T12:00:00Z") },
             options,
+            seedOptions,
+            new FakeHostEnvironment(),
             NullLogger<AuthService>.Instance);
     }
 }

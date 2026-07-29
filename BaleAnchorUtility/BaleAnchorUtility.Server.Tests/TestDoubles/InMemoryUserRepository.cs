@@ -34,6 +34,11 @@ internal sealed class InMemoryUserRepository : IUserRepository
         return Task.FromResult((IReadOnlyList<UserAccount>)users);
     }
 
+    public Task<IReadOnlyList<UserAccount>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult((IReadOnlyList<UserAccount>)byId.Values.ToList());
+    }
+
     public Task UpsertAsync(UserAccount user, CancellationToken cancellationToken)
     {
         byId[user.Id] = user;

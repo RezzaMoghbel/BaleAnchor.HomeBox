@@ -127,8 +127,12 @@ interface AdminDashboardViewProps {
   onUpsertFlat: () => Promise<void>;
   onLoadTenancies: () => Promise<void>;
   onUpsertTenancy: () => Promise<void>;
+  onBeginTenancyEdit: (item: TenancySummaryItem) => void;
+  onClearTenancyForm: () => void;
   onLoadTenantGaps: () => Promise<void>;
   onUpsertTenantGap: () => Promise<void>;
+  onBeginTenantGapEdit: (item: TenantGapAllocationSummaryItem) => void;
+  onClearTenantGapForm: () => void;
   onSubmitAdminDecision: (action: "approve" | "reject") => Promise<void>;
   onSubmitRoleChange: () => Promise<void>;
   formatDisplayDateTime: (value?: string) => string;
@@ -250,8 +254,12 @@ export function AdminDashboardView({
   onUpsertFlat,
   onLoadTenancies,
   onUpsertTenancy,
+  onBeginTenancyEdit,
+  onClearTenancyForm,
   onLoadTenantGaps,
   onUpsertTenantGap,
+  onBeginTenantGapEdit,
+  onClearTenantGapForm,
   onSubmitAdminDecision,
   onSubmitRoleChange,
   formatDisplayDateTime,
@@ -677,7 +685,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Flat label"
                     value={flatLabelInput}
-                    onChange={(event) => onFlatLabelInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onFlatLabelInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -691,7 +701,10 @@ export function AdminDashboardView({
                         onFlatIsActiveInputChange(event.target.checked)
                       }
                     />
-                    <label htmlFor="flatIsActiveInput" className="form-check-label">
+                    <label
+                      htmlFor="flatIsActiveInput"
+                      className="form-check-label"
+                    >
                       Active
                     </label>
                   </div>
@@ -780,7 +793,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Tenancy ID (edit)"
                     value={tenancyIdInput}
-                    onChange={(event) => onTenancyIdInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onTenancyIdInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -831,7 +846,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Status"
                     value={tenancyStatusInput}
-                    onChange={(event) => onTenancyStatusInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onTenancyStatusInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-6">
@@ -840,18 +857,30 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Notes"
                     value={tenancyNotesInput}
-                    onChange={(event) => onTenancyNotesInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onTenancyNotesInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={() => void onUpsertTenancy()}
-                    disabled={loading}
-                  >
-                    Save tenancy
-                  </button>
+                  <div className="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => void onUpsertTenancy()}
+                      disabled={loading}
+                    >
+                      {tenancyIdInput ? "Update tenancy" : "Save tenancy"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={onClearTenancyForm}
+                      disabled={loading}
+                    >
+                      Clear form
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -866,6 +895,7 @@ export function AdminDashboardView({
                         <th>Move-in</th>
                         <th>Move-out</th>
                         <th>Status</th>
+                        <th className="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -877,6 +907,16 @@ export function AdminDashboardView({
                           <td>{item.moveInDate}</td>
                           <td>{item.moveOutDate ?? "-"}</td>
                           <td>{item.status}</td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => onBeginTenancyEdit(item)}
+                              disabled={loading}
+                            >
+                              Edit
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -920,7 +960,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Flat number"
                     value={gapFlatNumberInput}
-                    onChange={(event) => onGapFlatNumberInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onGapFlatNumberInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -928,7 +970,9 @@ export function AdminDashboardView({
                     type="date"
                     className="form-control"
                     value={gapFromDateInput}
-                    onChange={(event) => onGapFromDateInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onGapFromDateInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -958,7 +1002,9 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Amount"
                     value={gapAmountInput}
-                    onChange={(event) => onGapAmountInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onGapAmountInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-2">
@@ -967,18 +1013,30 @@ export function AdminDashboardView({
                     className="form-control"
                     placeholder="Status"
                     value={gapStatusInput}
-                    onChange={(event) => onGapStatusInputChange(event.target.value)}
+                    onChange={(event) =>
+                      onGapStatusInputChange(event.target.value)
+                    }
                   />
                 </div>
                 <div className="col-12 col-lg-3">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={() => void onUpsertTenantGap()}
-                    disabled={loading}
-                  >
-                    Save gap allocation
-                  </button>
+                  <div className="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => void onUpsertTenantGap()}
+                      disabled={loading}
+                    >
+                      Save gap allocation
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={onClearTenantGapForm}
+                      disabled={loading}
+                    >
+                      Clear form
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -994,6 +1052,7 @@ export function AdminDashboardView({
                         <th>Assigned user</th>
                         <th>Amount</th>
                         <th>Status</th>
+                        <th className="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1006,6 +1065,16 @@ export function AdminDashboardView({
                           <td>{item.assignedUserId}</td>
                           <td>{item.amount}</td>
                           <td>{item.status}</td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => onBeginTenantGapEdit(item)}
+                              disabled={loading}
+                            >
+                              Edit
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

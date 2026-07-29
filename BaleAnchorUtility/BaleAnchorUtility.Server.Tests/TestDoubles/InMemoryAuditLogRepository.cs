@@ -12,4 +12,9 @@ internal sealed class InMemoryAuditLogRepository : IAuditLogRepository
         Entries.Add(entry);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<AuditLogEntry>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult((IReadOnlyList<AuditLogEntry>)Entries.ToList());
+    }
 }

@@ -6,6 +6,7 @@ namespace BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 public sealed class JsonCollectionStore
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> CollectionLocks = new();
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> CollectionIndexes = new();
 
     private readonly JsonSerializerOptions serializerOptions;
     private readonly string rootPath;
@@ -28,16 +29,28 @@ public sealed class JsonCollectionStore
             return [];
         }
 
+        CleanupTemporaryFiles(collectionPath);
+
         var files = Directory.GetFiles(collectionPath, "*.json", SearchOption.TopDirectoryOnly);
         var results = new List<T>(files.Length);
+        var index = CollectionIndexes.GetOrAdd(collectionName, _ => new ConcurrentDictionary<string, string>(StringComparer.Ordinal));
+        index.Clear();
 
         foreach (var file in files)
         {
-            await using var stream = File.OpenRead(file);
-            var document = await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken);
-            if (document is not null)
+            try
             {
-                results.Add(document);
+                await using var stream = File.OpenRead(file);
+                var document = await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken);
+                if (document is not null)
+                {
+                    results.Add(document);
+                    index[Path.GetFileNameWithoutExtension(file)] = file;
+                }
+            }
+            catch (JsonException)
+            {
+                QuarantineCorruptFile(file);
             }
         }
 
@@ -56,6 +69,7 @@ public sealed class JsonCollectionStore
         try
         {
             Directory.CreateDirectory(collectionPath);
+            CleanupTemporaryFiles(collectionPath);
 
             await using (var stream = File.Create(tempPath))
             {
@@ -81,6 +95,9 @@ public sealed class JsonCollectionStore
             {
                 File.Move(tempPath, filePath);
             }
+
+            var index = CollectionIndexes.GetOrAdd(collectionName, _ => new ConcurrentDictionary<string, string>(StringComparer.Ordinal));
+            index[id] = filePath;
         }
         finally
         {
@@ -110,6 +127,11 @@ public sealed class JsonCollectionStore
             {
                 File.Delete(filePath);
             }
+
+            if (CollectionIndexes.TryGetValue(collectionName, out var index))
+            {
+                _ = index.TryRemove(id, out _);
+            }
         }
         finally
         {
@@ -117,8 +139,75 @@ public sealed class JsonCollectionStore
         }
     }
 
+    public void RebuildIndexes()
+    {
+        if (!Directory.Exists(rootPath))
+        {
+            return;
+        }
+
+        foreach (var collectionPath in Directory.GetDirectories(rootPath))
+        {
+            CleanupTemporaryFiles(collectionPath);
+
+            var collectionName = Path.GetFileName(collectionPath);
+            var index = CollectionIndexes.GetOrAdd(collectionName, _ => new ConcurrentDictionary<string, string>(StringComparer.Ordinal));
+            index.Clear();
+
+            foreach (var file in Directory.GetFiles(collectionPath, "*.json", SearchOption.TopDirectoryOnly))
+            {
+                if (IsCorruptJson(file))
+                {
+                    QuarantineCorruptFile(file);
+                    continue;
+                }
+
+                index[Path.GetFileNameWithoutExtension(file)] = file;
+            }
+        }
+    }
+
     private string EnsureCollectionPath(string collectionName)
     {
         return Path.Combine(rootPath, collectionName);
+    }
+
+    private static void CleanupTemporaryFiles(string collectionPath)
+    {
+        foreach (var temp in Directory.GetFiles(collectionPath, "*.tmp", SearchOption.TopDirectoryOnly))
+        {
+            File.Delete(temp);
+        }
+    }
+
+    private static bool IsCorruptJson(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            _ = JsonDocument.Parse(stream);
+            return false;
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
+    }
+
+    private static void QuarantineCorruptFile(string filePath)
+    {
+        var collectionPath = Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException("Collection path is unavailable.");
+        var quarantinePath = Path.Combine(collectionPath, "_quarantine");
+        Directory.CreateDirectory(quarantinePath);
+
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        var target = Path.Combine(quarantinePath, $"{fileName}.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.corrupt.json");
+
+        if (File.Exists(target))
+        {
+            target = Path.Combine(quarantinePath, $"{fileName}.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.{Guid.NewGuid():N}.corrupt.json");
+        }
+
+        File.Move(filePath, target);
     }
 }
