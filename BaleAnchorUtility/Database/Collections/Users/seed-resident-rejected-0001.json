@@ -1,0 +1,14 @@
+{
+  "id": "seed-resident-rejected-0001",
+  "emailDisplay": "resident.rejected@baleanchor.local",
+  "emailNormalized": "RESIDENT.REJECTED@BALEANCHOR.LOCAL",
+  "surnameNormalized": "REJECTED",
+  "dateOfBirth": "1995-06-06",
+  "flatNumberNormalized": "D404",
+  "mobileNumber": "07000000006",
+  "role": 0,
+  "status": 7,
+  "createdAtUtc": "2026-07-29T09:01:46.2916872+00:00",
+  "updatedAtUtc": "2026-07-29T09:01:48.5889402+00:00",
+  "version": 2
+}

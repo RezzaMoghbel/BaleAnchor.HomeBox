@@ -1,0 +1,14 @@
+{
+  "id": "seed-resident-suspended-0001",
+  "emailDisplay": "resident.suspended@baleanchor.local",
+  "emailNormalized": "RESIDENT.SUSPENDED@BALEANCHOR.LOCAL",
+  "surnameNormalized": "SUSPENDED",
+  "dateOfBirth": "1996-07-07",
+  "flatNumberNormalized": "E505",
+  "mobileNumber": "07000000007",
+  "role": 0,
+  "status": 8,
+  "createdAtUtc": "2026-07-29T09:01:46.2916872+00:00",
+  "updatedAtUtc": "2026-07-29T09:01:48.7307742+00:00",
+  "version": 2
+}

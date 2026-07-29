@@ -1,5 +1,5 @@
 {
-  "id": "206e554e0aa04e6f881038d528bf8718",
+  "id": "718624999561403c9c59e04ce76b0ae8",
   "userId": "seed-resident-active-0001",
   "periodStartDate": "2026-05-01",
   "periodEndDateExclusive": "2026-06-01",
@@ -17,8 +17,8 @@
   "periodTotal": 136.08,
   "containsEstimatedSegments": true,
   "engineVersion": "calc-engine-v1",
-  "inputHash": "B3ED1DD98493A8B69B3C21F48DE1C3F783FFE419C000BB2A596DD0B682A2DA32",
+  "inputHash": "9E02E0F8FA3CD81572F3A355934DAFC89550DBD21BAD9DA4042A4E3B4484BE0E",
   "equationSummary": "Cold=(usage*waterUnit \u002B days*waterStanding) \u002B waterVAT; Hot=(usage*waterUnit)\u002BwaterVAT; Apartment=(usage*elecUnit \u002B days*elecStanding)\u002BelecVAT; Boiler=(usage*elecUnit)\u002BelecVAT; PeriodTotal=136.08",
-  "createdAtUtc": "2026-07-29T08:46:55.3684168+00:00",
+  "createdAtUtc": "2026-07-29T09:01:46.8258695+00:00",
   "version": 1
 }

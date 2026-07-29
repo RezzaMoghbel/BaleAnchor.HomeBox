@@ -1,0 +1,12 @@
+{
+  "id": "9227a0a72e7540499c3e1fe648889f25",
+  "tokenHash": "AA4BE87FDC8348B0EF6070A9FF56497C213DA79CBD0D887E81C6A5BB301FF411",
+  "emailNormalized": "RESIDENT.ONBOARDING@BALEANCHOR.LOCAL",
+  "userId": "seed-resident-onboarding-0001",
+  "deviceSummary": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-GB) WindowsPowerShell/5.1.26100.8894",
+  "createdAtUtc": "2026-07-29T09:01:48.4442399+00:00",
+  "expiresAtUtc": "2026-07-30T09:01:48.4442399+00:00",
+  "lastUsedAtUtc": "2026-07-29T09:01:48.4442399+00:00",
+  "revokedAtUtc": null,
+  "version": 1
+}

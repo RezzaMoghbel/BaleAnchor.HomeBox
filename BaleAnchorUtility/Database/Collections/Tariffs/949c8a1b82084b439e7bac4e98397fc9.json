@@ -1,5 +1,5 @@
 {
-  "id": "a812b298cb144a44b9fd89b021aee6fc",
+  "id": "949c8a1b82084b439e7bac4e98397fc9",
   "userId": "seed-resident-active-0001",
   "effectiveFromDate": "2026-05-16",
   "waterTariffPerUnit": 1.920000,
@@ -8,7 +8,7 @@
   "electricityTariffPerUnit": 0.305000,
   "electricityStandingChargePerDay": 0.450000,
   "electricityVatPercent": 5.00,
-  "createdAtUtc": "2026-07-29T08:46:55.2576051+00:00",
-  "updatedAtUtc": "2026-07-29T08:46:55.2576051+00:00",
+  "createdAtUtc": "2026-07-29T09:01:46.6669045+00:00",
+  "updatedAtUtc": "2026-07-29T09:01:46.6669045+00:00",
   "version": 1
 }

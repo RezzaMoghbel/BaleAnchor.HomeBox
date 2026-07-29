@@ -1,0 +1,12 @@
+{
+  "id": "714657e7df9c4545a66e4295a89b9a49",
+  "tokenHash": "47E710E9B6FE6FA20B4B1BE71EBB7B8484FE5A3F98FF89E9AB65E478575BAF8C",
+  "emailNormalized": "RESIDENT.SUSPENDED@BALEANCHOR.LOCAL",
+  "userId": "seed-resident-suspended-0001",
+  "deviceSummary": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-GB) WindowsPowerShell/5.1.26100.8894",
+  "createdAtUtc": "2026-07-29T09:01:48.7307742+00:00",
+  "expiresAtUtc": "2026-07-30T09:01:48.7307742+00:00",
+  "lastUsedAtUtc": "2026-07-29T09:01:48.7307742+00:00",
+  "revokedAtUtc": null,
+  "version": 1
+}

@@ -28,6 +28,10 @@ The mechanism is intended to be:
 - easy to reset
 - easy to delete before production
 
+Repeatable smoke-check script:
+
+- `ProjectDouments/seed-smoke-check.ps1`
+
 ## 3. Current development credentials
 
 Fixed development OTP code:
@@ -41,6 +45,8 @@ Seed emails:
 - `resident.active@baleanchor.local`
 - `resident.onboarding@baleanchor.local`
 - `resident.pending@baleanchor.local`
+- `resident.rejected@baleanchor.local`
+- `resident.suspended@baleanchor.local`
 
 ## 4. Seeded demo data currently provided
 
@@ -85,6 +91,8 @@ Important setting:
 - `resident.active@baleanchor.local`: direct resident flow with seeded readings/payments/statements data
 - `resident.onboarding@baleanchor.local`: onboarding path coverage
 - `resident.pending@baleanchor.local`: pending-approval queue coverage for admin approval and rejection walkthroughs
+- `resident.rejected@baleanchor.local`: rejected-account behavior coverage
+- `resident.suspended@baleanchor.local`: suspended-account behavior coverage
 
 ## 6. Dev seed API operations
 
@@ -137,7 +145,34 @@ Behavior:
 
 Use this when testing clean-start behavior or preparing for production cleanup.
 
-## 7. What reset/reseed currently touches
+## 7. Smoke-check script
+
+Use the script below when you want a repeatable seeded-persona rehearsal instead of clicking through everything manually.
+
+Run from the repository root or any location that can reach the script path:
+
+```powershell
+& "C:\Users\rmogh\source\repos\BaleAnchor.HomeBox\BaleAnchorUtility\ProjectDouments\seed-smoke-check.ps1"
+```
+
+Optional skip-reseed mode:
+
+```powershell
+& "C:\Users\rmogh\source\repos\BaleAnchor.HomeBox\BaleAnchorUtility\ProjectDouments\seed-smoke-check.ps1" -SkipReseed
+```
+
+What it checks:
+
+- dev seed status endpoint is enabled
+- reseed operation succeeds unless `-SkipReseed` is used
+- active resident can authenticate and load seeded statement/payment data
+- onboarding resident remains in onboarding state
+- rejected resident remains rejected
+- suspended resident remains suspended
+- admin can load the pending approvals queue
+- superadmin resolves with the expected role
+
+## 8. What reset/reseed currently touches
 
 The reset path currently removes seeded records from these collections when they belong to configured seed users:
 
@@ -153,7 +188,7 @@ The reset path currently removes seeded records from these collections when they
 - `StatementExports`
 - `AuditLogs`
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 ### 8.1 Seed status endpoint returns 404
 
@@ -188,7 +223,16 @@ Check which seed account you used:
 - resident accounts should not see admin-only routes
 - `admin@baleanchor.local` and `superadmin@baleanchor.local` should
 
-## 9. Production removal checklist
+### 8.5 Rejected or suspended resident flow looks blocked
+
+That is expected for these demo accounts:
+
+- `resident.rejected@baleanchor.local`
+- `resident.suspended@baleanchor.local`
+
+Use them to confirm user messaging and restricted-account behavior, not to test the happy-path resident workflow.
+
+## 10. Production removal checklist
 
 Before any production publish, complete all of the following:
 
@@ -202,7 +246,7 @@ Before any production publish, complete all of the following:
 8. Confirm no seed JSON documents remain under `Database/Collections`.
 9. Confirm no production runbook or deploy config references fixed demo credentials.
 
-## 10. Owner note
+## 11. Owner note
 
 If we keep this mechanism for future local development after production launch, it must remain:
 

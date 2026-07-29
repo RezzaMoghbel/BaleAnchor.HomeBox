@@ -1,11 +1,11 @@
 {
-  "id": "a0a0577b5e134840bd72d18fe9dd4867",
+  "id": "abe99f3e67c24c5489865bf6148af79b",
   "userId": "seed-resident-active-0001",
   "readingDate": "2026-05-01",
   "coldWaterReading": 0.000,
   "hotWaterReading": 0.000,
   "electricityReading": 0.000,
-  "createdAtUtc": "2026-07-29T08:46:55.2842291+00:00",
-  "updatedAtUtc": "2026-07-29T08:46:55.2842291+00:00",
+  "createdAtUtc": "2026-07-29T09:01:46.7121966+00:00",
+  "updatedAtUtc": "2026-07-29T09:01:46.7121966+00:00",
   "version": 1
 }

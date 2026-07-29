@@ -135,8 +135,11 @@ Current progress in this phase:
 - Fixed visible development OTP is implemented for configured seed emails.
 - Representative resident demo data is now seeded for the active resident flow.
 - Pending-approval seed coverage now exists for admin approval walkthroughs.
+- Rejected and suspended seed coverage now exists for restricted-account walkthroughs.
 - Development reset/reseed endpoints now exist under `/api/system/dev-seed`.
 - Operational usage and removal steps are documented in `SEED_ACCESS_RUNBOOK.md`.
+- Repeatable seed rehearsal is now available via `ProjectDouments/seed-smoke-check.ps1`.
+- Seed smoke-check rehearsal has been executed successfully against the HTTPS Development server.
 
 Exit criteria:
 

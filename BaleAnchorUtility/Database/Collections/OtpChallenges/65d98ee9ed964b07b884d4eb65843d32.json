@@ -1,0 +1,15 @@
+{
+  "id": "65d98ee9ed964b07b884d4eb65843d32",
+  "emailNormalized": "RESIDENT.REJECTED@BALEANCHOR.LOCAL",
+  "purpose": "LOGIN_OR_REGISTRATION",
+  "otpHash": "28885948052FF5EB5C7E54DAF3D264F6D28886A6A5646E59B9492DF9F2884F3E",
+  "otpSalt": "sdiYUBc\u002Be3r22TbqNBJYuw==",
+  "expiresAtUtc": "2026-07-29T09:11:48.5490847+00:00",
+  "createdAtUtc": "2026-07-29T09:01:48.5490847+00:00",
+  "cooldownUntilUtc": "2026-07-29T09:02:18.5490847+00:00",
+  "attemptCount": 1,
+  "maxAttempts": 5,
+  "consumedAtUtc": "2026-07-29T09:01:48.5889402+00:00",
+  "revokedAtUtc": null,
+  "version": 2
+}

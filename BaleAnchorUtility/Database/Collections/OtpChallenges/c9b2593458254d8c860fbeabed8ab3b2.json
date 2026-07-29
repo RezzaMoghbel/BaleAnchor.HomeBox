@@ -1,0 +1,15 @@
+{
+  "id": "c9b2593458254d8c860fbeabed8ab3b2",
+  "emailNormalized": "RESIDENT.SUSPENDED@BALEANCHOR.LOCAL",
+  "purpose": "LOGIN_OR_REGISTRATION",
+  "otpHash": "9601DF8596C3A94E3146787113407593B7472A6C4245DC2367469534E7357D0A",
+  "otpSalt": "8/6Umnz9gfjIFCbYyEuGWg==",
+  "expiresAtUtc": "2026-07-29T09:11:48.6922613+00:00",
+  "createdAtUtc": "2026-07-29T09:01:48.6922613+00:00",
+  "cooldownUntilUtc": "2026-07-29T09:02:18.6922613+00:00",
+  "attemptCount": 1,
+  "maxAttempts": 5,
+  "consumedAtUtc": "2026-07-29T09:01:48.7307742+00:00",
+  "revokedAtUtc": null,
+  "version": 2
+}

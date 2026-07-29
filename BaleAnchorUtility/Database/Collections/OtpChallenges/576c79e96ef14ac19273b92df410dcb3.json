@@ -1,0 +1,15 @@
+{
+  "id": "576c79e96ef14ac19273b92df410dcb3",
+  "emailNormalized": "RESIDENT.ACTIVE@BALEANCHOR.LOCAL",
+  "purpose": "LOGIN_OR_REGISTRATION",
+  "otpHash": "31D19D289444705E9C2D18B0B12842BD3CB1A21EED8E33EE16DE7535A154165E",
+  "otpSalt": "Tf7kEtxJis\u002BRoaw0BNrkcQ==",
+  "expiresAtUtc": "2026-07-29T09:11:47.9531275+00:00",
+  "createdAtUtc": "2026-07-29T09:01:47.9531275+00:00",
+  "cooldownUntilUtc": "2026-07-29T09:02:17.9531275+00:00",
+  "attemptCount": 1,
+  "maxAttempts": 5,
+  "consumedAtUtc": "2026-07-29T09:01:48.0300165+00:00",
+  "revokedAtUtc": null,
+  "version": 2
+}
