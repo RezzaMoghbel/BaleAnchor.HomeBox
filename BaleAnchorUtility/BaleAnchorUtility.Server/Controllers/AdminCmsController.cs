@@ -44,7 +44,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required for CMS user search.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -67,7 +67,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view flats.", "ADMIN_ACCESS_DENIED");
         }
 
         var response = await adminCmsService.GetFlatsAsync(cancellationToken);
@@ -87,7 +87,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to modify flats.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -117,7 +117,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view tenancies.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -145,7 +145,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to modify tenancies.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -178,7 +178,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view tenant gaps.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -206,7 +206,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to modify tenant gaps.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -242,7 +242,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view billing context.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -279,7 +279,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to delete readings.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -316,7 +316,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to update tariffs.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -356,7 +356,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to update boiler assumptions.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -390,7 +390,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view terms versions.", "ADMIN_ACCESS_DENIED");
         }
 
         var response = await adminCmsService.GetTermsVersionsAsync(cancellationToken);
@@ -410,7 +410,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to publish terms versions.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -449,7 +449,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view terms acceptances.", "ADMIN_ACCESS_DENIED");
         }
 
         var response = await adminCmsService.GetTermsAcceptancesAsync(userId, termsVersionId, cancellationToken);
@@ -470,7 +470,7 @@ public sealed class AdminCmsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to view audit logs.", "ADMIN_ACCESS_DENIED");
         }
 
         var response = await adminCmsService.GetAuditLogsAsync(actorUserId, targetUserId, category, action, cancellationToken);
@@ -516,6 +516,22 @@ public sealed class AdminCmsController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ForbiddenProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status403Forbidden,
+            "Access denied",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status403Forbidden,
             ContentTypes = { "application/problem+json" },
         };
     }

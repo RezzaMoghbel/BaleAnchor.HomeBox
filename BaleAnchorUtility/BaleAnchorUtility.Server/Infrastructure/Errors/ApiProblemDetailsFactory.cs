@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace BaleAnchorUtility.Server.Infrastructure.Errors;
 
@@ -37,6 +38,7 @@ public static class ApiProblemDetailsFactory
     {
         context.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(problem);
+        var payload = JsonSerializer.Serialize(problem);
+        await context.Response.WriteAsync(payload);
     }
 }

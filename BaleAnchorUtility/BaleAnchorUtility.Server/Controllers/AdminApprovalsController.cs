@@ -40,7 +40,7 @@ public sealed class AdminApprovalsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to list pending approvals.", "ADMIN_ACCESS_DENIED");
         }
 
         var response = await adminApprovalService.GetPendingAsync(cancellationToken);
@@ -63,7 +63,7 @@ public sealed class AdminApprovalsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to approve users.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -97,7 +97,7 @@ public sealed class AdminApprovalsController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to reject users.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -175,6 +175,22 @@ public sealed class AdminApprovalsController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ForbiddenProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status403Forbidden,
+            "Access denied",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status403Forbidden,
             ContentTypes = { "application/problem+json" },
         };
     }

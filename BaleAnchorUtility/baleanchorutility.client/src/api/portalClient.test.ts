@@ -209,4 +209,138 @@ describe("portalClient", () => {
     expect(result.message).toBe("Development seed data removed.");
     expect(result.usersChanged).toBe(4);
   });
+
+  it("loads reminder preferences with authenticated request", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          userId: "resident-1",
+          emailRemindersEnabled: true,
+          pushRemindersEnabled: false,
+          readingReminderEnabled: true,
+          timeZoneId: "Europe/London",
+          updatedAtUtc: "2026-07-29T12:00:00.0000000Z",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const result = await portalClient.getReminderPreferences();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/reminders/preferences", {
+      method: "GET",
+      credentials: "include",
+    });
+    expect(result.userId).toBe("resident-1");
+  });
+
+  it("sends reminder preferences updates using PUT with json body", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          userId: "resident-1",
+          emailRemindersEnabled: false,
+          pushRemindersEnabled: true,
+          readingReminderEnabled: true,
+          timeZoneId: "UTC",
+          updatedAtUtc: "2026-07-29T12:01:00.0000000Z",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const request = {
+      emailRemindersEnabled: false,
+      pushRemindersEnabled: true,
+      readingReminderEnabled: true,
+      timeZoneId: "UTC",
+    };
+
+    await portalClient.updateReminderPreferences(request);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/reminders/preferences", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(request),
+    });
+  });
+
+  it("upserts push subscriptions and posts test notification", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subscriptionId: "sub-1",
+            endpoint: "https://push.example/subscriptions/1",
+            isActive: true,
+            updatedAtUtc: "2026-07-29T12:03:00.0000000Z",
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            userId: "resident-1",
+            deliveredSubscriptions: 1,
+            message: "Test notification sent to active subscriptions.",
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      );
+
+    await portalClient.upsertPushSubscription({
+      endpoint: "https://push.example/subscriptions/1",
+      p256dh: "p256dh-key",
+      auth: "auth-key",
+      clientUserAgent: "vitest",
+    });
+    await portalClient.sendPushTestNotification();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/push/subscriptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          endpoint: "https://push.example/subscriptions/1",
+          p256dh: "p256dh-key",
+          auth: "auth-key",
+          clientUserAgent: "vitest",
+        }),
+      },
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/push/test", {
+      method: "POST",
+      credentials: "include",
+    });
+  });
 });

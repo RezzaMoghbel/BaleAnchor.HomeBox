@@ -1,0 +1,102 @@
+{
+  "id": "2cf5dde93dfb49bba68d6850928cfe4a",
+  "userId": "seed-resident-active-0001",
+  "periodStartDate": "2026-05-01",
+  "periodEndDateExclusive": "2026-06-01",
+  "daysInPeriod": 31,
+  "coldWaterUsed": 12.400,
+  "hotWaterUsed": 8.200,
+  "apartmentElectricityUsed": 145.700,
+  "boilerElectricityUsed": 101.29411764705882352941176471,
+  "coldWaterTotal": 30.12,
+  "hotWaterTotal": 15.82,
+  "apartmentElectricityTotal": 58.98,
+  "boilerElectricityTotal": 31.15,
+  "waterTotal": 45.95,
+  "electricityTotal": 90.14,
+  "periodTotal": 136.08,
+  "containsEstimatedSegments": true,
+  "estimatedAllocationLabel": "Estimated tariff allocation - no meter reading was available on the tariff-change date.",
+  "engineVersion": "calc-engine-v1",
+  "roundingPolicyVersion": "money-2dp-awayfromzero:v1",
+  "inputHash": "95ADD40AAC64C2CC1F6B3AD0400E56C5985C165C471B7D273DB779E2BFFC8D31",
+  "equationSummary": "PeriodTotal = WaterTotal \u002B ElectricityTotal; WaterTotal = ColdWaterTotal \u002B HotWaterTotal; ElectricityTotal = ApartmentElectricityTotal \u002B BoilerElectricityTotal.",
+  "boilerKwhPerCubicMeterUsed": 10.500000,
+  "boilerEfficiencyPercentUsed": 85.00,
+  "tariffSegments": [
+    {
+      "startDate": "2026-05-01",
+      "endDateExclusive": "2026-05-16",
+      "days": 15,
+      "isEstimatedAllocation": true,
+      "waterTariffPerUnit": 1.750000,
+      "waterStandingChargePerDay": 0.180000,
+      "waterVatPercent": 5.00,
+      "electricityTariffPerUnit": 0.280000,
+      "electricityStandingChargePerDay": 0.420000,
+      "electricityVatPercent": 5.00,
+      "coldWaterUsage": 6.000,
+      "hotWaterUsage": 3.967742,
+      "apartmentElectricityUsage": 70.500,
+      "boilerElectricityUsage": 49.013283
+    },
+    {
+      "startDate": "2026-05-16",
+      "endDateExclusive": "2026-06-01",
+      "days": 16,
+      "isEstimatedAllocation": true,
+      "waterTariffPerUnit": 1.920000,
+      "waterStandingChargePerDay": 0.200000,
+      "waterVatPercent": 5.00,
+      "electricityTariffPerUnit": 0.305000,
+      "electricityStandingChargePerDay": 0.450000,
+      "electricityVatPercent": 5.00,
+      "coldWaterUsage": 6.400,
+      "hotWaterUsage": 4.232258,
+      "apartmentElectricityUsage": 75.200,
+      "boilerElectricityUsage": 52.28083464705882352941176471
+    }
+  ],
+  "componentLines": [
+    {
+      "component": "ColdWater",
+      "usage": 12.400,
+      "usageSubtotal": 22.788000000,
+      "standingSubtotal": 5.900000,
+      "vatAmount": 1.43440000000,
+      "total": 30.12,
+      "equation": "total = (usage x unitRate \u002B standing) \u002B VAT"
+    },
+    {
+      "component": "HotWater",
+      "usage": 8.200,
+      "usageSubtotal": 15.069483860000,
+      "standingSubtotal": 0,
+      "vatAmount": 0.75347419300000,
+      "total": 15.82,
+      "equation": "total = (usage x unitRate \u002B standing) \u002B VAT"
+    },
+    {
+      "component": "ApartmentElectricity",
+      "usage": 145.700,
+      "usageSubtotal": 42.676000000,
+      "standingSubtotal": 13.500000,
+      "vatAmount": 2.80880000000,
+      "total": 58.98,
+      "equation": "total = (usage x unitRate \u002B standing) \u002B VAT"
+    },
+    {
+      "component": "BoilerElectricity",
+      "usage": 101.29411764705882352941176471,
+      "usageSubtotal": 29.669373807352941176470588237,
+      "standingSubtotal": 0,
+      "vatAmount": 1.4834686903676470588235294118,
+      "total": 31.15,
+      "equation": "total = (usage x unitRate \u002B standing) \u002B VAT"
+    }
+  ],
+  "integrityChecksPassed": true,
+  "integrityDigest": "Validated: usage sums, segment sums, component totals, combined totals.",
+  "createdAtUtc": "2026-07-29T12:36:07.3433133+00:00",
+  "version": 1
+}

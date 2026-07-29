@@ -34,8 +34,11 @@ public sealed class AdminRolesControllerTests
             "target",
             new AdminRoleChangeRequest { Role = "Admin", Reason = "Needs access" },
             CancellationToken.None);
+        var forbidden = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(forbidden.Value);
 
-        Assert.IsType<ForbidResult>(action.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Equal("ADMIN_ACCESS_DENIED", problem.Extensions["errorCode"]?.ToString());
     }
 
     [Fact]

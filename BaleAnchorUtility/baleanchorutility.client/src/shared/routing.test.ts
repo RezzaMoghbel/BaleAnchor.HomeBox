@@ -45,6 +45,16 @@ describe("getTargetRoute", () => {
     expect(getTargetRoute("/dashboard/admin", session)).toBe("/dashboard");
   });
 
+  it("protects notifications route for unauthenticated users", () => {
+    expect(getTargetRoute("/dashboard/notifications", null)).toBe("/login");
+  });
+
+  it("allows notifications route for authenticated users", () => {
+    const session = createSession({ userStatus: "Active" });
+
+    expect(getTargetRoute("/dashboard/notifications", session)).toBeNull();
+  });
+
   it("allows admin routes for admin roles case-insensitively", () => {
     const session = createSession({ userRole: "SuperAdmin" });
 

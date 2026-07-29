@@ -46,7 +46,7 @@ public sealed class AdminRolesController : ControllerBase
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null)
         {
-            return Forbid();
+            return ForbiddenProblem("Admin permission is required to change user roles.", "ADMIN_ACCESS_DENIED");
         }
 
         try
@@ -119,6 +119,22 @@ public sealed class AdminRolesController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ForbiddenProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status403Forbidden,
+            "Access denied",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status403Forbidden,
             ContentTypes = { "application/problem+json" },
         };
     }

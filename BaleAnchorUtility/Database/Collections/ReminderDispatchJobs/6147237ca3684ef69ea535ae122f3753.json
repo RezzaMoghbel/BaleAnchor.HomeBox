@@ -1,0 +1,28 @@
+{
+  "id": "6147237ca3684ef69ea535ae122f3753",
+  "userId": "seed-resident-active-0001",
+  "kind": "ReadingReminder",
+  "channel": "Email",
+  "recommendedReadingDate": "2026-08-01",
+  "timeZoneId": "Europe/London",
+  "scheduledForUtc": "2026-08-01T08:00:00+00:00",
+  "nextAttemptAtUtc": null,
+  "status": "Cancelled",
+  "attemptCount": 0,
+  "maxAttempts": 5,
+  "templateVersion": "reading-reminder-v1",
+  "deduplicationKey": "seed-resident-active-0001:ReadingReminder:Email:2026-08-01:d-0",
+  "lastErrorCode": null,
+  "lastErrorMessage": null,
+  "attemptHistory": [
+    {
+      "attemptedAtUtc": "2026-07-29T12:36:05.0546592+00:00",
+      "outcome": "Cancelled",
+      "errorCode": "READING_SUBMITTED",
+      "errorMessage": "Future reminder cancelled after reading submission."
+    }
+  ],
+  "createdAtUtc": "2026-07-29T12:36:04.4117185+00:00",
+  "updatedAtUtc": "2026-07-29T12:36:05.0546592+00:00",
+  "version": 2
+}

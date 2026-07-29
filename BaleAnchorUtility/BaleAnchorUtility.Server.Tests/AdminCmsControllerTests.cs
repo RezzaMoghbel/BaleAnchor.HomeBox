@@ -26,8 +26,11 @@ public sealed class AdminCmsControllerTests
         };
 
         var action = await controller.GetFlats(CancellationToken.None);
+        var forbidden = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(forbidden.Value);
 
-        Assert.IsType<ForbidResult>(action.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Equal("ADMIN_ACCESS_DENIED", problem.Extensions["errorCode"]?.ToString());
     }
 
     [Fact]
@@ -46,8 +49,11 @@ public sealed class AdminCmsControllerTests
         };
 
         var action = await controller.GetFlats(CancellationToken.None);
+        var forbidden = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(forbidden.Value);
 
-        Assert.IsType<ForbidResult>(action.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Equal("ADMIN_ACCESS_DENIED", problem.Extensions["errorCode"]?.ToString());
     }
 
     [Fact]

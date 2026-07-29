@@ -1,0 +1,11 @@
+{
+  "id": "574917d5f9b046cebcd6db202461f9b0",
+  "userId": "seed-resident-active-0001",
+  "emailRemindersEnabled": true,
+  "pushRemindersEnabled": false,
+  "readingReminderEnabled": true,
+  "timeZoneId": "Europe/London",
+  "createdAtUtc": "2026-07-29T12:30:48.5189841+00:00",
+  "updatedAtUtc": "2026-07-29T12:30:48.5189841+00:00",
+  "version": 1
+}
