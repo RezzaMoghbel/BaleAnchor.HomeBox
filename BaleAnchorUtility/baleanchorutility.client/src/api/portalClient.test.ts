@@ -320,23 +320,19 @@ describe("portalClient", () => {
     });
     await portalClient.sendPushTestNotification();
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/v1/push/subscriptions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          endpoint: "https://push.example/subscriptions/1",
-          p256dh: "p256dh-key",
-          auth: "auth-key",
-          clientUserAgent: "vitest",
-        }),
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/push/subscriptions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      credentials: "include",
+      body: JSON.stringify({
+        endpoint: "https://push.example/subscriptions/1",
+        p256dh: "p256dh-key",
+        auth: "auth-key",
+        clientUserAgent: "vitest",
+      }),
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/push/test", {
       method: "POST",
