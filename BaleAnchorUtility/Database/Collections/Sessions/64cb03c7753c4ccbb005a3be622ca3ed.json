@@ -1,0 +1,12 @@
+{
+  "id": "64cb03c7753c4ccbb005a3be622ca3ed",
+  "tokenHash": "A5A2B45E926EA95085A60CE5FB4F3D4A2C15CF2DAF68FD686F49C18184F64310",
+  "emailNormalized": "SUPERADMIN@BALEANCHOR.LOCAL",
+  "userId": "seed-superadmin-0001",
+  "deviceSummary": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "createdAtUtc": "2026-07-29T09:34:33.4380685+00:00",
+  "expiresAtUtc": "2026-07-30T09:34:33.4380685+00:00",
+  "lastUsedAtUtc": "2026-07-29T09:38:45.3749419+00:00",
+  "revokedAtUtc": null,
+  "version": 8
+}

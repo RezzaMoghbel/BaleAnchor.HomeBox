@@ -197,6 +197,19 @@ Tasks:
 - Preserve typed client transport and shared contracts.
 - Introduce a server-state/query layer if we choose to close the full frontend stack gap from `CLAUDE.md`.
 
+Current progress in this phase:
+
+- Billing and payment field orchestration (state + field-error clearing handlers) has been extracted from `App.tsx` into a focused hook: `src/hooks/useBillingFormState.ts`.
+- Statements workflow orchestration (state, API actions, selected snapshot flow, export flow, and statements-tab preload behavior) has been extracted from `App.tsx` into `src/hooks/useStatementsWorkflow.ts`.
+- Onboarding workflow orchestration (terms/profile/utility/progress state and actions with validation + session refresh integration) has been extracted from `App.tsx` into `src/hooks/useOnboardingWorkflow.ts`.
+- Admin workflow orchestration (pending approvals, decision actions, role updates, and admin action messaging) has been extracted from `App.tsx` into `src/hooks/useAdminWorkflow.ts`.
+- Billing and payments API-action orchestration has been extracted from `App.tsx` into `src/hooks/useBillingPaymentsWorkflow.ts` while preserving existing validation and error behavior.
+- Existing validation and submit behavior remains unchanged and verified by tests/build after extraction.
+
+Phase status:
+
+- Phase 3 implementation is complete.
+
 Exit criteria:
 
 - `App.tsx` is primarily route composition and shell wiring.

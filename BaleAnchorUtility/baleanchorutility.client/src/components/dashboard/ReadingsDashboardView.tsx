@@ -254,9 +254,10 @@ export function ReadingsDashboardView({
                   {getFieldErrors(tariffFieldErrors, "effectiveFromDate")
                     .length > 0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(tariffFieldErrors, "effectiveFromDate").join(
-                        " ",
-                      )}
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "effectiveFromDate",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -330,9 +331,10 @@ export function ReadingsDashboardView({
                   {getFieldErrors(tariffFieldErrors, "waterVatPercent").length >
                     0 && (
                     <div className="invalid-feedback d-block">
-                      {getFieldErrors(tariffFieldErrors, "waterVatPercent").join(
-                        " ",
-                      )}
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "waterVatPercent",
+                      ).join(" ")}
                     </div>
                   )}
                 </div>
@@ -353,10 +355,8 @@ export function ReadingsDashboardView({
                       onElectricityTariffPerUnitChange(event.target.value)
                     }
                   />
-                  {getFieldErrors(
-                    tariffFieldErrors,
-                    "electricityTariffPerUnit",
-                  ).length > 0 && (
+                  {getFieldErrors(tariffFieldErrors, "electricityTariffPerUnit")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
                       {getFieldErrors(
                         tariffFieldErrors,
@@ -410,10 +410,8 @@ export function ReadingsDashboardView({
                       onElectricityVatPercentChange(event.target.value)
                     }
                   />
-                  {getFieldErrors(
-                    tariffFieldErrors,
-                    "electricityVatPercent",
-                  ).length > 0 && (
+                  {getFieldErrors(tariffFieldErrors, "electricityVatPercent")
+                    .length > 0 && (
                     <div className="invalid-feedback d-block">
                       {getFieldErrors(
                         tariffFieldErrors,

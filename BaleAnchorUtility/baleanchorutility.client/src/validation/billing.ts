@@ -104,7 +104,9 @@ function toFieldErrors(error: z.ZodError): FieldErrors {
   return errors;
 }
 
-export function validateReadingsInput(input: ReadingsValidationInput): FieldErrors {
+export function validateReadingsInput(
+  input: ReadingsValidationInput,
+): FieldErrors {
   const result = readingsSchema.safeParse({
     readingDate: input.readingDate.trim(),
     coldWaterReading: input.coldWaterReading.trim(),
@@ -122,14 +124,17 @@ export function validateTariffInput(input: TariffValidationInput): FieldErrors {
     waterStandingChargePerDay: input.waterStandingChargePerDay.trim(),
     waterVatPercent: input.waterVatPercent.trim(),
     electricityTariffPerUnit: input.electricityTariffPerUnit.trim(),
-    electricityStandingChargePerDay: input.electricityStandingChargePerDay.trim(),
+    electricityStandingChargePerDay:
+      input.electricityStandingChargePerDay.trim(),
     electricityVatPercent: input.electricityVatPercent.trim(),
   });
 
   return result.success ? {} : toFieldErrors(result.error);
 }
 
-export function validatePaymentInput(input: PaymentValidationInput): FieldErrors {
+export function validatePaymentInput(
+  input: PaymentValidationInput,
+): FieldErrors {
   const result = paymentSchema.safeParse({
     amount: input.amount.trim(),
     paymentDate: input.paymentDate.trim(),

@@ -27,13 +27,9 @@ describe("billing validation", () => {
       }),
     ).toEqual({
       readingDate: ["Enter a valid date in YYYY-MM-DD format."],
-      coldWaterReading: [
-        "Enter a valid number with up to 3 decimal places.",
-      ],
+      coldWaterReading: ["Enter a valid number with up to 3 decimal places."],
       hotWaterReading: ["Enter a valid number with up to 3 decimal places."],
-      electricityReading: [
-        "Enter a valid number with up to 3 decimal places.",
-      ],
+      electricityReading: ["Enter a valid number with up to 3 decimal places."],
     });
   });
 
@@ -64,9 +60,7 @@ describe("billing validation", () => {
       }),
     ).toEqual({
       effectiveFromDate: ["Enter a valid date in YYYY-MM-DD format."],
-      waterTariffPerUnit: [
-        "Enter a valid number with up to 6 decimal places.",
-      ],
+      waterTariffPerUnit: ["Enter a valid number with up to 6 decimal places."],
       waterStandingChargePerDay: [
         "Enter a valid number with up to 6 decimal places.",
       ],
