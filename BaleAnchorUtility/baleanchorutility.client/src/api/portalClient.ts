@@ -173,15 +173,21 @@ export const portalClient = {
   },
 
   reseedDevelopmentData() {
-    return requestJson<DevelopmentSeedOperationResponse>("/api/system/dev-seed", {
-      method: "POST",
-    });
+    return requestJson<DevelopmentSeedOperationResponse>(
+      "/api/system/dev-seed",
+      {
+        method: "POST",
+      },
+    );
   },
 
   deleteDevelopmentSeedData() {
-    return requestJson<DevelopmentSeedOperationResponse>("/api/system/dev-seed", {
-      method: "DELETE",
-    });
+    return requestJson<DevelopmentSeedOperationResponse>(
+      "/api/system/dev-seed",
+      {
+        method: "DELETE",
+      },
+    );
   },
 
   logout() {

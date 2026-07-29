@@ -116,7 +116,9 @@ export function DevelopmentSeedAccessCard({
         <button
           type="button"
           className="btn btn-sm btn-outline-primary"
-          onClick={() => void completeOperation(portalClient.reseedDevelopmentData())}
+          onClick={() =>
+            void completeOperation(portalClient.reseedDevelopmentData())
+          }
           disabled={loading || actionBusy}
         >
           Reseed demo data

@@ -40,6 +40,7 @@ Seed emails:
 - `admin@baleanchor.local`
 - `resident.active@baleanchor.local`
 - `resident.onboarding@baleanchor.local`
+- `resident.pending@baleanchor.local`
 
 ## 4. Seeded demo data currently provided
 
@@ -83,6 +84,7 @@ Important setting:
 - `admin@baleanchor.local`: admin approvals path without superadmin-only role escalation powers
 - `resident.active@baleanchor.local`: direct resident flow with seeded readings/payments/statements data
 - `resident.onboarding@baleanchor.local`: onboarding path coverage
+- `resident.pending@baleanchor.local`: pending-approval queue coverage for admin approval and rejection walkthroughs
 
 ## 6. Dev seed API operations
 
