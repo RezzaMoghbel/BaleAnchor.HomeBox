@@ -11,6 +11,8 @@ namespace BaleAnchorUtility.Server.Application.Calculations;
 public sealed class CalculationSnapshotService
 {
     private const string EngineVersion = "calc-engine-v1";
+    private const string RoundingPolicyVersion = "money-2dp-awayfromzero:v1";
+    private const string EstimatedAllocationLabel = "Estimated tariff allocation - no meter reading was available on the tariff-change date.";
 
     private readonly IUserRepository userRepository;
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
@@ -99,47 +101,85 @@ public sealed class CalculationSnapshotService
         }
 
         var hasEstimatedSegments = periodTariffs.Count > 1;
-        var coldTotal = CalculateComponentTotal(
-            coldUsed,
-            days,
+        var coldUsageBySegment = AllocateUsageBySegment(coldUsed, days, periodTariffs);
+        var hotUsageBySegment = AllocateUsageBySegment(hotUsed, days, periodTariffs);
+        var apartmentUsageBySegment = AllocateUsageBySegment(apartmentUsed, days, periodTariffs);
+        var boilerUsageBySegment = AllocateUsageBySegment(boilerUsed, days, periodTariffs);
+
+        var cold = CalculateComponent(
+            coldUsageBySegment,
             periodTariffs,
             x => x.WaterTariffPerUnit,
             x => x.WaterStandingChargePerDay,
             x => x.WaterVatPercent,
             includeStandingCharge: true);
 
-        var hotWaterTotal = CalculateComponentTotal(
-            hotUsed,
-            days,
+        var hot = CalculateComponent(
+            hotUsageBySegment,
             periodTariffs,
             x => x.WaterTariffPerUnit,
             x => x.WaterStandingChargePerDay,
             x => x.WaterVatPercent,
             includeStandingCharge: false);
 
-        var apartmentElectricityTotal = CalculateComponentTotal(
-            apartmentUsed,
-            days,
+        var apartment = CalculateComponent(
+            apartmentUsageBySegment,
             periodTariffs,
             x => x.ElectricityTariffPerUnit,
             x => x.ElectricityStandingChargePerDay,
             x => x.ElectricityVatPercent,
             includeStandingCharge: true);
 
-        var boilerElectricityTotal = CalculateComponentTotal(
-            boilerUsed,
-            days,
+        var boiler = CalculateComponent(
+            boilerUsageBySegment,
             periodTariffs,
             x => x.ElectricityTariffPerUnit,
             x => x.ElectricityStandingChargePerDay,
             x => x.ElectricityVatPercent,
             includeStandingCharge: false);
+
+        var coldTotal = cold.Total;
+        var hotWaterTotal = hot.Total;
+        var apartmentElectricityTotal = apartment.Total;
+        var boilerElectricityTotal = boiler.Total;
 
         var waterTotal = coldTotal + hotWaterTotal;
         var electricityTotal = apartmentElectricityTotal + boilerElectricityTotal;
         var periodTotal = waterTotal + electricityTotal;
 
-        var equation = $"Cold=(usage*waterUnit + days*waterStanding) + waterVAT; Hot=(usage*waterUnit)+waterVAT; Apartment=(usage*elecUnit + days*elecStanding)+elecVAT; Boiler=(usage*elecUnit)+elecVAT; PeriodTotal={periodTotal:0.00}";
+        ValidateIntegrity(
+            coldUsed,
+            hotUsed,
+            apartmentUsed,
+            boilerUsed,
+            coldUsageBySegment,
+            hotUsageBySegment,
+            apartmentUsageBySegment,
+            boilerUsageBySegment,
+            coldTotal,
+            hotWaterTotal,
+            apartmentElectricityTotal,
+            boilerElectricityTotal,
+            waterTotal,
+            electricityTotal,
+            periodTotal);
+
+        var equation = "PeriodTotal = WaterTotal + ElectricityTotal; WaterTotal = ColdWaterTotal + HotWaterTotal; ElectricityTotal = ApartmentElectricityTotal + BoilerElectricityTotal.";
+        var segmentTraces = BuildSegmentTraces(
+            periodTariffs,
+            coldUsageBySegment,
+            hotUsageBySegment,
+            apartmentUsageBySegment,
+            boilerUsageBySegment,
+            hasEstimatedSegments);
+
+        var componentLines = new List<CalculationComponentLineTrace>
+        {
+            CreateComponentLine("ColdWater", coldUsed, cold),
+            CreateComponentLine("HotWater", hotUsed, hot),
+            CreateComponentLine("ApartmentElectricity", apartmentUsed, apartment),
+            CreateComponentLine("BoilerElectricity", boilerUsed, boiler),
+        };
 
         var inputHash = ComputeInputHash(userId, start, end, setup, periodTariffs);
         var now = clock.UtcNow;
@@ -162,9 +202,17 @@ public sealed class CalculationSnapshotService
             ElectricityTotal = decimal.Round(electricityTotal, 2, MidpointRounding.AwayFromZero),
             PeriodTotal = decimal.Round(periodTotal, 2, MidpointRounding.AwayFromZero),
             ContainsEstimatedSegments = hasEstimatedSegments,
+            EstimatedAllocationLabel = hasEstimatedSegments ? EstimatedAllocationLabel : null,
             EngineVersion = EngineVersion,
+            RoundingPolicyVersion = RoundingPolicyVersion,
             InputHash = inputHash,
             EquationSummary = equation,
+            BoilerKwhPerCubicMeterUsed = setup.BoilerKwhPerCubicMeter,
+            BoilerEfficiencyPercentUsed = setup.BoilerEfficiencyPercent,
+            TariffSegments = segmentTraces,
+            ComponentLines = componentLines,
+            IntegrityChecksPassed = true,
+            IntegrityDigest = "Validated: usage sums, segment sums, component totals, combined totals.",
             CreatedAtUtc = now,
             Version = 1,
         };
@@ -173,29 +221,7 @@ public sealed class CalculationSnapshotService
 
         logger.LogInformation("Calculation snapshot {SnapshotId} created for user {UserId}.", snapshot.Id, userId);
 
-        return new CalculateLatestPeriodResponse
-        {
-            SnapshotId = snapshot.Id,
-            UserId = snapshot.UserId,
-            PeriodStartDate = snapshot.PeriodStartDate,
-            PeriodEndDateExclusive = snapshot.PeriodEndDateExclusive,
-            DaysInPeriod = snapshot.DaysInPeriod,
-            ColdWaterUsed = snapshot.ColdWaterUsed.ToString("0.###", CultureInfo.InvariantCulture),
-            HotWaterUsed = snapshot.HotWaterUsed.ToString("0.###", CultureInfo.InvariantCulture),
-            ApartmentElectricityUsed = snapshot.ApartmentElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
-            BoilerElectricityUsed = snapshot.BoilerElectricityUsed.ToString("0.###", CultureInfo.InvariantCulture),
-            ColdWaterTotal = snapshot.ColdWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            HotWaterTotal = snapshot.HotWaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            ApartmentElectricityTotal = snapshot.ApartmentElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            BoilerElectricityTotal = snapshot.BoilerElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            WaterTotal = snapshot.WaterTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            ElectricityTotal = snapshot.ElectricityTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            ContainsEstimatedSegments = snapshot.ContainsEstimatedSegments,
-            EngineVersion = snapshot.EngineVersion,
-            InputHash = snapshot.InputHash,
-            EquationSummary = snapshot.EquationSummary,
-        };
+        return ToResponse(snapshot);
     }
 
     public async Task<CalculateLatestPeriodResponse> GetLatestSnapshotAsync(string userId, CancellationToken cancellationToken)
@@ -203,6 +229,11 @@ public sealed class CalculationSnapshotService
         var snapshot = await calculationSnapshotRepository.GetLatestByUserIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("No calculation snapshot is available yet.");
 
+        return ToResponse(snapshot);
+    }
+
+    private static CalculateLatestPeriodResponse ToResponse(CalculationSnapshot snapshot)
+    {
         return new CalculateLatestPeriodResponse
         {
             SnapshotId = snapshot.Id,
@@ -223,8 +254,48 @@ public sealed class CalculationSnapshotService
             PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
             ContainsEstimatedSegments = snapshot.ContainsEstimatedSegments,
             EngineVersion = snapshot.EngineVersion,
+            RoundingPolicyVersion = snapshot.RoundingPolicyVersion,
             InputHash = snapshot.InputHash,
             EquationSummary = snapshot.EquationSummary,
+            EstimatedAllocationLabel = snapshot.EstimatedAllocationLabel,
+            BoilerAssumptions = new BoilerAssumptionSummaryResponse
+            {
+                BoilerKwhPerCubicMeter = snapshot.BoilerKwhPerCubicMeterUsed.ToString("0.#####", CultureInfo.InvariantCulture),
+                BoilerEfficiencyPercent = snapshot.BoilerEfficiencyPercentUsed.ToString("0.#####", CultureInfo.InvariantCulture),
+            },
+            TariffSegments = snapshot.TariffSegments
+                .Select(x => new CalculationTariffSegmentResponse
+                {
+                    StartDate = x.StartDate,
+                    EndDateExclusive = x.EndDateExclusive,
+                    Days = x.Days,
+                    IsEstimatedAllocation = x.IsEstimatedAllocation,
+                    WaterTariffPerUnit = x.WaterTariffPerUnit.ToString("0.#####", CultureInfo.InvariantCulture),
+                    WaterStandingChargePerDay = x.WaterStandingChargePerDay.ToString("0.#####", CultureInfo.InvariantCulture),
+                    WaterVatPercent = x.WaterVatPercent.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityTariffPerUnit = x.ElectricityTariffPerUnit.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityStandingChargePerDay = x.ElectricityStandingChargePerDay.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityVatPercent = x.ElectricityVatPercent.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ColdWaterUsage = x.ColdWaterUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    HotWaterUsage = x.HotWaterUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    ApartmentElectricityUsage = x.ApartmentElectricityUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    BoilerElectricityUsage = x.BoilerElectricityUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                })
+                .ToList(),
+            ComponentLines = snapshot.ComponentLines
+                .Select(x => new CalculationComponentLineResponse
+                {
+                    Component = x.Component,
+                    Usage = x.Usage.ToString("0.######", CultureInfo.InvariantCulture),
+                    UsageSubtotal = x.UsageSubtotal.ToString("0.######", CultureInfo.InvariantCulture),
+                    StandingSubtotal = x.StandingSubtotal.ToString("0.######", CultureInfo.InvariantCulture),
+                    VatAmount = x.VatAmount.ToString("0.######", CultureInfo.InvariantCulture),
+                    Total = x.Total.ToString("0.00", CultureInfo.InvariantCulture),
+                    Equation = x.Equation,
+                })
+                .ToList(),
+            IntegrityChecksPassed = snapshot.IntegrityChecksPassed,
+            IntegrityDigest = snapshot.IntegrityDigest,
         };
     }
 
@@ -283,18 +354,53 @@ public sealed class CalculationSnapshotService
         return result;
     }
 
-    private static decimal CalculateComponentTotal(
-        decimal totalUsage,
-        int totalDays,
+    private static ComponentComputationResult CalculateComponent(
+        IReadOnlyList<decimal> usageBySegment,
         IReadOnlyList<TariffSegment> segments,
         Func<TariffSegment, decimal> unitRate,
         Func<TariffSegment, decimal> standingRate,
         Func<TariffSegment, decimal> vatPercent,
         bool includeStandingCharge)
     {
+        if (segments.Count == 0 || usageBySegment.Count == 0)
+        {
+            return new ComponentComputationResult();
+        }
+
+        decimal usageSubtotal = 0m;
+        decimal standingSubtotal = 0m;
+        decimal vatAmount = 0m;
+        decimal total = 0m;
+
+        for (var index = 0; index < segments.Count; index++)
+        {
+            var segment = segments[index];
+            var segmentUsage = usageBySegment[index];
+            var segmentUsageSubtotal = segmentUsage * unitRate(segment);
+            var segmentStandingSubtotal = includeStandingCharge ? segment.Days * standingRate(segment) : 0m;
+            var subtotal = segmentUsageSubtotal + segmentStandingSubtotal;
+            var segmentVatAmount = subtotal * vatPercent(segment) / 100m;
+            total += subtotal + segmentVatAmount;
+
+            usageSubtotal += segmentUsageSubtotal;
+            standingSubtotal += segmentStandingSubtotal;
+            vatAmount += segmentVatAmount;
+        }
+
+        return new ComponentComputationResult
+        {
+            UsageSubtotal = usageSubtotal,
+            StandingSubtotal = standingSubtotal,
+            VatAmount = vatAmount,
+            Total = total,
+        };
+    }
+
+    private static decimal[] AllocateUsageBySegment(decimal totalUsage, int totalDays, IReadOnlyList<TariffSegment> segments)
+    {
         if (segments.Count == 0)
         {
-            return 0m;
+            return [];
         }
 
         if (totalDays <= 0)
@@ -302,25 +408,106 @@ public sealed class CalculationSnapshotService
             throw new InvalidOperationException("Calculation period is invalid.");
         }
 
-        decimal allocatedUsage = 0m;
-        decimal total = 0m;
+        var usage = new decimal[segments.Count];
+        decimal allocated = 0m;
 
         for (var index = 0; index < segments.Count; index++)
         {
-            var segment = segments[index];
-            var segmentUsage = index == segments.Count - 1
-                ? totalUsage - allocatedUsage
-                : decimal.Round(totalUsage * segment.Days / totalDays, 6, MidpointRounding.AwayFromZero);
-
-            allocatedUsage += segmentUsage;
-            var usageSubtotal = segmentUsage * unitRate(segment);
-            var standingSubtotal = includeStandingCharge ? segment.Days * standingRate(segment) : 0m;
-            var subtotal = usageSubtotal + standingSubtotal;
-            var vatAmount = subtotal * vatPercent(segment) / 100m;
-            total += subtotal + vatAmount;
+            if (index == segments.Count - 1)
+            {
+                usage[index] = totalUsage - allocated;
+            }
+            else
+            {
+                usage[index] = decimal.Round(totalUsage * segments[index].Days / totalDays, 6, MidpointRounding.AwayFromZero);
+                allocated += usage[index];
+            }
         }
 
-        return total;
+        return usage;
+    }
+
+    private static List<CalculationTariffSegmentTrace> BuildSegmentTraces(
+        IReadOnlyList<TariffSegment> segments,
+        IReadOnlyList<decimal> coldUsageBySegment,
+        IReadOnlyList<decimal> hotUsageBySegment,
+        IReadOnlyList<decimal> apartmentUsageBySegment,
+        IReadOnlyList<decimal> boilerUsageBySegment,
+        bool hasEstimatedSegments)
+    {
+        var traces = new List<CalculationTariffSegmentTrace>(segments.Count);
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
+            traces.Add(new CalculationTariffSegmentTrace
+            {
+                StartDate = segment.StartDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                EndDateExclusive = segment.EndDateExclusive.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Days = segment.Days,
+                IsEstimatedAllocation = hasEstimatedSegments,
+                WaterTariffPerUnit = segment.WaterTariffPerUnit,
+                WaterStandingChargePerDay = segment.WaterStandingChargePerDay,
+                WaterVatPercent = segment.WaterVatPercent,
+                ElectricityTariffPerUnit = segment.ElectricityTariffPerUnit,
+                ElectricityStandingChargePerDay = segment.ElectricityStandingChargePerDay,
+                ElectricityVatPercent = segment.ElectricityVatPercent,
+                ColdWaterUsage = coldUsageBySegment[i],
+                HotWaterUsage = hotUsageBySegment[i],
+                ApartmentElectricityUsage = apartmentUsageBySegment[i],
+                BoilerElectricityUsage = boilerUsageBySegment[i],
+            });
+        }
+
+        return traces;
+    }
+
+    private static CalculationComponentLineTrace CreateComponentLine(string component, decimal usage, ComponentComputationResult result)
+    {
+        return new CalculationComponentLineTrace
+        {
+            Component = component,
+            Usage = usage,
+            UsageSubtotal = result.UsageSubtotal,
+            StandingSubtotal = result.StandingSubtotal,
+            VatAmount = result.VatAmount,
+            Total = decimal.Round(result.Total, 2, MidpointRounding.AwayFromZero),
+            Equation = "total = (usage x unitRate + standing) + VAT",
+        };
+    }
+
+    private static void ValidateIntegrity(
+        decimal coldUsed,
+        decimal hotUsed,
+        decimal apartmentUsed,
+        decimal boilerUsed,
+        IReadOnlyList<decimal> coldUsageBySegment,
+        IReadOnlyList<decimal> hotUsageBySegment,
+        IReadOnlyList<decimal> apartmentUsageBySegment,
+        IReadOnlyList<decimal> boilerUsageBySegment,
+        decimal coldTotal,
+        decimal hotTotal,
+        decimal apartmentTotal,
+        decimal boilerTotal,
+        decimal waterTotal,
+        decimal electricityTotal,
+        decimal periodTotal)
+    {
+        EnsureApproximateEqual(coldUsed, coldUsageBySegment.Sum(), 0.000001m, "Cold segment usage does not sum to total cold usage.");
+        EnsureApproximateEqual(hotUsed, hotUsageBySegment.Sum(), 0.000001m, "Hot segment usage does not sum to total hot usage.");
+        EnsureApproximateEqual(apartmentUsed, apartmentUsageBySegment.Sum(), 0.000001m, "Apartment electricity segment usage does not sum to total apartment usage.");
+        EnsureApproximateEqual(boilerUsed, boilerUsageBySegment.Sum(), 0.000001m, "Boiler electricity segment usage does not sum to total boiler usage.");
+        EnsureApproximateEqual(waterTotal, coldTotal + hotTotal, 0.000001m, "Water total integrity check failed.");
+        EnsureApproximateEqual(electricityTotal, apartmentTotal + boilerTotal, 0.000001m, "Electricity total integrity check failed.");
+        EnsureApproximateEqual(periodTotal, waterTotal + electricityTotal, 0.000001m, "Period total integrity check failed.");
+    }
+
+    private static void EnsureApproximateEqual(decimal expected, decimal actual, decimal tolerance, string message)
+    {
+        var delta = decimal.Abs(expected - actual);
+        if (delta > tolerance)
+        {
+            throw new InvalidOperationException(message);
+        }
     }
 
     private static string ComputeInputHash(
@@ -376,5 +563,13 @@ public sealed class CalculationSnapshotService
         public required decimal ElectricityTariffPerUnit { get; init; }
         public required decimal ElectricityStandingChargePerDay { get; init; }
         public required decimal ElectricityVatPercent { get; init; }
+    }
+
+    private sealed class ComponentComputationResult
+    {
+        public decimal UsageSubtotal { get; init; }
+        public decimal StandingSubtotal { get; init; }
+        public decimal VatAmount { get; init; }
+        public decimal Total { get; init; }
     }
 }

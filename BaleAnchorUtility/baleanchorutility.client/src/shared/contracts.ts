@@ -293,9 +293,48 @@ export interface CalculateLatestPeriodResponse {
   electricityTotal: string;
   periodTotal: string;
   containsEstimatedSegments: boolean;
+  estimatedAllocationLabel?: string;
   engineVersion: string;
+  roundingPolicyVersion: string;
   inputHash: string;
   equationSummary: string;
+  boilerAssumptions: BoilerAssumptionSummaryResponse;
+  tariffSegments: CalculationTariffSegmentResponse[];
+  componentLines: CalculationComponentLineResponse[];
+  integrityChecksPassed: boolean;
+  integrityDigest: string;
+}
+
+export interface BoilerAssumptionSummaryResponse {
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+}
+
+export interface CalculationTariffSegmentResponse {
+  startDate: string;
+  endDateExclusive: string;
+  days: number;
+  isEstimatedAllocation: boolean;
+  waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
+  electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
+  coldWaterUsage: string;
+  hotWaterUsage: string;
+  apartmentElectricityUsage: string;
+  boilerElectricityUsage: string;
+}
+
+export interface CalculationComponentLineResponse {
+  component: string;
+  usage: string;
+  usageSubtotal: string;
+  standingSubtotal: string;
+  vatAmount: string;
+  total: string;
+  equation: string;
 }
 
 export interface RecordLatestPeriodPaymentResponse {
@@ -392,9 +431,16 @@ export interface StatementSummaryResponse {
   currentBalance: string;
   currentBalanceStatus: string;
   containsEstimatedSegments: boolean;
+  estimatedAllocationLabel?: string;
   engineVersion: string;
+  roundingPolicyVersion: string;
   inputHash: string;
   equationSummary: string;
+  boilerAssumptions: BoilerAssumptionSummaryResponse;
+  tariffSegments: CalculationTariffSegmentResponse[];
+  componentLines: CalculationComponentLineResponse[];
+  integrityChecksPassed: boolean;
+  integrityDigest: string;
 }
 
 export interface StatementPeriodItemResponse {
@@ -421,6 +467,7 @@ export interface StatementExportHistoryItemResponse {
   snapshotId: string;
   periodStartDate: string;
   periodEndDateExclusive: string;
+  contentSha256: string;
   templateVersion: string;
   rendererVersion: string;
   createdAtUtc: string;

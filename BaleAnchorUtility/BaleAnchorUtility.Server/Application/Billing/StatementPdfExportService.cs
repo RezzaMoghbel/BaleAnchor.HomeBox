@@ -35,6 +35,7 @@ public sealed class StatementPdfExportService
         string? periodEndDateExclusive,
         CancellationToken cancellationToken)
     {
+        var exportId = Guid.NewGuid().ToString("N");
         var summary = await statementSummaryService.GetSelectedSummaryAsync(
             userId,
             snapshotId,
@@ -44,6 +45,7 @@ public sealed class StatementPdfExportService
 
         var model = new StatementPdfModel
         {
+            StatementReference = exportId,
             UserId = summary.UserId,
             PeriodStartDate = summary.PeriodStartDate,
             PeriodEndDateExclusive = summary.PeriodEndDateExclusive,
@@ -58,9 +60,16 @@ public sealed class StatementPdfExportService
             CurrentBalance = summary.CurrentBalance,
             CurrentBalanceStatus = summary.CurrentBalanceStatus,
             ContainsEstimatedSegments = summary.ContainsEstimatedSegments,
+            EstimatedAllocationLabel = summary.EstimatedAllocationLabel,
             EngineVersion = summary.EngineVersion,
+            RoundingPolicyVersion = summary.RoundingPolicyVersion,
             InputHash = summary.InputHash,
             EquationSummary = summary.EquationSummary,
+            BoilerAssumptions = summary.BoilerAssumptions,
+            TariffSegments = summary.TariffSegments,
+            ComponentLines = summary.ComponentLines,
+            IntegrityChecksPassed = summary.IntegrityChecksPassed,
+            IntegrityDigest = summary.IntegrityDigest,
             GeneratedAtUtcIso = clock.UtcNow.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
         };
 
@@ -77,7 +86,7 @@ public sealed class StatementPdfExportService
 
         var exportRecord = new StatementExportRecord
         {
-            Id = Guid.NewGuid().ToString("N"),
+            Id = exportId,
             UserId = summary.UserId,
             SnapshotId = snapshot.Id,
             PeriodStartDate = summary.PeriodStartDate,

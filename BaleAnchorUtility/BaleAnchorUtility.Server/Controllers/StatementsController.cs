@@ -144,6 +144,7 @@ public sealed class StatementsController : ControllerBase
             Response.Headers["X-Statement-Template-Version"] = response.TemplateVersion;
             Response.Headers["X-Statement-Renderer-Version"] = response.RendererVersion;
             Response.Headers["X-Statement-Content-Sha256"] = response.ContentSha256;
+            Response.Headers["X-Statement-Reference"] = response.ExportId;
 
             return File(response.Content, response.ContentType, response.FileName);
         }

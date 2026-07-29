@@ -53,6 +53,13 @@ public sealed class StatementSummaryServiceTests
         Assert.Equal("50.00", response.TotalRecordedPayments);
         Assert.Equal("150.00", response.CurrentBalance);
         Assert.Equal("Amount outstanding", response.CurrentBalanceStatus);
+        Assert.Equal("calc-engine-v1", response.EngineVersion);
+        Assert.Equal("money-2dp-awayfromzero:v1", response.RoundingPolicyVersion);
+        Assert.Equal("3", response.BoilerAssumptions.BoilerKwhPerCubicMeter);
+        Assert.Equal("100", response.BoilerAssumptions.BoilerEfficiencyPercent);
+        Assert.Single(response.TariffSegments);
+        Assert.Equal("ColdWater", response.ComponentLines[0].Component);
+        Assert.True(response.IntegrityChecksPassed);
     }
 
     [Fact]
@@ -268,9 +275,48 @@ public sealed class StatementSummaryServiceTests
             ElectricityTotal = 0m,
             PeriodTotal = periodTotal,
             ContainsEstimatedSegments = false,
+            EstimatedAllocationLabel = null,
             EngineVersion = "calc-engine-v1",
+            RoundingPolicyVersion = "money-2dp-awayfromzero:v1",
             InputHash = "hash",
             EquationSummary = "eq",
+            BoilerKwhPerCubicMeterUsed = 3m,
+            BoilerEfficiencyPercentUsed = 100m,
+            TariffSegments =
+            [
+                new CalculationTariffSegmentTrace
+                {
+                    StartDate = periodStartDate,
+                    EndDateExclusive = periodEndDateExclusive,
+                    Days = 30,
+                    IsEstimatedAllocation = false,
+                    WaterTariffPerUnit = 2m,
+                    WaterStandingChargePerDay = 0m,
+                    WaterVatPercent = 0m,
+                    ElectricityTariffPerUnit = 0.5m,
+                    ElectricityStandingChargePerDay = 0m,
+                    ElectricityVatPercent = 0m,
+                    ColdWaterUsage = 3m,
+                    HotWaterUsage = 2m,
+                    ApartmentElectricityUsage = 20m,
+                    BoilerElectricityUsage = 6m,
+                },
+            ],
+            ComponentLines =
+            [
+                new CalculationComponentLineTrace
+                {
+                    Component = "ColdWater",
+                    Usage = 3m,
+                    UsageSubtotal = 6m,
+                    StandingSubtotal = 0m,
+                    VatAmount = 0m,
+                    Total = 6m,
+                    Equation = "cold",
+                },
+            ],
+            IntegrityChecksPassed = true,
+            IntegrityDigest = "Validated",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             Version = 1,
         };

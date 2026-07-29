@@ -105,6 +105,16 @@ public sealed class CalculationSnapshotServiceTests
         Assert.Equal("13.00", result.ElectricityTotal);
         Assert.Equal("23.00", result.PeriodTotal);
         Assert.False(result.ContainsEstimatedSegments);
+        Assert.True(result.IntegrityChecksPassed);
+        Assert.Equal("3", result.BoilerAssumptions.BoilerKwhPerCubicMeter);
+        Assert.Equal("100", result.BoilerAssumptions.BoilerEfficiencyPercent);
+        Assert.Equal("money-2dp-awayfromzero:v1", result.RoundingPolicyVersion);
+        Assert.Single(result.TariffSegments);
+        Assert.Equal("2026-07-01", result.TariffSegments[0].StartDate);
+        Assert.Equal("2026-08-01", result.TariffSegments[0].EndDateExclusive);
+        Assert.Equal("3", result.TariffSegments[0].ColdWaterUsage);
+        Assert.Contains(result.ComponentLines, x => x.Component == "ColdWater");
+        Assert.Contains(result.ComponentLines, x => x.Component == "BoilerElectricity");
     }
 
     [Fact]
@@ -203,6 +213,11 @@ public sealed class CalculationSnapshotServiceTests
         var result = await service.CalculateLatestPeriodAsync("u-active", CancellationToken.None);
 
         Assert.True(result.ContainsEstimatedSegments);
+        Assert.Equal(
+            "Estimated tariff allocation - no meter reading was available on the tariff-change date.",
+            result.EstimatedAllocationLabel);
+        Assert.Equal(2, result.TariffSegments.Count);
+        Assert.True(result.TariffSegments.All(x => x.IsEstimatedAllocation));
     }
 
     [Fact]

@@ -7,7 +7,7 @@ namespace BaleAnchorUtility.Server.Infrastructure.Pdf;
 
 public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
 {
-    private const string TemplateVersion = "statement-template-v2";
+    private const string TemplateVersion = "statement-template-v3";
     private const string RendererVersion = "questpdf-statement-v1";
 
     static PlaceholderStatementPdfGenerator()
@@ -56,6 +56,7 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
                         section.Item().Text("Statement summary").FontSize(13).SemiBold();
                         section.Item().Row(row =>
                         {
+                            row.RelativeItem().Element(container => AddSummaryField(container, "Statement reference", model.StatementReference));
                             row.RelativeItem().Element(container => AddSummaryField(container, "User", model.UserId));
                             row.RelativeItem().Element(container => AddSummaryField(container, "Period", $"{model.PeriodStartDate} to {model.PeriodEndDateExclusive}"));
                             row.RelativeItem().Element(container => AddSummaryField(container, "Generated UTC", model.GeneratedAtUtcIso));
@@ -84,8 +85,18 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
                                 column.Item().Text($"Total calculated charges: {Currency(model.TotalCalculatedCharges)}");
                                 column.Item().Text($"Total recorded payments: {Currency(model.TotalRecordedPayments)}");
                                 column.Item().Text($"Estimated segments: {(model.ContainsEstimatedSegments ? "Included" : "None")}");
+                                if (model.ContainsEstimatedSegments && !string.IsNullOrWhiteSpace(model.EstimatedAllocationLabel))
+                                {
+                                    column.Item().Text(model.EstimatedAllocationLabel);
+                                }
+
+                                column.Item().Text($"Boiler kWh/m3: {model.BoilerAssumptions.BoilerKwhPerCubicMeter}");
+                                column.Item().Text($"Boiler efficiency %: {model.BoilerAssumptions.BoilerEfficiencyPercent}");
                                 column.Item().Text($"Engine version: {model.EngineVersion}");
+                                column.Item().Text($"Rounding policy: {model.RoundingPolicyVersion}");
                                 column.Item().Text($"Input hash: {model.InputHash}");
+                                column.Item().Text($"Integrity checks: {(model.IntegrityChecksPassed ? "Passed" : "Failed")}");
+                                column.Item().Text($"Integrity digest: {model.IntegrityDigest}");
                             });
                         });
 
@@ -95,9 +106,35 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
 
                     content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
                     {
+                        section.Spacing(8);
+                        section.Item().Text("Component lines").FontSize(13).SemiBold();
+
+                        foreach (var line in model.ComponentLines)
+                        {
+                            section.Item().Text($"{line.Component}: usage {line.Usage}, subtotal {Currency(line.UsageSubtotal)}, standing {Currency(line.StandingSubtotal)}, VAT {Currency(line.VatAmount)}, total {Currency(line.Total)}");
+                            section.Item().Text($"Equation: {line.Equation}").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        }
+                    });
+
+                    content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
+                    {
+                        section.Spacing(8);
+                        section.Item().Text("Tariff segments").FontSize(13).SemiBold();
+
+                        foreach (var segment in model.TariffSegments)
+                        {
+                            section.Item().Text($"[{segment.StartDate}, {segment.EndDateExclusive}) days={segment.Days} estimated={(segment.IsEstimatedAllocation ? "yes" : "no")}");
+                            section.Item().Text($"Water unit {segment.WaterTariffPerUnit}, water standing/day {segment.WaterStandingChargePerDay}, water VAT {segment.WaterVatPercent}%");
+                            section.Item().Text($"Electricity unit {segment.ElectricityTariffPerUnit}, electricity standing/day {segment.ElectricityStandingChargePerDay}, electricity VAT {segment.ElectricityVatPercent}%");
+                            section.Item().Text($"Allocated usage cold={segment.ColdWaterUsage}, hot={segment.HotWaterUsage}, apartment={segment.ApartmentElectricityUsage}, boiler={segment.BoilerElectricityUsage}");
+                        }
+                    });
+
+                    content.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Column(section =>
+                    {
                         section.Spacing(6);
                         section.Item().Text("Statement note").FontSize(11).SemiBold();
-                        section.Item().Text("This statement is generated from the resident's stored calculation snapshot and payment records. It is a record of the portal's calculation state, not a supplier invoice.");
+                        section.Item().Text("Independent Utility Calculation Statement. Generated from stored calculation and payment records within this portal. This is not an official supplier invoice.");
                     });
                 });
 

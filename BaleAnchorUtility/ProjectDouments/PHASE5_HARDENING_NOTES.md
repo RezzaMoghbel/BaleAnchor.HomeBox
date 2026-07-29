@@ -19,7 +19,7 @@
 
 - JSON collection operations now include:
   - temp-file cleanup on read/write startup paths
-  - corrupted JSON document quarantine to _quarantine folder
+  - corrupted JSON document quarantine to \_quarantine folder
   - startup index rebuild pass across all collections
   - in-memory per-collection index cache refresh during reads and writes
 - Existing atomic replace behavior and backup-based replacement remain in place.

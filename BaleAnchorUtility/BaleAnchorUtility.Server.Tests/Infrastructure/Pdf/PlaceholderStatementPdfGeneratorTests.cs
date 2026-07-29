@@ -1,5 +1,6 @@
 using System.Text;
 using BaleAnchorUtility.Server.Application.Abstractions;
+using BaleAnchorUtility.Server.Application.Calculations.Dtos;
 using BaleAnchorUtility.Server.Infrastructure.Pdf;
 
 namespace BaleAnchorUtility.Server.Tests.Infrastructure.Pdf;
@@ -14,6 +15,7 @@ public sealed class PlaceholderStatementPdfGeneratorTests
         var document = await generator.GeneratePeriodStatementAsync(
             new StatementPdfModel
             {
+                StatementReference = "ref-123",
                 UserId = "u1",
                 PeriodStartDate = "2026-07-01",
                 PeriodEndDateExclusive = "2026-08-01",
@@ -29,14 +31,23 @@ public sealed class PlaceholderStatementPdfGeneratorTests
                 CurrentBalanceStatus = "Amount outstanding",
                 ContainsEstimatedSegments = false,
                 EngineVersion = "calc-engine-v1",
+                RoundingPolicyVersion = "money-2dp-awayfromzero:v1",
                 InputHash = "hash",
                 EquationSummary = "eq",
+                BoilerAssumptions = new BoilerAssumptionSummaryResponse
+                {
+                    BoilerKwhPerCubicMeter = "3",
+                    BoilerEfficiencyPercent = "100",
+                },
+                TariffSegments = [],
+                ComponentLines = [],
+                IntegrityDigest = "ok",
                 GeneratedAtUtcIso = "2026-08-10T10:00:00Z",
             },
             CancellationToken.None);
 
         Assert.Equal("application/pdf", document.ContentType);
-        Assert.Equal("statement-template-v2", document.TemplateVersion);
+        Assert.Equal("statement-template-v3", document.TemplateVersion);
         Assert.Equal("questpdf-statement-v1", document.RendererVersion);
         Assert.StartsWith("%PDF-", Encoding.ASCII.GetString(document.Content));
     }

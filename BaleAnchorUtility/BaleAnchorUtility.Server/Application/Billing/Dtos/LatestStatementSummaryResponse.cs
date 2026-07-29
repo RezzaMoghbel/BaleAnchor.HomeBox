@@ -1,5 +1,7 @@
 namespace BaleAnchorUtility.Server.Application.Billing.Dtos;
 
+using BaleAnchorUtility.Server.Application.Calculations.Dtos;
+
 public sealed class LatestStatementSummaryResponse
 {
     public string UserId { get; init; } = string.Empty;
@@ -18,7 +20,14 @@ public sealed class LatestStatementSummaryResponse
     public string CurrentBalance { get; init; } = string.Empty;
     public string CurrentBalanceStatus { get; init; } = string.Empty;
     public bool ContainsEstimatedSegments { get; init; }
+    public string? EstimatedAllocationLabel { get; init; }
     public string EngineVersion { get; init; } = string.Empty;
+    public string RoundingPolicyVersion { get; init; } = string.Empty;
     public string InputHash { get; init; } = string.Empty;
     public string EquationSummary { get; init; } = string.Empty;
+    public required BoilerAssumptionSummaryResponse BoilerAssumptions { get; init; }
+    public required IReadOnlyList<CalculationTariffSegmentResponse> TariffSegments { get; init; }
+    public required IReadOnlyList<CalculationComponentLineResponse> ComponentLines { get; init; }
+    public bool IntegrityChecksPassed { get; init; }
+    public string IntegrityDigest { get; init; } = string.Empty;
 }

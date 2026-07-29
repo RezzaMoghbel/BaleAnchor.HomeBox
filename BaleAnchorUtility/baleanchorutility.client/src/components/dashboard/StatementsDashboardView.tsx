@@ -129,24 +129,24 @@ export function StatementsDashboardView({
                   {latestStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period:{" "}
+                        Period: {" "}
                         {formatDateRange(
                           latestStatementSummary.periodStartDate,
                           latestStatementSummary.periodEndDateExclusive,
                         )}
                       </div>
                       <div>
-                        Period total:{" "}
+                        Period total: {" "}
                         {formatCurrencyGbp(latestStatementSummary.periodTotal)}
                       </div>
                       <div>
-                        Payment:{" "}
+                        Payment: {" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.paymentAmount ?? "0.00",
                         )}
                       </div>
                       <div>
-                        Difference:{" "}
+                        Difference: {" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.periodDifference,
                         )}
@@ -155,13 +155,13 @@ export function StatementsDashboardView({
                         Status: {latestStatementSummary.periodBalanceStatus}
                       </div>
                       <div>
-                        Current balance:{" "}
+                        Current balance: {" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.currentBalance,
                         )}
                       </div>
                       <div>
-                        Balance status:{" "}
+                        Balance status: {" "}
                         {latestStatementSummary.currentBalanceStatus}
                       </div>
                     </div>
@@ -181,26 +181,24 @@ export function StatementsDashboardView({
                   {selectedStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period:{" "}
+                        Period: {" "}
                         {formatDateRange(
                           selectedStatementSummary.periodStartDate,
                           selectedStatementSummary.periodEndDateExclusive,
                         )}
                       </div>
                       <div>
-                        Period total:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.periodTotal,
-                        )}
+                        Period total: {" "}
+                        {formatCurrencyGbp(selectedStatementSummary.periodTotal)}
                       </div>
                       <div>
-                        Payment:{" "}
+                        Payment: {" "}
                         {formatCurrencyGbp(
                           selectedStatementSummary.paymentAmount ?? "0.00",
                         )}
                       </div>
                       <div>
-                        Difference:{" "}
+                        Difference: {" "}
                         {formatCurrencyGbp(
                           selectedStatementSummary.periodDifference,
                         )}
@@ -209,10 +207,44 @@ export function StatementsDashboardView({
                         Status: {selectedStatementSummary.periodBalanceStatus}
                       </div>
                       <div>
-                        Estimated segments:{" "}
+                        Estimated segments: {" "}
                         {selectedStatementSummary.containsEstimatedSegments
                           ? "Yes"
                           : "No"}
+                      </div>
+                      {selectedStatementSummary.estimatedAllocationLabel && (
+                        <div>
+                          Estimate note: {" "}
+                          {selectedStatementSummary.estimatedAllocationLabel}
+                        </div>
+                      )}
+                      <div>
+                        Boiler assumptions: {" "}
+                        {selectedStatementSummary.boilerAssumptions
+                          .boilerKwhPerCubicMeter}
+                        {" "}
+                        kWh/m3, {" "}
+                        {selectedStatementSummary.boilerAssumptions
+                          .boilerEfficiencyPercent}
+                        % efficiency
+                      </div>
+                      <div>
+                        Engine version: {selectedStatementSummary.engineVersion}
+                      </div>
+                      <div>
+                        Rounding policy: {" "}
+                        {selectedStatementSummary.roundingPolicyVersion}
+                      </div>
+                      <div>Input hash: {selectedStatementSummary.inputHash}</div>
+                      <div>
+                        Integrity checks: {" "}
+                        {selectedStatementSummary.integrityChecksPassed
+                          ? "Passed"
+                          : "Failed"}
+                      </div>
+                      <div>
+                        Integrity digest: {" "}
+                        {selectedStatementSummary.integrityDigest}
                       </div>
                     </div>
                   ) : (
@@ -224,6 +256,103 @@ export function StatementsDashboardView({
               </div>
             </div>
           </div>
+
+          {selectedStatementSummary && (
+            <div className="row g-4 mt-1">
+              <div className="col-12">
+                <div className="card radius-10 border-0 shadow-sm">
+                  <div className="card-body">
+                    <h5 className="mb-3">Component lines</h5>
+                    <div className="table-responsive">
+                      <table className="table align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th>Component</th>
+                            <th>Usage</th>
+                            <th>Usage subtotal</th>
+                            <th>Standing subtotal</th>
+                            <th>VAT</th>
+                            <th>Total</th>
+                            <th>Equation</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedStatementSummary.componentLines.map((line) => (
+                            <tr key={line.component}>
+                              <td>{line.component}</td>
+                              <td>{line.usage}</td>
+                              <td>{formatCurrencyGbp(line.usageSubtotal)}</td>
+                              <td>{formatCurrencyGbp(line.standingSubtotal)}</td>
+                              <td>{formatCurrencyGbp(line.vatAmount)}</td>
+                              <td>{formatCurrencyGbp(line.total)}</td>
+                              <td>{line.equation}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-12">
+                <div className="card radius-10 border-0 shadow-sm">
+                  <div className="card-body">
+                    <h5 className="mb-3">Tariff segment breakdown</h5>
+                    <div className="table-responsive">
+                      <table className="table align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th>Segment</th>
+                            <th>Days</th>
+                            <th>Estimated</th>
+                            <th>Water rates</th>
+                            <th>Electricity rates</th>
+                            <th>Usage allocation</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedStatementSummary.tariffSegments.map((segment) => (
+                            <tr
+                              key={`${segment.startDate}-${segment.endDateExclusive}`}
+                            >
+                              <td>
+                                {formatDateRange(
+                                  segment.startDate,
+                                  segment.endDateExclusive,
+                                )}
+                              </td>
+                              <td>{segment.days}</td>
+                              <td>
+                                {segment.isEstimatedAllocation ? "Yes" : "No"}
+                              </td>
+                              <td>
+                                Unit {segment.waterTariffPerUnit}, standing/day {" "}
+                                {segment.waterStandingChargePerDay}, VAT {" "}
+                                {segment.waterVatPercent}%
+                              </td>
+                              <td>
+                                Unit {segment.electricityTariffPerUnit},
+                                standing/day {" "}
+                                {segment.electricityStandingChargePerDay}, VAT {" "}
+                                {segment.electricityVatPercent}%
+                              </td>
+                              <td>
+                                Cold {segment.coldWaterUsage}, hot {" "}
+                                {segment.hotWaterUsage}, apartment {" "}
+                                {segment.apartmentElectricityUsage}, boiler {" "}
+                                {segment.boilerElectricityUsage}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="card radius-10 border-0 shadow-sm mt-4">
             <div className="card-body">
@@ -316,6 +445,7 @@ export function StatementsDashboardView({
                       <tr>
                         <th>Export ID</th>
                         <th>Period</th>
+                        <th>SHA-256</th>
                         <th>Template</th>
                         <th>Renderer</th>
                         <th>Created UTC</th>
@@ -331,6 +461,7 @@ export function StatementsDashboardView({
                               item.periodEndDateExclusive,
                             )}
                           </td>
+                          <td>{item.contentSha256}</td>
                           <td>{item.templateVersion}</td>
                           <td>{item.rendererVersion}</td>
                           <td>{formatDisplayDateTime(item.createdAtUtc)}</td>

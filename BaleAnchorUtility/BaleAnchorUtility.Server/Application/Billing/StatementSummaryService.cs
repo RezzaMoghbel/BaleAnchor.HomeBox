@@ -1,6 +1,7 @@
 using System.Globalization;
 using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
+using BaleAnchorUtility.Server.Application.Calculations.Dtos;
 using BaleAnchorUtility.Server.Domain.Users;
 
 namespace BaleAnchorUtility.Server.Application.Billing;
@@ -174,9 +175,49 @@ public sealed class StatementSummaryService
             CurrentBalance = currentBalance.ToString("0.00", CultureInfo.InvariantCulture),
             CurrentBalanceStatus = ToBalanceStatus(currentBalance),
             ContainsEstimatedSegments = snapshot.ContainsEstimatedSegments,
+            EstimatedAllocationLabel = snapshot.EstimatedAllocationLabel,
             EngineVersion = snapshot.EngineVersion,
+            RoundingPolicyVersion = snapshot.RoundingPolicyVersion,
             InputHash = snapshot.InputHash,
             EquationSummary = snapshot.EquationSummary,
+            BoilerAssumptions = new BoilerAssumptionSummaryResponse
+            {
+                BoilerKwhPerCubicMeter = snapshot.BoilerKwhPerCubicMeterUsed.ToString("0.#####", CultureInfo.InvariantCulture),
+                BoilerEfficiencyPercent = snapshot.BoilerEfficiencyPercentUsed.ToString("0.#####", CultureInfo.InvariantCulture),
+            },
+            TariffSegments = snapshot.TariffSegments
+                .Select(x => new CalculationTariffSegmentResponse
+                {
+                    StartDate = x.StartDate,
+                    EndDateExclusive = x.EndDateExclusive,
+                    Days = x.Days,
+                    IsEstimatedAllocation = x.IsEstimatedAllocation,
+                    WaterTariffPerUnit = x.WaterTariffPerUnit.ToString("0.#####", CultureInfo.InvariantCulture),
+                    WaterStandingChargePerDay = x.WaterStandingChargePerDay.ToString("0.#####", CultureInfo.InvariantCulture),
+                    WaterVatPercent = x.WaterVatPercent.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityTariffPerUnit = x.ElectricityTariffPerUnit.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityStandingChargePerDay = x.ElectricityStandingChargePerDay.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ElectricityVatPercent = x.ElectricityVatPercent.ToString("0.#####", CultureInfo.InvariantCulture),
+                    ColdWaterUsage = x.ColdWaterUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    HotWaterUsage = x.HotWaterUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    ApartmentElectricityUsage = x.ApartmentElectricityUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                    BoilerElectricityUsage = x.BoilerElectricityUsage.ToString("0.######", CultureInfo.InvariantCulture),
+                })
+                .ToList(),
+            ComponentLines = snapshot.ComponentLines
+                .Select(x => new CalculationComponentLineResponse
+                {
+                    Component = x.Component,
+                    Usage = x.Usage.ToString("0.######", CultureInfo.InvariantCulture),
+                    UsageSubtotal = x.UsageSubtotal.ToString("0.######", CultureInfo.InvariantCulture),
+                    StandingSubtotal = x.StandingSubtotal.ToString("0.######", CultureInfo.InvariantCulture),
+                    VatAmount = x.VatAmount.ToString("0.######", CultureInfo.InvariantCulture),
+                    Total = x.Total.ToString("0.00", CultureInfo.InvariantCulture),
+                    Equation = x.Equation,
+                })
+                .ToList(),
+            IntegrityChecksPassed = snapshot.IntegrityChecksPassed,
+            IntegrityDigest = snapshot.IntegrityDigest,
         };
     }
 
