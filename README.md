@@ -20,10 +20,10 @@ Resident portal client response and cross-view shape contracts now live in `Bale
 
 ## Client Transport Boundary
 
-Auth, terms, and onboarding HTTP calls now start moving behind `BaleAnchorUtility/baleanchorutility.client/src/api/portalClient.ts`.
+Current resident and admin portal HTTP calls now route through `BaleAnchorUtility/baleanchorutility.client/src/api/portalClient.ts`.
 
 - Keep `App.tsx` focused on route state, UI messages, and orchestration.
-- Add new typed fetch wrappers to `portalClient.ts` before wiring additional workflow slices out of `App.tsx`.
+- Add new typed fetch wrappers to `portalClient.ts` before wiring any new workflow slices into `App.tsx`.
 - Reuse `PortalApiError` so RFC 7807 field errors and user-facing failure messages stay consistent across views.
 
 ## SMTP Configuration

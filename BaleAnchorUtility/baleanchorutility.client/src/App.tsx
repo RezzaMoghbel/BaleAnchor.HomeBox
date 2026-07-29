@@ -11,26 +11,17 @@ import { portalClient, PortalApiError } from "./api/portalClient";
 import type {
   ActiveTariffResponse,
   ActiveTermsResponse,
-  AdminDecisionResponse,
-  AdminRoleChangeResponse,
   AllTimeBalanceResponse,
   CalculateLatestPeriodResponse,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
   OnboardingProgressResponse,
   PaymentHistoryItemResponse,
-  PaymentHistoryResponse,
-  PendingApprovalListResponse,
   PendingApprovalUserItem,
-  RecordLatestPeriodPaymentResponse,
   SessionStatusResponse,
   StatementExportHistoryItemResponse,
-  StatementExportHistoryResponse,
   StatementPeriodItemResponse,
-  StatementPeriodListResponse,
   StatementSummaryResponse,
-  SubmitReadingsResponse,
-  UpsertTariffResponse,
   FieldErrors,
 } from "./shared/contracts";
 import {
@@ -39,7 +30,7 @@ import {
   formatDisplayDate,
   formatDisplayDateTime,
 } from "./shared/formatters";
-import { getFieldErrors, readProblemDetails } from "./shared/problemDetails";
+import { getFieldErrors } from "./shared/problemDetails";
 import "./App.css";
 function App() {
   const location = useLocation();
@@ -206,7 +197,9 @@ function App() {
     } catch (error) {
       if (!silent) {
         if (error instanceof PortalApiError) {
-          setStatusMessage(`Failed to retrieve session status. ${error.message}`);
+          setStatusMessage(
+            `Failed to retrieve session status. ${error.message}`,
+          );
         } else {
           setStatusMessage("Failed to retrieve session status.");
         }
@@ -283,14 +276,14 @@ function App() {
     setLoading(true);
     try {
       const body = await portalClient.submitUtilitySetup({
-          moveInDate,
-          openingColdWaterReading,
-          openingHotWaterReading,
-          openingElectricityReading,
-          initialWaterTariffPerUnit,
-          initialElectricityTariffPerUnit,
-          boilerKwhPerCubicMeter,
-          boilerEfficiencyPercent,
+        moveInDate,
+        openingColdWaterReading,
+        openingHotWaterReading,
+        openingElectricityReading,
+        initialWaterTariffPerUnit,
+        initialElectricityTariffPerUnit,
+        boilerKwhPerCubicMeter,
+        boilerEfficiencyPercent,
       });
       setUtilityFieldErrors({});
       setUtilitySetupMessage(`${body.message} Status: ${body.status}.`);
@@ -313,10 +306,10 @@ function App() {
     setLoading(true);
     try {
       const body = await portalClient.submitProfile({
-          surname,
-          dateOfBirth,
-          flatNumber,
-          mobileNumber,
+        surname,
+        dateOfBirth,
+        flatNumber,
+        mobileNumber,
       });
       setProfileFieldErrors({});
       setProfileMessage(`${body.message} Status: ${body.status}.`);
@@ -357,24 +350,16 @@ function App() {
   const loadPendingApprovals = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/admin/approvals/pending", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setPendingApprovals([]);
-        setAdminMessage(`Unable to load pending approvals. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as PendingApprovalListResponse;
+      const body = await portalClient.getPendingApprovals();
       setPendingApprovals(body.items);
       setAdminMessage(`Loaded ${body.count} pending approval record(s).`);
-    } catch {
+    } catch (error) {
       setPendingApprovals([]);
-      setAdminMessage("Unable to load pending approvals.");
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Unable to load pending approvals. ${error.message}`);
+      } else {
+        setAdminMessage("Unable to load pending approvals.");
+      }
     } finally {
       setLoading(false);
     }
@@ -388,35 +373,25 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/v1/admin/approvals/${encodeURIComponent(adminTargetUserId)}/${action}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ reason: adminReason }),
-        },
+      const body = await portalClient.submitAdminDecision(
+        adminTargetUserId,
+        action,
+        { reason: adminReason },
       );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setAdminMessage(
-          `${action === "approve" ? "Approve" : "Reject"} failed. ${error.message}`,
-        );
-        return;
-      }
-
-      const body = (await response.json()) as AdminDecisionResponse;
       setAdminMessage(
         `${body.message} User ${body.userId} now in state ${body.newStatus}.`,
       );
       await loadPendingApprovals();
-    } catch {
-      setAdminMessage(
-        `${action === "approve" ? "Approve" : "Reject"} action failed.`,
-      );
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(
+          `${action === "approve" ? "Approve" : "Reject"} failed. ${error.message}`,
+        );
+      } else {
+        setAdminMessage(
+          `${action === "approve" ? "Approve" : "Reject"} action failed.`,
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -430,31 +405,20 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/v1/admin/roles/${encodeURIComponent(adminTargetUserId)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ role: adminRoleTarget, reason: adminReason }),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setAdminMessage(`Role update failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as AdminRoleChangeResponse;
+      const body = await portalClient.submitRoleChange(adminTargetUserId, {
+        role: adminRoleTarget,
+        reason: adminReason,
+      });
       setAdminMessage(
         `${body.message} User ${body.userId}: ${body.previousRole} -> ${body.newRole}.`,
       );
       await loadPendingApprovals();
-    } catch {
-      setAdminMessage("Role update failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Role update failed. ${error.message}`);
+      } else {
+        setAdminMessage("Role update failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -473,31 +437,20 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/readings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          readingDate,
-          coldWaterReading,
-          hotWaterReading,
-          electricityReading,
-        }),
+      const body = await portalClient.submitReadings({
+        readingDate,
+        coldWaterReading,
+        hotWaterReading,
+        electricityReading,
       });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBillingMessage(`Reading submission failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as SubmitReadingsResponse;
       setBillingMessage(`${body.message} Date: ${body.readingDate}.`);
       await loadLatestReadings();
-    } catch {
-      setBillingMessage("Reading submission failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Reading submission failed. ${error.message}`);
+      } else {
+        setBillingMessage("Reading submission failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -506,23 +459,15 @@ function App() {
   const loadLatestReadings = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/readings/latest", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBillingMessage(`Unable to load latest readings. ${error.message}`);
-        setLatestReadings(null);
-        return;
-      }
-
-      const body = (await response.json()) as LatestReadingsResponse;
+      const body = await portalClient.getLatestReadings();
       setLatestReadings(body);
       setBillingMessage(`Loaded latest readings for ${body.readingDate}.`);
-    } catch {
-      setBillingMessage("Unable to load latest readings.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Unable to load latest readings. ${error.message}`);
+      } else {
+        setBillingMessage("Unable to load latest readings.");
+      }
       setLatestReadings(null);
     } finally {
       setLoading(false);
@@ -547,36 +492,25 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/tariffs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          effectiveFromDate: tariffEffectiveFromDate,
-          waterTariffPerUnit,
-          waterStandingChargePerDay,
-          waterVatPercent,
-          electricityTariffPerUnit,
-          electricityStandingChargePerDay,
-          electricityVatPercent,
-        }),
+      const body = await portalClient.submitTariffVersion({
+        effectiveFromDate: tariffEffectiveFromDate,
+        waterTariffPerUnit,
+        waterStandingChargePerDay,
+        waterVatPercent,
+        electricityTariffPerUnit,
+        electricityStandingChargePerDay,
+        electricityVatPercent,
       });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBillingMessage(`Tariff save failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as UpsertTariffResponse;
       setBillingMessage(
         `${body.message} Effective from ${body.effectiveFromDate}.`,
       );
       await loadActiveTariff();
-    } catch {
-      setBillingMessage("Tariff save failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Tariff save failed. ${error.message}`);
+      } else {
+        setBillingMessage("Tariff save failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -585,23 +519,15 @@ function App() {
   const loadActiveTariff = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/tariffs/active", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBillingMessage(`Unable to load active tariff. ${error.message}`);
-        setActiveTariff(null);
-        return;
-      }
-
-      const body = (await response.json()) as ActiveTariffResponse;
+      const body = await portalClient.getActiveTariff();
       setActiveTariff(body);
       setBillingMessage(`Loaded active tariff from ${body.effectiveFromDate}.`);
-    } catch {
-      setBillingMessage("Unable to load active tariff.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Unable to load active tariff. ${error.message}`);
+      } else {
+        setBillingMessage("Unable to load active tariff.");
+      }
       setActiveTariff(null);
     } finally {
       setLoading(false);
@@ -611,22 +537,15 @@ function App() {
   const runLatestCalculation = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/calculations/latest", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBillingMessage(`Calculation failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as CalculateLatestPeriodResponse;
+      const body = await portalClient.runLatestCalculation();
       setLatestCalculation(body);
       setBillingMessage(`Calculation snapshot created: ${body.snapshotId}.`);
-    } catch {
-      setBillingMessage("Calculation failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Calculation failed. ${error.message}`);
+      } else {
+        setBillingMessage("Calculation failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -635,25 +554,17 @@ function App() {
   const loadLatestCalculation = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/calculations/latest", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
+      const body = await portalClient.getLatestCalculation();
+      setLatestCalculation(body);
+      setBillingMessage(`Loaded calculation snapshot ${body.snapshotId}.`);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
         setBillingMessage(
           `Unable to load calculation snapshot. ${error.message}`,
         );
-        setLatestCalculation(null);
-        return;
+      } else {
+        setBillingMessage("Unable to load calculation snapshot.");
       }
-
-      const body = (await response.json()) as CalculateLatestPeriodResponse;
-      setLatestCalculation(body);
-      setBillingMessage(`Loaded calculation snapshot ${body.snapshotId}.`);
-    } catch {
-      setBillingMessage("Unable to load calculation snapshot.");
       setLatestCalculation(null);
     } finally {
       setLoading(false);
@@ -670,39 +581,25 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        "/api/v1/billing/calculations/latest/payment",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            amount: paymentAmount,
-            paymentDate,
-            method: paymentMethod,
-            reference: paymentReference || undefined,
-            notes: paymentNotes || undefined,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setPaymentMessage(`Payment save failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as RecordLatestPeriodPaymentResponse;
+      const body = await portalClient.recordLatestPeriodPayment({
+        amount: paymentAmount,
+        paymentDate,
+        method: paymentMethod,
+        reference: paymentReference || undefined,
+        notes: paymentNotes || undefined,
+      });
       setPaymentMessage(`${body.message} Payment ${body.paymentId} saved.`);
       await Promise.all([
         loadLatestPeriodPaymentSummary(true),
         loadPaymentHistory(true),
         loadAllTimeBalance(true),
       ]);
-    } catch {
-      setPaymentMessage("Payment save failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setPaymentMessage(`Payment save failed. ${error.message}`);
+      } else {
+        setPaymentMessage("Payment save failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -714,37 +611,23 @@ function App() {
     }
 
     try {
-      const response = await fetch(
-        "/api/v1/billing/calculations/latest/payment",
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setLatestPaymentSummary(null);
-        if (!silent) {
-          setPaymentMessage(
-            `Unable to load latest payment summary. ${error.message}`,
-          );
-        }
-        return;
-      }
-
-      const body =
-        (await response.json()) as LatestPeriodPaymentSummaryResponse;
+      const body = await portalClient.getLatestPeriodPaymentSummary();
       setLatestPaymentSummary(body);
       if (!silent) {
         setPaymentMessage(
           `Loaded payment summary for ${body.periodStartDate} to ${body.periodEndDateExclusive}.`,
         );
       }
-    } catch {
+    } catch (error) {
       setLatestPaymentSummary(null);
       if (!silent) {
-        setPaymentMessage("Unable to load latest payment summary.");
+        if (error instanceof PortalApiError) {
+          setPaymentMessage(
+            `Unable to load latest payment summary. ${error.message}`,
+          );
+        } else {
+          setPaymentMessage("Unable to load latest payment summary.");
+        }
       }
     } finally {
       if (!silent) {
@@ -759,29 +642,19 @@ function App() {
     }
 
     try {
-      const response = await fetch("/api/v1/billing/payments/history", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setPaymentHistory([]);
-        if (!silent) {
-          setPaymentMessage(`Unable to load payment history. ${error.message}`);
-        }
-        return;
-      }
-
-      const body = (await response.json()) as PaymentHistoryResponse;
+      const body = await portalClient.getPaymentHistory();
       setPaymentHistory(body.items);
       if (!silent) {
         setPaymentMessage(`Loaded ${body.count} payment history record(s).`);
       }
-    } catch {
+    } catch (error) {
       setPaymentHistory([]);
       if (!silent) {
-        setPaymentMessage("Unable to load payment history.");
+        if (error instanceof PortalApiError) {
+          setPaymentMessage(`Unable to load payment history. ${error.message}`);
+        } else {
+          setPaymentMessage("Unable to load payment history.");
+        }
       }
     } finally {
       if (!silent) {
@@ -796,31 +669,21 @@ function App() {
     }
 
     try {
-      const response = await fetch("/api/v1/billing/payments/balance", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setBalanceSummary(null);
-        if (!silent) {
-          setPaymentMessage(
-            `Unable to load all-time balance. ${error.message}`,
-          );
-        }
-        return;
-      }
-
-      const body = (await response.json()) as AllTimeBalanceResponse;
+      const body = await portalClient.getAllTimeBalance();
       setBalanceSummary(body);
       if (!silent) {
         setPaymentMessage(`Loaded all-time balance (${body.balanceStatus}).`);
       }
-    } catch {
+    } catch (error) {
       setBalanceSummary(null);
       if (!silent) {
-        setPaymentMessage("Unable to load all-time balance.");
+        if (error instanceof PortalApiError) {
+          setPaymentMessage(
+            `Unable to load all-time balance. ${error.message}`,
+          );
+        } else {
+          setPaymentMessage("Unable to load all-time balance.");
+        }
       }
     } finally {
       if (!silent) {
@@ -832,31 +695,20 @@ function App() {
   const loadLatestStatementSummary = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        "/api/v1/billing/statements/latest-summary",
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setLatestStatementSummary(null);
-        setStatementMessage(
-          `Unable to load latest statement summary. ${error.message}`,
-        );
-        return;
-      }
-
-      const body = (await response.json()) as StatementSummaryResponse;
+      const body = await portalClient.getLatestStatementSummary();
       setLatestStatementSummary(body);
       setStatementMessage(
         `Loaded latest statement summary for ${body.periodStartDate} to ${body.periodEndDateExclusive}.`,
       );
-    } catch {
+    } catch (error) {
       setLatestStatementSummary(null);
-      setStatementMessage("Unable to load latest statement summary.");
+      if (error instanceof PortalApiError) {
+        setStatementMessage(
+          `Unable to load latest statement summary. ${error.message}`,
+        );
+      } else {
+        setStatementMessage("Unable to load latest statement summary.");
+      }
     } finally {
       setLoading(false);
     }
@@ -865,29 +717,21 @@ function App() {
   const loadStatementPeriods = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/billing/statements/periods", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatementPeriods([]);
-        setStatementMessage(
-          `Unable to load statement periods. ${error.message}`,
-        );
-        return;
-      }
-
-      const body = (await response.json()) as StatementPeriodListResponse;
+      const body = await portalClient.getStatementPeriods();
       setStatementPeriods(body.items);
       if (!selectedSnapshotId && body.items.length > 0) {
         setSelectedSnapshotId(body.items[0].snapshotId);
       }
       setStatementMessage(`Loaded ${body.count} statement period option(s).`);
-    } catch {
+    } catch (error) {
       setStatementPeriods([]);
-      setStatementMessage("Unable to load statement periods.");
+      if (error instanceof PortalApiError) {
+        setStatementMessage(
+          `Unable to load statement periods. ${error.message}`,
+        );
+      } else {
+        setStatementMessage("Unable to load statement periods.");
+      }
     } finally {
       setLoading(false);
     }
@@ -909,32 +753,20 @@ function App() {
 
     setLoading(true);
     try {
-      const query = new URLSearchParams({ snapshotId: snapshot });
-      const response = await fetch(
-        `/api/v1/billing/statements/summary?${query.toString()}`,
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setSelectedStatementSummary(null);
-        setStatementMessage(
-          `Unable to load selected summary. ${error.message}`,
-        );
-        return;
-      }
-
-      const body = (await response.json()) as StatementSummaryResponse;
+      const body = await portalClient.getStatementSummary(snapshot);
       setSelectedStatementSummary(body);
       setStatementMessage(
         `Loaded selected summary for ${body.periodStartDate} to ${body.periodEndDateExclusive}.`,
       );
-    } catch {
+    } catch (error) {
       setSelectedStatementSummary(null);
-      setStatementMessage("Unable to load selected summary.");
+      if (error instanceof PortalApiError) {
+        setStatementMessage(
+          `Unable to load selected summary. ${error.message}`,
+        );
+      } else {
+        setStatementMessage("Unable to load selected summary.");
+      }
     } finally {
       setLoading(false);
     }
@@ -954,32 +786,9 @@ function App() {
 
     setLoading(true);
     try {
-      const query = new URLSearchParams({ snapshotId: snapshot });
-      const response = await fetch(
-        `/api/v1/billing/statements/export-pdf?${query.toString()}`,
-        {
-          method: "GET",
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatementMessage(`Statement PDF export failed. ${error.message}`);
-        return;
-      }
-
-      const blob = await response.blob();
+      const { blob, exportId, suggestedName } =
+        await portalClient.exportStatementPdf(snapshot);
       const url = URL.createObjectURL(blob);
-
-      const exportId = response.headers.get("X-Statement-Export-Id") ?? "n/a";
-      const suggestedName =
-        response.headers
-          .get("Content-Disposition")
-          ?.split("filename=")
-          .at(1)
-          ?.replaceAll('"', "")
-          ?.trim() || `statement-${snapshot}.pdf`;
 
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -991,8 +800,12 @@ function App() {
 
       setStatementMessage(`Statement PDF exported. Export ID: ${exportId}.`);
       await loadStatementExportHistory(true);
-    } catch {
-      setStatementMessage("Statement PDF export failed.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatementMessage(`Statement PDF export failed. ${error.message}`);
+      } else {
+        setStatementMessage("Statement PDF export failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -1004,31 +817,21 @@ function App() {
     }
 
     try {
-      const response = await fetch("/api/v1/billing/statements/exports", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatementExportHistory([]);
-        if (!silent) {
-          setStatementMessage(
-            `Unable to load statement exports. ${error.message}`,
-          );
-        }
-        return;
-      }
-
-      const body = (await response.json()) as StatementExportHistoryResponse;
+      const body = await portalClient.getStatementExportHistory();
       setStatementExportHistory(body.items);
       if (!silent) {
         setStatementMessage(`Loaded ${body.count} statement export record(s).`);
       }
-    } catch {
+    } catch (error) {
       setStatementExportHistory([]);
       if (!silent) {
-        setStatementMessage("Unable to load statement exports.");
+        if (error instanceof PortalApiError) {
+          setStatementMessage(
+            `Unable to load statement exports. ${error.message}`,
+          );
+        } else {
+          setStatementMessage("Unable to load statement exports.");
+        }
       }
     } finally {
       if (!silent) {
