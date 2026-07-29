@@ -95,9 +95,124 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   const [gapFilterFlatNumber, setGapFilterFlatNumber] = useState("");
 
   const [adminRoleTarget, setAdminRoleTarget] = useState("Admin");
+  const [authOtpEnabled, setAuthOtpEnabled] = useState(true);
+  const [authAllowLocalFixedOtp, setAuthAllowLocalFixedOtp] = useState(true);
+  const [authFixedOtpCode, setAuthFixedOtpCode] = useState("123456");
+  const [authLocalDomains, setAuthLocalDomains] = useState("baleanchor.local");
+  const [emailTransportMode, setEmailTransportMode] = useState("log");
+  const [emailFromName, setEmailFromName] = useState("");
+  const [emailFromAddress, setEmailFromAddress] = useState("");
+  const [emailSmtpHost, setEmailSmtpHost] = useState("");
+  const [emailSmtpPort, setEmailSmtpPort] = useState("587");
+  const [emailSmtpUseSsl, setEmailSmtpUseSsl] = useState(true);
+  const [emailSmtpUsername, setEmailSmtpUsername] = useState("");
+  const [emailSmtpPassword, setEmailSmtpPassword] = useState("");
   const [adminMessage, setAdminMessage] = useState(
     "Admin approvals not loaded.",
   );
+
+  const loadSystemSettings = async () => {
+    setLoading(true);
+    try {
+      const [auth, email] = await Promise.all([
+        portalClient.getAdminAuthAccessSettings(),
+        portalClient.getAdminEmailTransportSettings(),
+      ]);
+
+      setAuthOtpEnabled(auth.otpEnabled);
+      setAuthAllowLocalFixedOtp(auth.allowLocalDomainFixedOtp);
+      setAuthFixedOtpCode(auth.fixedOtpCode);
+      setAuthLocalDomains((auth.localFixedOtpDomains ?? []).join(","));
+
+      setEmailTransportMode(email.mode);
+      setEmailFromName(email.fromName);
+      setEmailFromAddress(email.fromAddress);
+      setEmailSmtpHost(email.smtpHost);
+      setEmailSmtpPort(String(email.smtpPort));
+      setEmailSmtpUseSsl(email.smtpUseSsl);
+      setEmailSmtpUsername(email.smtpUsername);
+      setEmailSmtpPassword("");
+
+      setAdminMessage("Loaded system auth and SMTP settings.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Unable to load system settings. ${error.message}`);
+      } else {
+        setAdminMessage("Unable to load system settings.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveAuthAccessSettings = async () => {
+    if (!adminReason) {
+      setAdminMessage("Reason is required for auth settings updates.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const domains = authLocalDomains
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => x.length > 0);
+
+      await portalClient.updateAdminAuthAccessSettings({
+        otpEnabled: authOtpEnabled,
+        allowLocalDomainFixedOtp: authAllowLocalFixedOtp,
+        fixedOtpCode: authFixedOtpCode,
+        localFixedOtpDomains: domains,
+        reason: adminReason,
+      });
+
+      setAdminMessage("Auth access settings updated.");
+      await loadAuditLogs();
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Auth settings update failed. ${error.message}`);
+      } else {
+        setAdminMessage("Auth settings update failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEmailTransportSettings = async () => {
+    if (!adminReason) {
+      setAdminMessage("Reason is required for email settings updates.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const parsedPort = Number(emailSmtpPort);
+      await portalClient.updateAdminEmailTransportSettings({
+        mode: emailTransportMode,
+        fromName: emailFromName,
+        fromAddress: emailFromAddress,
+        smtpHost: emailSmtpHost,
+        smtpPort: Number.isFinite(parsedPort) ? parsedPort : 587,
+        smtpUseSsl: emailSmtpUseSsl,
+        smtpUsername: emailSmtpUsername,
+        smtpPassword: emailSmtpPassword || undefined,
+        reason: adminReason,
+      });
+
+      setEmailSmtpPassword("");
+      setAdminMessage("Email transport settings updated.");
+      await loadAuditLogs();
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Email settings update failed. ${error.message}`);
+      } else {
+        setAdminMessage("Email settings update failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadPendingApprovals = async () => {
     setLoading(true);
@@ -650,6 +765,18 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     gapStatusInput,
     gapFilterFlatNumber,
     adminRoleTarget,
+    authOtpEnabled,
+    authAllowLocalFixedOtp,
+    authFixedOtpCode,
+    authLocalDomains,
+    emailTransportMode,
+    emailFromName,
+    emailFromAddress,
+    emailSmtpHost,
+    emailSmtpPort,
+    emailSmtpUseSsl,
+    emailSmtpUsername,
+    emailSmtpPassword,
     adminMessage,
     setAdminSearchQuery,
     setAdminSearchStatus,
@@ -695,7 +822,22 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     setGapStatusInput,
     setGapFilterFlatNumber,
     setAdminRoleTarget,
+    setAuthOtpEnabled,
+    setAuthAllowLocalFixedOtp,
+    setAuthFixedOtpCode,
+    setAuthLocalDomains,
+    setEmailTransportMode,
+    setEmailFromName,
+    setEmailFromAddress,
+    setEmailSmtpHost,
+    setEmailSmtpPort,
+    setEmailSmtpUseSsl,
+    setEmailSmtpUsername,
+    setEmailSmtpPassword,
     loadPendingApprovals,
+    loadSystemSettings,
+    saveAuthAccessSettings,
+    saveEmailTransportSettings,
     searchAdminUsers,
     loadAdminBillingContext,
     deleteAdminLatestReading,

@@ -8,6 +8,6 @@
     <Build />
     <Deploy />
   </Project>
-  <Project Path="BaleAnchorUtility.Server/BaleAnchorUtility.Server.csproj" />
   <Project Path="BaleAnchorUtility.Server.Tests/BaleAnchorUtility.Server.Tests.csproj" />
+  <Project Path="BaleAnchorUtility.Server/BaleAnchorUtility.Server.csproj" />
 </Solution>

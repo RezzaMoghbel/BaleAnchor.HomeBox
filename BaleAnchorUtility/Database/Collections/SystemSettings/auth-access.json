@@ -1,0 +1,12 @@
+{
+  "id": "auth-access",
+  "otpEnabled": true,
+  "allowLocalDomainFixedOtp": true,
+  "fixedOtpCode": "123456",
+  "localFixedOtpDomains": [
+    "baleanchor.local"
+  ],
+  "updatedByUserId": "system-bootstrap",
+  "updatedAtUtc": "2026-07-29T15:29:22.7683885+00:00",
+  "version": 1
+}

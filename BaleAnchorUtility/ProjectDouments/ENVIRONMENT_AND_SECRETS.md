@@ -56,6 +56,18 @@ Use double-underscore environment mapping for ASP.NET Core:
 - Development may run push mode `log`; production can run `log` or `webpush` depending on readiness.
 - Production SMTP password and VAPID private key must come from secure environment or secret store.
 
+## Runtime SMTP overrides in DB
+
+- Admin runtime SMTP settings are stored in `Database/Collections/SystemSettings/email-transport.json`.
+- SMTP password is stored encrypted at rest in `smtpPasswordCiphertext`.
+- Plaintext SMTP password must never be written to JSON collections.
+- Runtime mode supports:
+  - `smtp` to send real emails
+  - `log` to log email payloads only
+  - `off` to suppress sending
+- If DB runtime settings do not exist, the app falls back to `EmailTransport` values from configuration.
+- Production security baseline remains OTP-first. Password-only login fallback is non-production only.
+
 ## Verification steps
 
 1. Confirm no secret values are present in committed JSON files.

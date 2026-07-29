@@ -172,3 +172,28 @@
   background: linear-gradient(135deg, #0d6efd, #0b5ed7);
   border-color: transparent;
 }
+
+.auth-form-card {
+  background-color: #ffffff;
+}
+
+.auth-illustration-pane {
+  min-height: 360px;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+}
+
+.auth-illustration-pane img {
+  max-height: 420px;
+  width: auto;
+}
+
+@media (max-width: 1199.98px) {
+  .auth-illustration-pane {
+    min-height: 220px;
+    padding: 1rem;
+  }
+
+  .auth-illustration-pane img {
+    max-height: 220px;
+  }
+}

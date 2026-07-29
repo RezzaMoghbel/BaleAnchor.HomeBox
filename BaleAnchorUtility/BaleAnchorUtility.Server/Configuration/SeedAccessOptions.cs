@@ -7,6 +7,7 @@ public sealed class SeedAccessOptions
     public const string SectionName = "SeedAccess";
 
     public bool Enabled { get; set; }
+    public bool AllowLocalDomainFixedOtp { get; set; }
     public string FixedOtpCode { get; set; } = "123456";
     public SeedUserOptions[] Accounts { get; set; } = [];
 }

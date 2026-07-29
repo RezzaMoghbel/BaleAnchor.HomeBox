@@ -5,6 +5,18 @@ const requestCodeSchema = z.object({
   email: z.email("Enter a valid email address."),
 });
 
+const signupRequestCodeSchema = z.object({
+  email: z.email("Enter a valid email address."),
+  password: z
+    .string()
+    .trim()
+    .min(8, "Password must be at least 8 characters.")
+    .regex(/[A-Z]/, "Password must include an uppercase letter.")
+    .regex(/[a-z]/, "Password must include a lowercase letter.")
+    .regex(/[0-9]/, "Password must include a number.")
+    .regex(/[^A-Za-z0-9]/, "Password must include a special character."),
+});
+
 const verifyCodeSchema = z.object({
   email: z.email("Enter a valid email address."),
   code: z
@@ -27,6 +39,18 @@ function toFieldErrors(error: z.ZodError): FieldErrors {
 
 export function validateRequestCodeInput(email: string): FieldErrors {
   const result = requestCodeSchema.safeParse({ email: email.trim() });
+  return result.success ? {} : toFieldErrors(result.error);
+}
+
+export function validateSignupRequestCodeInput(
+  email: string,
+  password: string,
+): FieldErrors {
+  const result = signupRequestCodeSchema.safeParse({
+    email: email.trim(),
+    password: password.trim(),
+  });
+
   return result.success ? {} : toFieldErrors(result.error);
 }
 

@@ -1,0 +1,12 @@
+{
+  "id": "e61e9b9685ca4d2b9ad4e61fe9cd9dbb",
+  "tokenHash": "EF14031732B0C720090478C3918A07B4F8DEA7242DA1681EB4BF1C581FEC0A2E",
+  "emailNormalized": "SUPERADMIN@BALEANCHOR.LOCAL",
+  "userId": "seed-superadmin-0001",
+  "deviceSummary": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+  "createdAtUtc": "2026-07-29T16:56:32.4621338+00:00",
+  "expiresAtUtc": "2026-07-30T16:56:32.4621338+00:00",
+  "lastUsedAtUtc": "2026-07-29T19:28:31.1398536+00:00",
+  "revokedAtUtc": null,
+  "version": 8
+}

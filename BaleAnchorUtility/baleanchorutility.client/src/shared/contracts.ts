@@ -5,10 +5,19 @@ export interface RequestCodeResponse {
   developmentCode?: string;
 }
 
+export interface SignupRequestCodeRequest {
+  email: string;
+  password: string;
+}
+
 export interface VerifyCodeResponse {
   authenticated: boolean;
   userStatus: string;
   message: string;
+}
+
+export interface AuthModeResponse {
+  otpEnabled: boolean;
 }
 
 export interface SessionStatusResponse {
@@ -142,6 +151,48 @@ export interface AdminBillingContextResponse {
 export interface AdminActionResultResponse {
   userId: string;
   message: string;
+}
+
+export interface AdminEmailTransportSettingsResponse {
+  mode: string;
+  fromName: string;
+  fromAddress: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUseSsl: boolean;
+  smtpUsername: string;
+  hasSmtpPassword: boolean;
+  updatedByUserId?: string;
+  updatedAtUtc?: string;
+}
+
+export interface UpdateAdminEmailTransportSettingsRequest {
+  mode: string;
+  fromName: string;
+  fromAddress: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUseSsl: boolean;
+  smtpUsername: string;
+  smtpPassword?: string;
+  reason: string;
+}
+
+export interface AdminAuthAccessSettingsResponse {
+  otpEnabled: boolean;
+  allowLocalDomainFixedOtp: boolean;
+  fixedOtpCode: string;
+  localFixedOtpDomains: string[];
+  updatedByUserId?: string;
+  updatedAtUtc?: string;
+}
+
+export interface UpdateAdminAuthAccessSettingsRequest {
+  otpEnabled: boolean;
+  allowLocalDomainFixedOtp: boolean;
+  fixedOtpCode: string;
+  localFixedOtpDomains: string[];
+  reason: string;
 }
 
 export interface TermsVersionSummaryItem {

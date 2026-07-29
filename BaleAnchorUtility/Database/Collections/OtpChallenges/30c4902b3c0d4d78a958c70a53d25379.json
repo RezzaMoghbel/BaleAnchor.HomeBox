@@ -1,0 +1,15 @@
+{
+  "id": "30c4902b3c0d4d78a958c70a53d25379",
+  "emailNormalized": "SUPERADMIN@BALEANCHOR.LOCAL",
+  "purpose": "LOGIN",
+  "otpHash": "43CA7A6E305E3CDEB3E5ECFEDDE261046081A1F9B1BCB3165C86E77C9C9A8CA4",
+  "otpSalt": "MkEuYoTxq\u002BVrYGb6L3P6aQ==",
+  "expiresAtUtc": "2026-07-29T17:06:27.1955362+00:00",
+  "createdAtUtc": "2026-07-29T16:56:27.1955362+00:00",
+  "cooldownUntilUtc": "2026-07-29T16:56:57.1955362+00:00",
+  "attemptCount": 1,
+  "maxAttempts": 5,
+  "consumedAtUtc": "2026-07-29T16:56:32.3688252+00:00",
+  "revokedAtUtc": null,
+  "version": 2
+}

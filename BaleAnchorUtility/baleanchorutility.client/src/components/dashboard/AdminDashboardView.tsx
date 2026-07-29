@@ -69,6 +69,18 @@ interface AdminDashboardViewProps {
   gapStatusInput: string;
   gapFilterFlatNumber: string;
   pendingApprovals: PendingApprovalUserItem[];
+  authOtpEnabled: boolean;
+  authAllowLocalFixedOtp: boolean;
+  authFixedOtpCode: string;
+  authLocalDomains: string;
+  emailTransportMode: string;
+  emailFromName: string;
+  emailFromAddress: string;
+  emailSmtpHost: string;
+  emailSmtpPort: string;
+  emailSmtpUseSsl: boolean;
+  emailSmtpUsername: string;
+  emailSmtpPassword: string;
   onAdminSearchQueryChange: (value: string) => void;
   onAdminSearchStatusChange: (value: string) => void;
   onAdminTargetUserIdChange: (value: string) => void;
@@ -113,7 +125,22 @@ interface AdminDashboardViewProps {
   onGapAmountInputChange: (value: string) => void;
   onGapStatusInputChange: (value: string) => void;
   onGapFilterFlatNumberChange: (value: string) => void;
+  onAuthOtpEnabledChange: (value: boolean) => void;
+  onAuthAllowLocalFixedOtpChange: (value: boolean) => void;
+  onAuthFixedOtpCodeChange: (value: string) => void;
+  onAuthLocalDomainsChange: (value: string) => void;
+  onEmailTransportModeChange: (value: string) => void;
+  onEmailFromNameChange: (value: string) => void;
+  onEmailFromAddressChange: (value: string) => void;
+  onEmailSmtpHostChange: (value: string) => void;
+  onEmailSmtpPortChange: (value: string) => void;
+  onEmailSmtpUseSslChange: (value: boolean) => void;
+  onEmailSmtpUsernameChange: (value: string) => void;
+  onEmailSmtpPasswordChange: (value: string) => void;
   onLoadPendingApprovals: () => Promise<void>;
+  onLoadSystemSettings: () => Promise<void>;
+  onSaveAuthAccessSettings: () => Promise<void>;
+  onSaveEmailTransportSettings: () => Promise<void>;
   onSearchAdminUsers: () => Promise<void>;
   onLoadAdminBillingContext: () => Promise<void>;
   onDeleteAdminLatestReading: () => Promise<void>;
@@ -196,6 +223,18 @@ export function AdminDashboardView({
   gapStatusInput,
   gapFilterFlatNumber,
   pendingApprovals,
+  authOtpEnabled,
+  authAllowLocalFixedOtp,
+  authFixedOtpCode,
+  authLocalDomains,
+  emailTransportMode,
+  emailFromName,
+  emailFromAddress,
+  emailSmtpHost,
+  emailSmtpPort,
+  emailSmtpUseSsl,
+  emailSmtpUsername,
+  emailSmtpPassword,
   onAdminSearchQueryChange,
   onAdminSearchStatusChange,
   onAdminTargetUserIdChange,
@@ -240,7 +279,22 @@ export function AdminDashboardView({
   onGapAmountInputChange,
   onGapStatusInputChange,
   onGapFilterFlatNumberChange,
+  onAuthOtpEnabledChange,
+  onAuthAllowLocalFixedOtpChange,
+  onAuthFixedOtpCodeChange,
+  onAuthLocalDomainsChange,
+  onEmailTransportModeChange,
+  onEmailFromNameChange,
+  onEmailFromAddressChange,
+  onEmailSmtpHostChange,
+  onEmailSmtpPortChange,
+  onEmailSmtpUseSslChange,
+  onEmailSmtpUsernameChange,
+  onEmailSmtpPasswordChange,
   onLoadPendingApprovals,
+  onLoadSystemSettings,
+  onSaveAuthAccessSettings,
+  onSaveEmailTransportSettings,
   onSearchAdminUsers,
   onLoadAdminBillingContext,
   onDeleteAdminLatestReading,
@@ -282,6 +336,201 @@ export function AdminDashboardView({
           {routeTabs}
 
           <div className="card radius-10 border-0 shadow-sm">
+            <div className="card-body">
+              <h5 className="mb-3">System auth and SMTP settings</h5>
+              <p className="text-secondary mb-3">
+                SuperAdmin controls for OTP mode, local fixed OTP behavior, and
+                SMTP runtime transport.
+              </p>
+
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={() => void onLoadSystemSettings()}
+                  disabled={loading}
+                >
+                  Load system settings
+                </button>
+              </div>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-md-3">
+                  <label className="form-label">OTP enabled</label>
+                  <select
+                    className="form-select"
+                    value={authOtpEnabled ? "on" : "off"}
+                    onChange={(event) =>
+                      onAuthOtpEnabledChange(event.target.value === "on")
+                    }
+                  >
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-3">
+                  <label className="form-label">Allow .local fixed OTP</label>
+                  <select
+                    className="form-select"
+                    value={authAllowLocalFixedOtp ? "on" : "off"}
+                    onChange={(event) =>
+                      onAuthAllowLocalFixedOtpChange(
+                        event.target.value === "on",
+                      )
+                    }
+                  >
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-3">
+                  <label className="form-label">Fixed OTP code</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={authFixedOtpCode}
+                    onChange={(event) =>
+                      onAuthFixedOtpCodeChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-3">
+                  <label className="form-label">Local OTP domains</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={authLocalDomains}
+                    onChange={(event) =>
+                      onAuthLocalDomainsChange(event.target.value)
+                    }
+                    placeholder="baleanchor.local"
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void onSaveAuthAccessSettings()}
+                  disabled={loading}
+                >
+                  Save auth settings
+                </button>
+              </div>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-md-2">
+                  <label className="form-label">Email mode</label>
+                  <select
+                    className="form-select"
+                    value={emailTransportMode}
+                    onChange={(event) =>
+                      onEmailTransportModeChange(event.target.value)
+                    }
+                  >
+                    <option value="smtp">smtp</option>
+                    <option value="log">log</option>
+                    <option value="off">off</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-3">
+                  <label className="form-label">From name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={emailFromName}
+                    onChange={(event) =>
+                      onEmailFromNameChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-3">
+                  <label className="form-label">From address</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={emailFromAddress}
+                    onChange={(event) =>
+                      onEmailFromAddressChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-2">
+                  <label className="form-label">SMTP host</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={emailSmtpHost}
+                    onChange={(event) =>
+                      onEmailSmtpHostChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-2">
+                  <label className="form-label">SMTP port</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={emailSmtpPort}
+                    onChange={(event) =>
+                      onEmailSmtpPortChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-2">
+                  <label className="form-label">Use SSL</label>
+                  <select
+                    className="form-select"
+                    value={emailSmtpUseSsl ? "on" : "off"}
+                    onChange={(event) =>
+                      onEmailSmtpUseSslChange(event.target.value === "on")
+                    }
+                  >
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-4">
+                  <label className="form-label">SMTP username</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={emailSmtpUsername}
+                    onChange={(event) =>
+                      onEmailSmtpUsernameChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-md-4">
+                  <label className="form-label">
+                    SMTP password (new value)
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={emailSmtpPassword}
+                    onChange={(event) =>
+                      onEmailSmtpPasswordChange(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void onSaveEmailTransportSettings()}
+                  disabled={loading}
+                >
+                  Save email settings
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
             <div className="card-body">
               <h5 className="mb-3">Approval actions</h5>
               <p className="text-secondary mb-3">

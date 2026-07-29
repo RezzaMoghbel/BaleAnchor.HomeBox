@@ -28,6 +28,11 @@ The mechanism is intended to be:
 - easy to reset
 - easy to delete before production
 
+Current local default mode:
+
+- seed data seeding is disabled in `appsettings.Development.json`
+- `.local` emails can still use fixed OTP for fast local testing
+
 Repeatable smoke-check script:
 
 - `ProjectDouments/seed-smoke-check.ps1`
@@ -38,15 +43,9 @@ Fixed development OTP code:
 
 - `123456`
 
-Seed emails:
+Local-domain test emails:
 
-- `superadmin@baleanchor.local`
-- `admin@baleanchor.local`
-- `resident.active@baleanchor.local`
-- `resident.onboarding@baleanchor.local`
-- `resident.pending@baleanchor.local`
-- `resident.rejected@baleanchor.local`
-- `resident.suspended@baleanchor.local`
+- any email ending with `@baleanchor.local`
 
 ## 4. Seeded demo data currently provided
 
@@ -79,24 +78,22 @@ Important setting:
 ### 5.2 Login flow
 
 1. Open the client.
-2. Enter one of the seed emails.
+2. Enter any `@baleanchor.local` email.
 3. Request a code.
 4. Use `123456` as the OTP code.
 5. Verify and continue through the normal app flow.
 
-### 5.3 Expected role coverage
+### 5.3 Role coverage note
 
-- `superadmin@baleanchor.local`: admin route access, role-management path
-- `admin@baleanchor.local`: admin approvals path without superadmin-only role escalation powers
-- `resident.active@baleanchor.local`: direct resident flow with seeded readings/payments/statements data
-- `resident.onboarding@baleanchor.local`: onboarding path coverage
-- `resident.pending@baleanchor.local`: pending-approval queue coverage for admin approval and rejection walkthroughs
-- `resident.rejected@baleanchor.local`: rejected-account behavior coverage
-- `resident.suspended@baleanchor.local`: suspended-account behavior coverage
+With seed data disabled, users created through `@baleanchor.local` login will default to resident onboarding flow unless promoted by admin workflows.
+
+If you need prebuilt admin/resident personas for a demo rehearsal, temporarily re-enable `SeedAccess:Enabled=true` with configured accounts.
 
 ## 6. Dev seed API operations
 
 These endpoints are development-only operational helpers.
+
+Note: with seed data disabled (`SeedAccess:Enabled=false`), these endpoints return not found.
 
 ### 6.1 Get seed status
 
@@ -195,15 +192,15 @@ The reset path currently removes seeded records from these collections when they
 Check:
 
 - app is running in Development
-- `SeedAccess:Enabled` is `true`
+- `SeedAccess:Enabled` is `true` when you need seed-data endpoints
 - the server restarted after config changes
 
 ### 8.2 OTP request works but visible code is missing
 
 Check:
 
-- the email is one of the configured seed emails
-- `SeedAccess:Enabled` is still `true`
+- the email ends with `@baleanchor.local`
+- `SeedAccess:AllowLocalDomainFixedOtp` is `true`
 - environment is Development
 
 ### 8.3 Resident demo data is missing or inconsistent

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { validateRequestCodeInput, validateVerifyCodeInput } from "./auth";
+import {
+  validateRequestCodeInput,
+  validateSignupRequestCodeInput,
+  validateVerifyCodeInput,
+} from "./auth";
 
 describe("auth validation", () => {
   it("accepts a valid request-code email", () => {
@@ -22,6 +26,25 @@ describe("auth validation", () => {
     expect(validateVerifyCodeInput("", "12ab")).toEqual({
       email: ["Enter a valid email address."],
       code: ["Enter the 6-digit code."],
+    });
+  });
+
+  it("accepts a valid signup payload", () => {
+    expect(
+      validateSignupRequestCodeInput("resident@example.com", "Valid123!"),
+    ).toEqual({});
+  });
+
+  it("returns password errors for weak signup password", () => {
+    expect(
+      validateSignupRequestCodeInput("resident@example.com", "123456"),
+    ).toEqual({
+      password: [
+        "Password must be at least 8 characters.",
+        "Password must include an uppercase letter.",
+        "Password must include a lowercase letter.",
+        "Password must include a special character.",
+      ],
     });
   });
 });

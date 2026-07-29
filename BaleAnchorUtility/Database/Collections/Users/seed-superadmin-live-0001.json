@@ -1,0 +1,17 @@
+{
+  "id": "seed-superadmin-live-0001",
+  "emailDisplay": "info@moghbel.co.uk",
+  "emailNormalized": "INFO@MOGHBEL.CO.UK",
+  "surnameNormalized": null,
+  "dateOfBirth": null,
+  "flatNumberNormalized": null,
+  "mobileNumber": null,
+  "passwordSalt": "IKX2MSFOc9tydrj888uoQQ==",
+  "passwordHash": "QtkNSDKqLyC2PrfH5vfuFEIN9z9kpIukfSwJSbPXdwA=",
+  "passwordUpdatedAtUtc": "2026-07-29T19:27:52.3740354+00:00",
+  "role": 2,
+  "status": 6,
+  "createdAtUtc": "2026-07-29T15:29:22.7683885+00:00",
+  "updatedAtUtc": "2026-07-29T19:27:52.3740354+00:00",
+  "version": 3
+}

@@ -2,11 +2,14 @@ import type {
   AcceptTermsResponse,
   ActiveTariffResponse,
   ActiveTermsResponse,
+  AdminAuthAccessSettingsResponse,
+  AdminEmailTransportSettingsResponse,
   AdminActionResultResponse,
   AdminBillingContextResponse,
   AdminDecisionResponse,
   AdminRoleChangeResponse,
   AdminUserSearchResponse,
+  AuthModeResponse,
   AllTimeBalanceResponse,
   AuditLogListResponse,
   CalculateLatestPeriodResponse,
@@ -34,12 +37,15 @@ import type {
   StatementExportHistoryResponse,
   StatementPeriodListResponse,
   StatementSummaryResponse,
+  SignupRequestCodeRequest,
   SubmitReadingsResponse,
   TenancyListResponse,
   TenantGapAllocationListResponse,
   TermsAcceptanceListResponse,
   TermsVersionListResponse,
   PublishTermsVersionResponse,
+  UpdateAdminAuthAccessSettingsRequest,
+  UpdateAdminEmailTransportSettingsRequest,
   UpdateNotificationPreferencesRequest,
   UpdatePaymentResponse,
   UpsertPushSubscriptionRequest,
@@ -65,6 +71,12 @@ interface RequestCodeRequest {
 interface VerifyCodeRequest {
   email: string;
   code: string;
+  purpose?: "login" | "signup";
+}
+
+interface PasswordLoginRequest {
+  email: string;
+  password: string;
 }
 
 interface CompleteProfileRequest {
@@ -223,6 +235,19 @@ async function requestResponse(
 }
 
 export const portalClient = {
+  signupRequestCode(request: SignupRequestCodeRequest) {
+    return requestJson<RequestCodeResponse>(
+      "/api/v1/auth/signup-request-code",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   requestCode(request: RequestCodeRequest) {
     return requestJson<RequestCodeResponse>("/api/v1/auth/request-code", {
       method: "POST",
@@ -241,6 +266,23 @@ export const portalClient = {
       },
       credentials: "include",
       body: JSON.stringify(request),
+    });
+  },
+
+  passwordLogin(request: PasswordLoginRequest) {
+    return requestJson<VerifyCodeResponse>("/api/v1/auth/password-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(request),
+    });
+  },
+
+  getAuthMode() {
+    return requestJson<AuthModeResponse>("/api/v1/auth/mode", {
+      method: "GET",
     });
   },
 
@@ -367,6 +409,56 @@ export const portalClient = {
       `/api/v1/admin/roles/${encodeURIComponent(targetUserId)}`,
       {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getAdminAuthAccessSettings() {
+    return requestJson<AdminAuthAccessSettingsResponse>(
+      "/api/v1/admin/system-settings/auth-access",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updateAdminAuthAccessSettings(request: UpdateAdminAuthAccessSettingsRequest) {
+    return requestJson<AdminAuthAccessSettingsResponse>(
+      "/api/v1/admin/system-settings/auth-access",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getAdminEmailTransportSettings() {
+    return requestJson<AdminEmailTransportSettingsResponse>(
+      "/api/v1/admin/system-settings/email-transport",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updateAdminEmailTransportSettings(
+    request: UpdateAdminEmailTransportSettingsRequest,
+  ) {
+    return requestJson<AdminEmailTransportSettingsResponse>(
+      "/api/v1/admin/system-settings/email-transport",
+      {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },

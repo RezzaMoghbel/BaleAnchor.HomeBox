@@ -1,26 +1,21 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Mail;
-using BaleAnchorUtility.Server.Configuration;
-using Microsoft.Extensions.Options;
+using BaleAnchorUtility.Server.Application.Abstractions;
 
 namespace BaleAnchorUtility.Server.Infrastructure.Email;
 
 public sealed class SmtpEmailSender
 {
-    private readonly IOptions<EmailTransportOptions> options;
     private readonly ILogger<SmtpEmailSender> logger;
 
-    public SmtpEmailSender(IOptions<EmailTransportOptions> options, ILogger<SmtpEmailSender> logger)
+    public SmtpEmailSender(ILogger<SmtpEmailSender> logger)
     {
-        this.options = options;
         this.logger = logger;
     }
 
-    public async Task SendOtpCodeAsync(string email, string code, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken)
+    public async Task SendOtpCodeAsync(EmailTransportRuntimeSettings cfg, string email, string code, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken)
     {
-        var cfg = options.Value;
-
         using var message = new MailMessage
         {
             From = new MailAddress(cfg.FromAddress, cfg.FromName),
@@ -51,10 +46,8 @@ public sealed class SmtpEmailSender
         }
     }
 
-    public async Task SendReadingReminderAsync(string email, string recommendedReadingDate, string timeZoneId, CancellationToken cancellationToken)
+    public async Task SendReadingReminderAsync(EmailTransportRuntimeSettings cfg, string email, string recommendedReadingDate, string timeZoneId, CancellationToken cancellationToken)
     {
-        var cfg = options.Value;
-
         using var message = new MailMessage
         {
             From = new MailAddress(cfg.FromAddress, cfg.FromName),

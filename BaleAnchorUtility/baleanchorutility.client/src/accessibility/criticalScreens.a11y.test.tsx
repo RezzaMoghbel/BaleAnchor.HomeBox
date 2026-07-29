@@ -5,31 +5,27 @@ import { NotificationsDashboardView } from "../components/dashboard/Notification
 import { OnboardingView } from "../components/onboarding/OnboardingView";
 
 describe("critical screen accessibility baselines", () => {
-  it("login screen includes labelled auth inputs and status region", () => {
+  it("login screen includes labelled auth inputs", () => {
     const html = renderToStaticMarkup(
       <LoginView
         shellHeader={<header>Header</header>}
-        session={null}
+        authRoute="signin"
+        otpEnabled={true}
         email="resident@example.com"
-        code=""
+        signupPassword=""
         loginFieldErrors={{}}
         loading={false}
-        statusMessage="Ready"
+        statusMessage=""
         onEmailChange={() => {}}
-        onCodeChange={() => {}}
-        onRequestCode={async () => {}}
-        onVerifyCode={async () => {}}
-        onRefreshSession={async () => {}}
-        onLogout={async () => {}}
-        formatDisplayDateTime={() => "-"}
+        onSignupPasswordChange={() => {}}
+        onSignupRequestCode={async () => {}}
+        onPasswordLogin={async () => {}}
+        onContinueToOtp={async () => {}}
       />,
     );
 
     expect(html).toContain('for="email-login"');
     expect(html).toContain('id="email-login"');
-    expect(html).toContain('for="code-login"');
-    expect(html).toContain('id="code-login"');
-    expect(html).toContain('role="status"');
     expect(html).toContain("<main");
   });
 

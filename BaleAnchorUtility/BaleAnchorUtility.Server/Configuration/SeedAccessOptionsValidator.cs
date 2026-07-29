@@ -6,7 +6,7 @@ public sealed class SeedAccessOptionsValidator : IValidateOptions<SeedAccessOpti
 {
     public ValidateOptionsResult Validate(string? name, SeedAccessOptions options)
     {
-        if (!options.Enabled)
+        if (!options.Enabled && !options.AllowLocalDomainFixedOtp)
         {
             return ValidateOptionsResult.Success;
         }
@@ -27,6 +27,11 @@ public sealed class SeedAccessOptionsValidator : IValidateOptions<SeedAccessOpti
         {
             errors.Add("SeedAccess:Accounts must be provided.");
             return ValidateOptionsResult.Fail(errors);
+        }
+
+        if (!options.Enabled)
+        {
+            return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
         }
 
         var duplicateEmail = options.Accounts

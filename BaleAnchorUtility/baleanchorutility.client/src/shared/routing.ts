@@ -4,7 +4,12 @@ export function getTargetRoute(
   path: string,
   currentSession: SessionStatusResponse | null,
 ): string | null {
-  const isLoginPath = path === "/" || path === "/login";
+  const isLoginPath =
+    path === "/" ||
+    path === "/login" ||
+    path === "/signin" ||
+    path === "/signup" ||
+    path === "/otp";
   const isOnboardingPath = path === "/onboarding";
   const isDashboardPath = path.startsWith("/dashboard");
   const isAdminPath = path.startsWith("/dashboard/admin");
@@ -17,7 +22,7 @@ export function getTargetRoute(
   const isAdminUser = role === "admin" || role === "superadmin";
 
   if (!isAuthenticated) {
-    return isLoginPath ? null : "/login";
+    return isLoginPath ? null : "/signin";
   }
 
   if (needsOnboarding) {
@@ -29,7 +34,7 @@ export function getTargetRoute(
   }
 
   if (isNotificationsPath && !isAuthenticated) {
-    return "/login";
+    return "/signin";
   }
 
   return isDashboardPath ? null : "/dashboard";

@@ -18,15 +18,16 @@ public sealed class AuthService
         public DateTimeOffset? SessionExpiresAtUtc { get; init; }
     }
 
-    private const string AuthPurpose = "LOGIN_OR_REGISTRATION";
+    private const string LoginPurpose = "LOGIN";
+    private const string SignupPurpose = "SIGNUP";
 
     private readonly IUserRepository userRepository;
     private readonly IOtpChallengeRepository otpChallengeRepository;
     private readonly ISessionRepository sessionRepository;
     private readonly IEmailSender emailSender;
+    private readonly IAuthAccessSettingsProvider authAccessSettingsProvider;
     private readonly ISystemClock clock;
     private readonly AuthOtpOptions options;
-    private readonly SeedAccessOptions seedAccessOptions;
     private readonly IHostEnvironment environment;
     private readonly ILogger<AuthService> logger;
 
@@ -35,9 +36,9 @@ public sealed class AuthService
         IOtpChallengeRepository otpChallengeRepository,
         ISessionRepository sessionRepository,
         IEmailSender emailSender,
+        IAuthAccessSettingsProvider authAccessSettingsProvider,
         ISystemClock clock,
         IOptions<AuthOtpOptions> options,
-        IOptions<SeedAccessOptions> seedAccessOptions,
         IHostEnvironment environment,
         ILogger<AuthService> logger)
     {
@@ -45,19 +46,94 @@ public sealed class AuthService
         this.otpChallengeRepository = otpChallengeRepository;
         this.sessionRepository = sessionRepository;
         this.emailSender = emailSender;
+        this.authAccessSettingsProvider = authAccessSettingsProvider;
         this.clock = clock;
         this.options = options.Value;
-        this.seedAccessOptions = seedAccessOptions.Value;
         this.environment = environment;
         this.logger = logger;
     }
 
     public async Task<RequestCodeResponse> RequestCodeAsync(RequestCodeRequest request, string ipAddress, CancellationToken cancellationToken)
     {
-        var now = clock.UtcNow;
+        var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        if (!authSettings.OtpEnabled)
+        {
+            return new RequestCodeResponse
+            {
+                Message = "OTP login is currently disabled. Please sign in with email and password.",
+                ResendAfterSeconds = 0,
+                ExpiresInSeconds = 0,
+            };
+        }
+
         var normalizedEmail = NormalizeEmail(request.Email);
-        var latestActive = await otpChallengeRepository.GetLatestActiveAsync(normalizedEmail, AuthPurpose, cancellationToken);
-        var developmentCode = GetDevelopmentOtpCode(normalizedEmail);
+        var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+
+        if (user is null && !ShouldBypassWithLocalFixedOtp(normalizedEmail, authSettings))
+        {
+            logger.LogInformation("Login request ignored for unknown email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+            return new RequestCodeResponse
+            {
+                Message = "If the details are valid, a code has been sent.",
+                ResendAfterSeconds = options.ResendCooldownSeconds,
+                ExpiresInSeconds = options.OtpExpiryMinutes * 60,
+            };
+        }
+
+        return await RequestCodeCoreAsync(request.Email, ipAddress, LoginPurpose, cancellationToken);
+    }
+
+    public async Task<RequestCodeResponse> SignupRequestCodeAsync(SignupRequestCodeRequest request, string ipAddress, CancellationToken cancellationToken)
+    {
+        var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        var normalizedEmail = NormalizeEmail(request.Email);
+        var existing = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+        if (existing is not null)
+        {
+            throw new InvalidOperationException("An account with this email already exists. Please use login.");
+        }
+
+        ValidateSignupPassword(request.Password);
+
+        var now = clock.UtcNow;
+        var passwordSalt = GenerateRandomBase64(16);
+        var provisionalUser = new UserAccount
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            EmailDisplay = request.Email.Trim(),
+            EmailNormalized = normalizedEmail,
+            PasswordSalt = passwordSalt,
+            PasswordHash = ComputePasswordHash(request.Password.Trim(), passwordSalt),
+            PasswordUpdatedAtUtc = now,
+            Role = UserRole.Resident,
+            Status = authSettings.OtpEnabled ? UserAccountStatus.EmailUnverified : UserAccountStatus.TermsPending,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            Version = 1,
+        };
+
+        await userRepository.UpsertAsync(provisionalUser, cancellationToken);
+
+        if (!authSettings.OtpEnabled)
+        {
+            return new RequestCodeResponse
+            {
+                Message = "Signup completed. You can now sign in with email and password.",
+                ResendAfterSeconds = 0,
+                ExpiresInSeconds = 0,
+            };
+        }
+
+        return await RequestCodeCoreAsync(request.Email, ipAddress, SignupPurpose, cancellationToken);
+    }
+
+    private async Task<RequestCodeResponse> RequestCodeCoreAsync(string emailInput, string ipAddress, string purpose, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        var normalizedEmail = NormalizeEmail(emailInput);
+        var latestActive = await otpChallengeRepository.GetLatestActiveAsync(normalizedEmail, purpose, cancellationToken);
+        var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        var developmentCode = GetDevelopmentOtpCode(normalizedEmail, authSettings);
 
         if (latestActive is not null && latestActive.CooldownUntilUtc > now)
         {
@@ -71,7 +147,7 @@ public sealed class AuthService
         }
 
         var oneHourAgo = now.AddHours(-1);
-        var sendsLastHour = await otpChallengeRepository.CountCreatedSinceAsync(normalizedEmail, AuthPurpose, oneHourAgo, cancellationToken);
+        var sendsLastHour = await otpChallengeRepository.CountCreatedSinceAsync(normalizedEmail, purpose, oneHourAgo, cancellationToken);
         if (sendsLastHour >= options.MaxCodesPerHourPerEmail)
         {
             logger.LogWarning("OTP send limit exceeded for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
@@ -84,7 +160,7 @@ public sealed class AuthService
             };
         }
 
-        await otpChallengeRepository.InvalidateActiveAsync(normalizedEmail, AuthPurpose, cancellationToken);
+        await otpChallengeRepository.InvalidateActiveAsync(normalizedEmail, purpose, cancellationToken);
 
         var code = developmentCode ?? GenerateNumericCode(options.OtpLength);
         var salt = GenerateRandomBase64(16);
@@ -92,7 +168,7 @@ public sealed class AuthService
         {
             Id = Guid.NewGuid().ToString("N"),
             EmailNormalized = normalizedEmail,
-            Purpose = AuthPurpose,
+            Purpose = purpose,
             OtpSalt = salt,
             OtpHash = ComputeSecretHash(code, salt),
             CreatedAtUtc = now,
@@ -104,7 +180,7 @@ public sealed class AuthService
         };
 
         await otpChallengeRepository.AddAsync(challenge, cancellationToken);
-        await emailSender.SendOtpCodeAsync(request.Email.Trim(), code, challenge.ExpiresAtUtc, cancellationToken);
+        await emailSender.SendOtpCodeAsync(emailInput.Trim(), code, challenge.ExpiresAtUtc, cancellationToken);
 
         logger.LogInformation("OTP challenge issued for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
 
@@ -120,8 +196,23 @@ public sealed class AuthService
     public async Task<VerificationResult> VerifyCodeAsync(VerifyCodeRequest request, string deviceSummary, string ipAddress, CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
+        var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        if (!authSettings.OtpEnabled)
+        {
+            return new VerificationResult
+            {
+                Response = new VerifyCodeResponse
+                {
+                    Authenticated = false,
+                    UserStatus = UserAccountStatus.EmailUnverified.ToString(),
+                    Message = "OTP login is currently disabled. Please sign in with email and password.",
+                }
+            };
+        }
+
         var normalizedEmail = NormalizeEmail(request.Email);
-        var challenge = await otpChallengeRepository.GetLatestActiveAsync(normalizedEmail, AuthPurpose, cancellationToken);
+        var purpose = ResolvePurpose(request.Purpose);
+        var challenge = await otpChallengeRepository.GetLatestActiveAsync(normalizedEmail, purpose, cancellationToken);
 
         if (challenge is null || challenge.ExpiresAtUtc <= now)
         {
@@ -178,8 +269,39 @@ public sealed class AuthService
         challenge.Version += 1;
         await otpChallengeRepository.UpdateAsync(challenge, cancellationToken);
 
-        var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken)
-            ?? new UserAccount
+        var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+
+        if (user is null)
+        {
+            if (purpose == SignupPurpose)
+            {
+                logger.LogWarning("Signup OTP verify failed due to missing provisional account for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+                return new VerificationResult
+                {
+                    Response = new VerifyCodeResponse
+                    {
+                        Authenticated = false,
+                        UserStatus = UserAccountStatus.EmailUnverified.ToString(),
+                        Message = "The code is invalid or has expired.",
+                    }
+                };
+            }
+
+            if (!ShouldBypassWithLocalFixedOtp(normalizedEmail, authSettings))
+            {
+                logger.LogWarning("Login OTP verify failed due to missing account for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+                return new VerificationResult
+                {
+                    Response = new VerifyCodeResponse
+                    {
+                        Authenticated = false,
+                        UserStatus = UserAccountStatus.EmailUnverified.ToString(),
+                        Message = "The code is invalid or has expired.",
+                    }
+                };
+            }
+
+            user = new UserAccount
             {
                 Id = Guid.NewGuid().ToString("N"),
                 EmailDisplay = request.Email.Trim(),
@@ -190,6 +312,7 @@ public sealed class AuthService
                 UpdatedAtUtc = now,
                 Version = 1,
             };
+        }
 
         if (user.Status is UserAccountStatus.EmailUnverified or UserAccountStatus.EmailVerified)
         {
@@ -200,21 +323,7 @@ public sealed class AuthService
         user.Version += 1;
         await userRepository.UpsertAsync(user, cancellationToken);
 
-        var rawToken = GenerateRandomBase64(32);
-        var session = new AuthSession
-        {
-            Id = Guid.NewGuid().ToString("N"),
-            UserId = user.Id,
-            EmailNormalized = user.EmailNormalized,
-            TokenHash = ComputeSecretHash(rawToken, "session"),
-            DeviceSummary = TruncateDeviceSummary(deviceSummary),
-            CreatedAtUtc = now,
-            LastUsedAtUtc = now,
-            ExpiresAtUtc = now.AddHours(options.SessionDurationHours),
-            Version = 1,
-        };
-
-        await sessionRepository.AddAsync(session, cancellationToken);
+        var (rawToken, expiresAtUtc) = await CreateSessionAsync(user, deviceSummary, cancellationToken);
         logger.LogInformation("OTP verify succeeded and session created for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
 
         return new VerificationResult
@@ -226,7 +335,52 @@ public sealed class AuthService
                 Message = "Authentication successful.",
             },
             SessionToken = rawToken,
-            SessionExpiresAtUtc = session.ExpiresAtUtc,
+            SessionExpiresAtUtc = expiresAtUtc,
+        };
+    }
+
+    public async Task<VerificationResult> PasswordLoginAsync(PasswordLoginRequest request, string deviceSummary, string ipAddress, CancellationToken cancellationToken)
+    {
+        if (!await IsPasswordLoginAllowedAsync(cancellationToken))
+        {
+            logger.LogInformation("Password login attempt blocked because OTP mode is enabled from IP {IP}.", ipAddress);
+            return InvalidPasswordLoginResponse();
+        }
+
+        var normalizedEmail = NormalizeEmail(request.Email);
+        var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+        if (user is null || string.IsNullOrWhiteSpace(user.PasswordSalt) || string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            return InvalidPasswordLoginResponse();
+        }
+
+        var providedHash = ComputePasswordHash((request.Password ?? string.Empty).Trim(), user.PasswordSalt);
+        if (!SlowEquals(providedHash, user.PasswordHash))
+        {
+            return InvalidPasswordLoginResponse();
+        }
+
+        if (user.Status is UserAccountStatus.EmailUnverified or UserAccountStatus.EmailVerified)
+        {
+            user.Status = UserAccountStatus.TermsPending;
+            user.UpdatedAtUtc = clock.UtcNow;
+            user.Version += 1;
+            await userRepository.UpsertAsync(user, cancellationToken);
+        }
+
+        var (rawToken, expiresAtUtc) = await CreateSessionAsync(user, deviceSummary, cancellationToken);
+        logger.LogInformation("Password login succeeded for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+
+        return new VerificationResult
+        {
+            Response = new VerifyCodeResponse
+            {
+                Authenticated = true,
+                UserStatus = user.Status.ToString(),
+                Message = "Authentication successful.",
+            },
+            SessionToken = rawToken,
+            SessionExpiresAtUtc = expiresAtUtc,
         };
     }
 
@@ -278,23 +432,83 @@ public sealed class AuthService
 
     public static string NormalizeEmail(string email) => email.Trim().ToUpperInvariant();
 
-    private string? GetDevelopmentOtpCode(string normalizedEmail)
+    public async Task<AuthModeResponse> GetAuthModeAsync(CancellationToken cancellationToken)
     {
-        if (!environment.IsDevelopment() || !seedAccessOptions.Enabled)
+        var settings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        return new AuthModeResponse
+        {
+            OtpEnabled = settings.OtpEnabled,
+        };
+    }
+
+    private string? GetDevelopmentOtpCode(string normalizedEmail, AuthAccessRuntimeSettings settings)
+    {
+        if (!environment.IsDevelopment())
         {
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(seedAccessOptions.FixedOtpCode))
+        if (string.IsNullOrWhiteSpace(settings.FixedOtpCode))
         {
             return null;
         }
 
-        var isSeedEmail = seedAccessOptions.Accounts.Any(account =>
-            !string.IsNullOrWhiteSpace(account.Email)
-            && string.Equals(NormalizeEmail(account.Email), normalizedEmail, StringComparison.Ordinal));
+        if (ShouldBypassWithLocalFixedOtp(normalizedEmail, settings))
+        {
+            return settings.FixedOtpCode.Trim();
+        }
 
-        return isSeedEmail ? seedAccessOptions.FixedOtpCode.Trim() : null;
+        return null;
+    }
+
+    private bool ShouldBypassWithLocalFixedOtp(string normalizedEmail, AuthAccessRuntimeSettings settings)
+    {
+        if (!settings.AllowLocalDomainFixedOtp || !environment.IsDevelopment())
+        {
+            return false;
+        }
+
+        var at = normalizedEmail.IndexOf('@');
+        if (at < 0 || at == normalizedEmail.Length - 1)
+        {
+            return false;
+        }
+
+        var domain = normalizedEmail[(at + 1)..].ToLowerInvariant();
+        return settings.LocalFixedOtpDomains.Any(x => string.Equals(x, domain, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolvePurpose(string? purpose)
+    {
+        return string.Equals((purpose ?? string.Empty).Trim(), "signup", StringComparison.OrdinalIgnoreCase)
+            ? SignupPurpose
+            : LoginPurpose;
+    }
+
+    private static void ValidateSignupPassword(string password)
+    {
+        var trimmed = password?.Trim() ?? string.Empty;
+        if (trimmed.Length < 8)
+        {
+            throw new InvalidOperationException("Password must be at least 8 characters long.");
+        }
+
+        var hasUpper = trimmed.Any(char.IsUpper);
+        var hasLower = trimmed.Any(char.IsLower);
+        var hasDigit = trimmed.Any(char.IsDigit);
+        var hasSymbol = trimmed.Any(ch => !char.IsLetterOrDigit(ch));
+
+        if (!hasUpper || !hasLower || !hasDigit || !hasSymbol)
+        {
+            throw new InvalidOperationException("Password must include uppercase, lowercase, number, and special character.");
+        }
+    }
+
+    private static string ComputePasswordHash(string password, string salt)
+    {
+        var saltBytes = Convert.FromBase64String(salt);
+        var hashBytes = Rfc2898DeriveBytes.Pbkdf2(password, saltBytes, 100_000, HashAlgorithmName.SHA256, 32);
+        return Convert.ToBase64String(hashBytes);
     }
 
     private static string MaskEmail(string normalizedEmail)
@@ -354,5 +568,48 @@ public sealed class AuthService
         const int maxLength = 256;
         var cleaned = string.IsNullOrWhiteSpace(value) ? "unknown" : value.Trim();
         return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength];
+    }
+
+    private async Task<(string RawToken, DateTimeOffset ExpiresAtUtc)> CreateSessionAsync(
+        UserAccount user,
+        string deviceSummary,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        var rawToken = GenerateRandomBase64(32);
+        var session = new AuthSession
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            UserId = user.Id,
+            EmailNormalized = user.EmailNormalized,
+            TokenHash = ComputeSecretHash(rawToken, "session"),
+            DeviceSummary = TruncateDeviceSummary(deviceSummary),
+            CreatedAtUtc = now,
+            LastUsedAtUtc = now,
+            ExpiresAtUtc = now.AddHours(options.SessionDurationHours),
+            Version = 1,
+        };
+
+        await sessionRepository.AddAsync(session, cancellationToken);
+        return (rawToken, session.ExpiresAtUtc);
+    }
+
+    private async Task<bool> IsPasswordLoginAllowedAsync(CancellationToken cancellationToken)
+    {
+        var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
+        return !authSettings.OtpEnabled;
+    }
+
+    private static VerificationResult InvalidPasswordLoginResponse()
+    {
+        return new VerificationResult
+        {
+            Response = new VerifyCodeResponse
+            {
+                Authenticated = false,
+                UserStatus = UserAccountStatus.EmailUnverified.ToString(),
+                Message = "The email or password is invalid.",
+            },
+        };
     }
 }

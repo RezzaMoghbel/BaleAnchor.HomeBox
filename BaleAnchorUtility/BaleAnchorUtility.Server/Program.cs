@@ -7,12 +7,14 @@ using BaleAnchorUtility.Server.Application.Notifications;
 using BaleAnchorUtility.Server.Application.Onboarding;
 using BaleAnchorUtility.Server.Application.Terms;
 using BaleAnchorUtility.Server.Configuration;
+using BaleAnchorUtility.Server.Infrastructure.Auth;
 using BaleAnchorUtility.Server.Infrastructure.Email;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
 using BaleAnchorUtility.Server.Infrastructure.Middleware;
 using BaleAnchorUtility.Server.Infrastructure.Notifications;
 using BaleAnchorUtility.Server.Infrastructure.Pdf;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
+using BaleAnchorUtility.Server.Infrastructure.Security;
 using BaleAnchorUtility.Server.Infrastructure.Startup;
 using BaleAnchorUtility.Server.Infrastructure.Time;
 using QuestPDF.Infrastructure;
@@ -56,6 +58,7 @@ builder.Services
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddDataProtection();
 builder.Services.AddOptions<AuthOtpOptions>()
     .Bind(builder.Configuration.GetSection(AuthOtpOptions.SectionName))
     .ValidateOnStart();
@@ -102,7 +105,8 @@ builder.Services.AddRateLimiter(options =>
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var path = httpContext.Request.Path.Value ?? string.Empty;
         var isAuthOtpRoute = path.StartsWith("/api/v1/auth/request-code", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/api/v1/auth/verify-code", StringComparison.OrdinalIgnoreCase);
+            || path.StartsWith("/api/v1/auth/verify-code", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/auth/password-login", StringComparison.OrdinalIgnoreCase);
 
         if (isAuthOtpRoute)
         {
@@ -147,18 +151,24 @@ builder.Services.AddScoped<ITariffVersionRepository, JsonTariffVersionRepository
 builder.Services.AddScoped<ICalculationSnapshotRepository, JsonCalculationSnapshotRepository>();
 builder.Services.AddScoped<IPaymentRepository, JsonPaymentRepository>();
 builder.Services.AddScoped<IStatementExportRepository, JsonStatementExportRepository>();
+builder.Services.AddScoped<IEmailTransportRuntimeSettingsRepository, JsonEmailTransportRuntimeSettingsRepository>();
+builder.Services.AddScoped<IAuthAccessRuntimeSettingsRepository, JsonAuthAccessRuntimeSettingsRepository>();
 builder.Services.AddScoped<INotificationPreferencesRepository, JsonNotificationPreferencesRepository>();
 builder.Services.AddScoped<IPushSubscriptionRepository, JsonPushSubscriptionRepository>();
 builder.Services.AddScoped<IReminderDispatchJobRepository, JsonReminderDispatchJobRepository>();
+builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
+builder.Services.AddScoped<IEmailTransportSettingsProvider, DatabaseBackedEmailTransportSettingsProvider>();
+builder.Services.AddScoped<IAuthAccessSettingsProvider, DatabaseBackedAuthAccessSettingsProvider>();
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<SmtpEmailSender>();
-builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
+builder.Services.AddScoped<IEmailSender, ConfiguredEmailSender>();
 builder.Services.AddSingleton<IWebPushSender, ConfiguredWebPushSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApprovalService>();
 builder.Services.AddScoped<AdminRoleService>();
 builder.Services.AddScoped<AdminCmsService>();
+builder.Services.AddScoped<AdminSystemSettingsService>();
 builder.Services.AddScoped<BillingInputService>();
 builder.Services.AddScoped<CalculationSnapshotService>();
 builder.Services.AddScoped<PaymentService>();
@@ -173,6 +183,7 @@ builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<DevelopmentSeedDataService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();
 builder.Services.AddHostedService<DevelopmentSeedHostedService>();
+builder.Services.AddHostedService<SystemSettingsBootstrapHostedService>();
 builder.Services.AddHostedService<JsonIndexRebuildHostedService>();
 builder.Services.AddHostedService<ReminderDispatchHostedService>();
 

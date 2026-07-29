@@ -7,6 +7,7 @@ import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardV
 import { NotificationsDashboardView } from "./components/dashboard/NotificationsDashboardView";
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import { LoginView } from "./components/auth/LoginView";
+import { OtpView } from "./components/auth/OtpView";
 import { OnboardingView } from "./components/onboarding/OnboardingView";
 import { portalClient, PortalApiError } from "./api/portalClient";
 import type { SessionStatusResponse, FieldErrors } from "./shared/contracts";
@@ -20,6 +21,7 @@ import { getFieldErrors } from "./shared/problemDetails";
 import { getTargetRoute } from "./shared/routing";
 import {
   validateRequestCodeInput,
+  validateSignupRequestCodeInput,
   validateVerifyCodeInput,
 } from "./validation/auth";
 import { useAdminWorkflow } from "./hooks/useAdminWorkflow";
@@ -36,11 +38,14 @@ function App() {
   const [session, setSession] = useState<SessionStatusResponse | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [email, setEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
   const [code, setCode] = useState("");
-  const [loginFieldErrors, setLoginFieldErrors] = useState<FieldErrors>({});
-  const [statusMessage, setStatusMessage] = useState(
-    "No authentication action run yet.",
+  const [verifyPurpose, setVerifyPurpose] = useState<"login" | "signup">(
+    "login",
   );
+  const [loginFieldErrors, setLoginFieldErrors] = useState<FieldErrors>({});
+  const [statusMessage, setStatusMessage] = useState("");
+  const [otpEnabled, setOtpEnabled] = useState(true);
   const {
     readingDate,
     coldWaterReading,
@@ -142,6 +147,18 @@ function App() {
     gapStatusInput,
     gapFilterFlatNumber,
     adminRoleTarget,
+    authOtpEnabled,
+    authAllowLocalFixedOtp,
+    authFixedOtpCode,
+    authLocalDomains,
+    emailTransportMode,
+    emailFromName,
+    emailFromAddress,
+    emailSmtpHost,
+    emailSmtpPort,
+    emailSmtpUseSsl,
+    emailSmtpUsername,
+    emailSmtpPassword,
     adminMessage,
     setAdminSearchQuery,
     setAdminSearchStatus,
@@ -187,7 +204,22 @@ function App() {
     setGapStatusInput,
     setGapFilterFlatNumber,
     setAdminRoleTarget,
+    setAuthOtpEnabled,
+    setAuthAllowLocalFixedOtp,
+    setAuthFixedOtpCode,
+    setAuthLocalDomains,
+    setEmailTransportMode,
+    setEmailFromName,
+    setEmailFromAddress,
+    setEmailSmtpHost,
+    setEmailSmtpPort,
+    setEmailSmtpUseSsl,
+    setEmailSmtpUsername,
+    setEmailSmtpPassword,
     loadPendingApprovals,
+    loadSystemSettings,
+    saveAuthAccessSettings,
+    saveEmailTransportSettings,
     searchAdminUsers,
     loadAdminBillingContext,
     deleteAdminLatestReading,
@@ -332,26 +364,86 @@ function App() {
     });
   };
 
+  const handleSignupPasswordChange = (value: string) => {
+    setSignupPassword(value);
+    setLoginFieldErrors((current) => {
+      if (!current.password) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.password;
+      return next;
+    });
+  };
+
   const requestCode = async () => {
+    if (!otpEnabled) {
+      setStatusMessage(
+        "OTP sign-in is disabled. Use email and password to sign in.",
+      );
+      return false;
+    }
+
     const validationErrors = validateRequestCodeInput(email);
     if (Object.keys(validationErrors).length > 0) {
       setLoginFieldErrors(validationErrors);
       setStatusMessage("Enter a valid email address before requesting a code.");
+      return false;
+    }
+
+    setLoginFieldErrors({});
+    setLoading(true);
+    try {
+      await portalClient.requestCode({ email });
+      setVerifyPurpose("login");
+      setStatusMessage("");
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to request OTP code. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to request OTP code.");
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signupRequestCode = async () => {
+    const validationErrors = validateSignupRequestCodeInput(
+      email,
+      signupPassword,
+    );
+    if (Object.keys(validationErrors).length > 0) {
+      setLoginFieldErrors(validationErrors);
+      setStatusMessage(
+        "Enter a valid email and a strong password before requesting signup OTP.",
+      );
       return;
     }
 
     setLoginFieldErrors({});
     setLoading(true);
     try {
-      const body = await portalClient.requestCode({ email });
-      setStatusMessage(
-        `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.${body.developmentCode ? ` Development code: ${body.developmentCode}.` : ""}`,
-      );
+      await portalClient.signupRequestCode({
+        email,
+        password: signupPassword,
+      });
+      setVerifyPurpose("signup");
+      setStatusMessage("");
+      if (otpEnabled) {
+        setCode("");
+        setLoginFieldErrors({});
+        navigate("/otp");
+      }
     } catch (error) {
       if (error instanceof PortalApiError) {
-        setStatusMessage(`Failed to request OTP code. ${error.message}`);
+        setLoginFieldErrors(error.errors);
+        setStatusMessage(`Failed to start signup. ${error.message}`);
       } else {
-        setStatusMessage("Failed to request OTP code.");
+        setStatusMessage("Failed to start signup.");
       }
     } finally {
       setLoading(false);
@@ -359,6 +451,18 @@ function App() {
   };
 
   const verifyCode = async () => {
+    if (!otpEnabled) {
+      setStatusMessage(
+        "OTP verification is disabled. Use email and password to sign in.",
+      );
+      return;
+    }
+
+    if (!email) {
+      setStatusMessage("Start from Sign In or Sign Up before entering OTP.");
+      return;
+    }
+
     const validationErrors = validateVerifyCodeInput(email, code);
     if (Object.keys(validationErrors).length > 0) {
       setLoginFieldErrors(validationErrors);
@@ -369,10 +473,12 @@ function App() {
     setLoginFieldErrors({});
     setLoading(true);
     try {
-      const body = await portalClient.verifyCode({ email, code });
-      setStatusMessage(
-        `${body.message} Current user status: ${body.userStatus}.`,
-      );
+      await portalClient.verifyCode({
+        email,
+        code,
+        purpose: verifyPurpose,
+      });
+      setStatusMessage("");
       await refreshSession(true);
     } catch (error) {
       if (error instanceof PortalApiError) {
@@ -382,6 +488,46 @@ function App() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const passwordLogin = async () => {
+    const validationErrors = validateSignupRequestCodeInput(
+      email,
+      signupPassword,
+    );
+    if (Object.keys(validationErrors).length > 0) {
+      setLoginFieldErrors(validationErrors);
+      setStatusMessage("Enter a valid email and password to sign in.");
+      return;
+    }
+
+    setLoginFieldErrors({});
+    setLoading(true);
+    try {
+      await portalClient.passwordLogin({
+        email,
+        password: signupPassword,
+      });
+      setStatusMessage("");
+      await refreshSession(true);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to sign in with password. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to sign in with password.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshAuthMode = async () => {
+    try {
+      const mode = await portalClient.getAuthMode();
+      setOtpEnabled(mode.otpEnabled);
+    } catch {
+      setOtpEnabled(true);
     }
   };
 
@@ -415,23 +561,6 @@ function App() {
       if (!silent) {
         setLoading(false);
       }
-    }
-  };
-
-  const logout = async () => {
-    setLoading(true);
-    try {
-      await portalClient.logout();
-      setSession(null);
-      setStatusMessage("Signed out successfully.");
-    } catch (error) {
-      if (error instanceof PortalApiError) {
-        setStatusMessage(`Failed to sign out. ${error.message}`);
-      } else {
-        setStatusMessage("Failed to sign out.");
-      }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -481,6 +610,7 @@ function App() {
 
   useEffect(() => {
     void refreshSession(true);
+    void refreshAuthMode();
   }, []);
 
   useEffect(() => {
@@ -499,7 +629,11 @@ function App() {
       ? "onboarding"
       : location.pathname.startsWith("/dashboard")
         ? "dashboard"
-        : "login";
+        : location.pathname === "/otp"
+          ? "otp"
+          : location.pathname === "/signup"
+            ? "signup"
+            : "signin";
 
   const dashboardSection = location.pathname.startsWith("/dashboard/payments")
     ? "payments"
@@ -529,15 +663,22 @@ function App() {
           </div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-          <Link className={shellLinkClass("login")} to="/login">
-            Login
+          <Link className={shellLinkClass("signin")} to="/signin">
+            Sign In
           </Link>
-          <Link className={shellLinkClass("onboarding")} to="/onboarding">
-            Onboarding
+          <Link className={shellLinkClass("signup")} to="/signup">
+            Sign Up
           </Link>
-          <Link className={shellLinkClass("dashboard")} to="/dashboard">
-            Dashboard
-          </Link>
+          {session?.isAuthenticated && (
+            <>
+              <Link className={shellLinkClass("onboarding")} to="/onboarding">
+                Onboarding
+              </Link>
+              <Link className={shellLinkClass("dashboard")} to="/dashboard">
+                Dashboard
+              </Link>
+            </>
+          )}
         </div>
       </nav>
     </header>
@@ -566,19 +707,47 @@ function App() {
   const renderLoginView = () => (
     <LoginView
       shellHeader={renderShellHeader()}
-      session={session}
+      authRoute={location.pathname === "/signup" ? "signup" : "signin"}
+      otpEnabled={otpEnabled}
       email={email}
-      code={code}
+      signupPassword={signupPassword}
       loginFieldErrors={loginFieldErrors}
       loading={loading}
       statusMessage={statusMessage}
       onEmailChange={handleEmailChange}
+      onSignupPasswordChange={handleSignupPasswordChange}
+      onSignupRequestCode={signupRequestCode}
+      onPasswordLogin={passwordLogin}
+      onContinueToOtp={async () => {
+        const requested = await requestCode();
+        if (!requested) {
+          return;
+        }
+
+        setCode("");
+        setLoginFieldErrors({});
+        setStatusMessage("");
+        navigate("/otp");
+      }}
+    />
+  );
+
+  const renderOtpView = () => (
+    <OtpView
+      shellHeader={renderShellHeader()}
+      code={code}
+      loading={loading}
+      loginFieldErrors={loginFieldErrors}
+      statusMessage={statusMessage}
       onCodeChange={handleCodeChange}
-      onRequestCode={requestCode}
-      onVerifyCode={verifyCode}
-      onRefreshSession={() => refreshSession()}
-      onLogout={logout}
-      formatDisplayDateTime={formatDisplayDateTime}
+      onVerifyOtp={verifyCode}
+      onCancel={() => {
+        setCode("");
+        setLoginFieldErrors({});
+        setStatusMessage("");
+        navigate("/signin", { replace: true });
+        window.location.reload();
+      }}
     />
   );
 
@@ -733,6 +902,18 @@ function App() {
       gapStatusInput={gapStatusInput}
       gapFilterFlatNumber={gapFilterFlatNumber}
       pendingApprovals={pendingApprovals}
+      authOtpEnabled={authOtpEnabled}
+      authAllowLocalFixedOtp={authAllowLocalFixedOtp}
+      authFixedOtpCode={authFixedOtpCode}
+      authLocalDomains={authLocalDomains}
+      emailTransportMode={emailTransportMode}
+      emailFromName={emailFromName}
+      emailFromAddress={emailFromAddress}
+      emailSmtpHost={emailSmtpHost}
+      emailSmtpPort={emailSmtpPort}
+      emailSmtpUseSsl={emailSmtpUseSsl}
+      emailSmtpUsername={emailSmtpUsername}
+      emailSmtpPassword={emailSmtpPassword}
       onAdminSearchQueryChange={setAdminSearchQuery}
       onAdminSearchStatusChange={setAdminSearchStatus}
       onAdminTargetUserIdChange={setAdminTargetUserId}
@@ -779,7 +960,22 @@ function App() {
       onGapAmountInputChange={setGapAmountInput}
       onGapStatusInputChange={setGapStatusInput}
       onGapFilterFlatNumberChange={setGapFilterFlatNumber}
+      onAuthOtpEnabledChange={setAuthOtpEnabled}
+      onAuthAllowLocalFixedOtpChange={setAuthAllowLocalFixedOtp}
+      onAuthFixedOtpCodeChange={setAuthFixedOtpCode}
+      onAuthLocalDomainsChange={setAuthLocalDomains}
+      onEmailTransportModeChange={setEmailTransportMode}
+      onEmailFromNameChange={setEmailFromName}
+      onEmailFromAddressChange={setEmailFromAddress}
+      onEmailSmtpHostChange={setEmailSmtpHost}
+      onEmailSmtpPortChange={setEmailSmtpPort}
+      onEmailSmtpUseSslChange={setEmailSmtpUseSsl}
+      onEmailSmtpUsernameChange={setEmailSmtpUsername}
+      onEmailSmtpPasswordChange={setEmailSmtpPassword}
       onLoadPendingApprovals={loadPendingApprovals}
+      onLoadSystemSettings={loadSystemSettings}
+      onSaveAuthAccessSettings={saveAuthAccessSettings}
+      onSaveEmailTransportSettings={saveEmailTransportSettings}
       onSearchAdminUsers={searchAdminUsers}
       onLoadAdminBillingContext={loadAdminBillingContext}
       onDeleteAdminLatestReading={deleteAdminLatestReading}
@@ -935,8 +1131,12 @@ function App() {
     />
   );
 
-  if (pageMode === "login") {
+  if (pageMode === "signin" || pageMode === "signup") {
     return renderLoginView();
+  }
+
+  if (pageMode === "otp") {
+    return renderOtpView();
   }
 
   if (pageMode === "onboarding") {

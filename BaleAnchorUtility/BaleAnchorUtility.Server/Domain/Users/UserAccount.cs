@@ -9,6 +9,9 @@ public sealed class UserAccount
     public string? DateOfBirth { get; set; }
     public string? FlatNumberNormalized { get; set; }
     public string? MobileNumber { get; set; }
+    public string? PasswordSalt { get; set; }
+    public string? PasswordHash { get; set; }
+    public DateTimeOffset? PasswordUpdatedAtUtc { get; set; }
     public UserRole Role { get; set; } = UserRole.Resident;
     public UserAccountStatus Status { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }

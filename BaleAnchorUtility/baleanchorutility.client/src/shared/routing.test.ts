@@ -15,13 +15,15 @@ function createSession(
 
 describe("getTargetRoute", () => {
   it("keeps unauthenticated users on login paths", () => {
-    expect(getTargetRoute("/login", null)).toBeNull();
+    expect(getTargetRoute("/signin", null)).toBeNull();
+    expect(getTargetRoute("/signup", null)).toBeNull();
+    expect(getTargetRoute("/otp", null)).toBeNull();
     expect(getTargetRoute("/", null)).toBeNull();
   });
 
   it("redirects unauthenticated users away from private routes", () => {
-    expect(getTargetRoute("/dashboard", null)).toBe("/login");
-    expect(getTargetRoute("/onboarding", null)).toBe("/login");
+    expect(getTargetRoute("/dashboard", null)).toBe("/signin");
+    expect(getTargetRoute("/onboarding", null)).toBe("/signin");
   });
 
   it("routes authenticated users with incomplete onboarding to onboarding", () => {
@@ -35,7 +37,7 @@ describe("getTargetRoute", () => {
   it("routes active residents into the dashboard", () => {
     const session = createSession({ userStatus: "Active" });
 
-    expect(getTargetRoute("/login", session)).toBe("/dashboard");
+    expect(getTargetRoute("/signin", session)).toBe("/dashboard");
     expect(getTargetRoute("/dashboard", session)).toBeNull();
   });
 
@@ -46,7 +48,7 @@ describe("getTargetRoute", () => {
   });
 
   it("protects notifications route for unauthenticated users", () => {
-    expect(getTargetRoute("/dashboard/notifications", null)).toBe("/login");
+    expect(getTargetRoute("/dashboard/notifications", null)).toBe("/signin");
   });
 
   it("allows notifications route for authenticated users", () => {
