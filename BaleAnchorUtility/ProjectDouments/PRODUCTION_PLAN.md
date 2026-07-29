@@ -167,6 +167,13 @@ Tasks:
 Current progress in this phase:
 
 - Login request and OTP verify flows now use schema-based client validation with field-level feedback and unit-test coverage.
+- Onboarding profile and utility setup flows now use schema-based client validation in `App.tsx` with consistent field-level feedback in `OnboardingView.tsx` and unit-test coverage.
+- Readings submission, tariff creation, and payment recording now use schema-based client validation with field-level feedback in dashboard forms and unit-test coverage.
+- Live field-level error clearing while users edit validated fields is now implemented for login, readings, tariffs, and payment forms.
+
+Phase status:
+
+- Phase 2 implementation is complete and ready to hand off to Phase 3 extraction work.
 
 Exit criteria:
 

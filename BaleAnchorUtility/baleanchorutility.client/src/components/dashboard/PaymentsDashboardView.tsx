@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type {
   AllTimeBalanceResponse,
+  FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   PaymentHistoryItemResponse,
 } from "../../shared/contracts";
@@ -14,10 +15,12 @@ interface PaymentsDashboardViewProps {
   paymentMethod: string;
   paymentReference: string;
   paymentNotes: string;
+  paymentFieldErrors: FieldErrors;
   paymentMessage: string;
   latestPaymentSummary: LatestPeriodPaymentSummaryResponse | null;
   balanceSummary: AllTimeBalanceResponse | null;
   paymentHistory: PaymentHistoryItemResponse[];
+  getFieldErrors: (errors: FieldErrors, fieldName: string) => string[];
   onPaymentAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
   onPaymentMethodChange: (value: string) => void;
@@ -41,10 +44,12 @@ export function PaymentsDashboardView({
   paymentMethod,
   paymentReference,
   paymentNotes,
+  paymentFieldErrors,
   paymentMessage,
   latestPaymentSummary,
   balanceSummary,
   paymentHistory,
+  getFieldErrors,
   onPaymentAmountChange,
   onPaymentDateChange,
   onPaymentMethodChange,
@@ -87,13 +92,18 @@ export function PaymentsDashboardView({
                   <input
                     id="paymentAmount"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(paymentFieldErrors, "amount").length > 0 ? "is-invalid" : ""}`}
                     placeholder="120.50"
                     value={paymentAmount}
                     onChange={(event) =>
                       onPaymentAmountChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(paymentFieldErrors, "amount").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(paymentFieldErrors, "amount").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label htmlFor="paymentDate" className="form-label">
@@ -102,12 +112,20 @@ export function PaymentsDashboardView({
                   <input
                     id="paymentDate"
                     type="date"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(paymentFieldErrors, "paymentDate").length > 0 ? "is-invalid" : ""}`}
                     value={paymentDate}
                     onChange={(event) =>
                       onPaymentDateChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(paymentFieldErrors, "paymentDate").length >
+                    0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(paymentFieldErrors, "paymentDate").join(
+                        " ",
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="paymentMethod" className="form-label">
@@ -116,12 +134,17 @@ export function PaymentsDashboardView({
                   <input
                     id="paymentMethod"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(paymentFieldErrors, "method").length > 0 ? "is-invalid" : ""}`}
                     value={paymentMethod}
                     onChange={(event) =>
                       onPaymentMethodChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(paymentFieldErrors, "method").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(paymentFieldErrors, "method").join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label htmlFor="paymentReference" className="form-label">
@@ -130,13 +153,21 @@ export function PaymentsDashboardView({
                   <input
                     id="paymentReference"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(paymentFieldErrors, "reference").length > 0 ? "is-invalid" : ""}`}
                     placeholder="Optional"
                     value={paymentReference}
                     onChange={(event) =>
                       onPaymentReferenceChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(paymentFieldErrors, "reference").length >
+                    0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(paymentFieldErrors, "reference").join(
+                        " ",
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="paymentNotes" className="form-label">
@@ -145,13 +176,18 @@ export function PaymentsDashboardView({
                   <input
                     id="paymentNotes"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(paymentFieldErrors, "notes").length > 0 ? "is-invalid" : ""}`}
                     placeholder="Optional"
                     value={paymentNotes}
                     onChange={(event) =>
                       onPaymentNotesChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(paymentFieldErrors, "notes").length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(paymentFieldErrors, "notes").join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 

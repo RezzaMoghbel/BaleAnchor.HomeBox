@@ -36,6 +36,15 @@ import {
   validateRequestCodeInput,
   validateVerifyCodeInput,
 } from "./validation/auth";
+import {
+  validateProfileInput,
+  validateUtilitySetupInput,
+} from "./validation/onboarding";
+import {
+  validatePaymentInput,
+  validateReadingsInput,
+  validateTariffInput,
+} from "./validation/billing";
 import "./App.css";
 function App() {
   const location = useLocation();
@@ -108,6 +117,10 @@ function App() {
   const [electricityStandingChargePerDay, setElectricityStandingChargePerDay] =
     useState("");
   const [electricityVatPercent, setElectricityVatPercent] = useState("");
+  const [readingsFieldErrors, setReadingsFieldErrors] = useState<FieldErrors>(
+    {},
+  );
+  const [tariffFieldErrors, setTariffFieldErrors] = useState<FieldErrors>({});
   const [billingMessage, setBillingMessage] = useState(
     "Billing inputs have not been submitted.",
   );
@@ -123,6 +136,7 @@ function App() {
   const [paymentMethod, setPaymentMethod] = useState("Direct Debit");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentFieldErrors, setPaymentFieldErrors] = useState<FieldErrors>({});
   const [paymentMessage, setPaymentMessage] = useState(
     "No payment action submitted.",
   );
@@ -173,6 +187,113 @@ function App() {
       delete next.code;
       return next;
     });
+  };
+
+  const clearFieldError = (
+    currentErrors: FieldErrors,
+    fieldName: string,
+  ): FieldErrors => {
+    if (!currentErrors[fieldName]) {
+      return currentErrors;
+    }
+
+    const next = { ...currentErrors };
+    delete next[fieldName];
+    return next;
+  };
+
+  const handleReadingDateChange = (value: string) => {
+    setReadingDate(value);
+    setReadingsFieldErrors((current) => clearFieldError(current, "readingDate"));
+  };
+
+  const handleColdWaterReadingChange = (value: string) => {
+    setColdWaterReading(value);
+    setReadingsFieldErrors((current) =>
+      clearFieldError(current, "coldWaterReading"),
+    );
+  };
+
+  const handleHotWaterReadingChange = (value: string) => {
+    setHotWaterReading(value);
+    setReadingsFieldErrors((current) => clearFieldError(current, "hotWaterReading"));
+  };
+
+  const handleElectricityReadingChange = (value: string) => {
+    setElectricityReading(value);
+    setReadingsFieldErrors((current) =>
+      clearFieldError(current, "electricityReading"),
+    );
+  };
+
+  const handleTariffEffectiveFromDateChange = (value: string) => {
+    setTariffEffectiveFromDate(value);
+    setTariffFieldErrors((current) => clearFieldError(current, "effectiveFromDate"));
+  };
+
+  const handleWaterTariffPerUnitChange = (value: string) => {
+    setWaterTariffPerUnit(value);
+    setTariffFieldErrors((current) =>
+      clearFieldError(current, "waterTariffPerUnit"),
+    );
+  };
+
+  const handleWaterStandingChargePerDayChange = (value: string) => {
+    setWaterStandingChargePerDay(value);
+    setTariffFieldErrors((current) =>
+      clearFieldError(current, "waterStandingChargePerDay"),
+    );
+  };
+
+  const handleWaterVatPercentChange = (value: string) => {
+    setWaterVatPercent(value);
+    setTariffFieldErrors((current) => clearFieldError(current, "waterVatPercent"));
+  };
+
+  const handleElectricityTariffPerUnitChange = (value: string) => {
+    setElectricityTariffPerUnit(value);
+    setTariffFieldErrors((current) =>
+      clearFieldError(current, "electricityTariffPerUnit"),
+    );
+  };
+
+  const handleElectricityStandingChargePerDayChange = (value: string) => {
+    setElectricityStandingChargePerDay(value);
+    setTariffFieldErrors((current) =>
+      clearFieldError(current, "electricityStandingChargePerDay"),
+    );
+  };
+
+  const handleElectricityVatPercentChange = (value: string) => {
+    setElectricityVatPercent(value);
+    setTariffFieldErrors((current) =>
+      clearFieldError(current, "electricityVatPercent"),
+    );
+  };
+
+  const handlePaymentAmountChange = (value: string) => {
+    setPaymentAmount(value);
+    setPaymentFieldErrors((current) => clearFieldError(current, "amount"));
+  };
+
+  const handlePaymentDateChange = (value: string) => {
+    setPaymentDate(value);
+    setPaymentFieldErrors((current) => clearFieldError(current, "paymentDate"));
+  };
+
+  const handlePaymentMethodChange = (value: string) => {
+    setPaymentMethod(value);
+    setPaymentFieldErrors((current) => clearFieldError(current, "method"));
+  };
+
+  const handlePaymentReferenceChange = (value: string) => {
+    setPaymentReference(value);
+    setPaymentFieldErrors((current) => clearFieldError(current, "reference"));
+  };
+
+  const handlePaymentNotesChange = (value: string) => {
+    setPaymentNotes(value);
+    setPaymentFieldErrors((current) => clearFieldError(current, "notes"));
   };
 
   const requestCode = async () => {
@@ -320,6 +441,24 @@ function App() {
   };
 
   const submitUtilitySetup = async () => {
+    const validationErrors = validateUtilitySetupInput({
+      moveInDate,
+      openingColdWaterReading,
+      openingHotWaterReading,
+      openingElectricityReading,
+      initialWaterTariffPerUnit,
+      initialElectricityTariffPerUnit,
+      boilerKwhPerCubicMeter,
+      boilerEfficiencyPercent,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setUtilityFieldErrors(validationErrors);
+      setUtilitySetupMessage(
+        "Review highlighted utility setup fields and try again.",
+      );
+      return;
+    }
+
     setUtilityFieldErrors({});
     setLoading(true);
     try {
@@ -350,6 +489,18 @@ function App() {
   };
 
   const submitProfile = async () => {
+    const validationErrors = validateProfileInput({
+      surname,
+      dateOfBirth,
+      flatNumber,
+      mobileNumber,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setProfileFieldErrors(validationErrors);
+      setProfileMessage("Review highlighted profile fields and try again.");
+      return;
+    }
+
     setProfileFieldErrors({});
     setLoading(true);
     try {
@@ -473,16 +624,19 @@ function App() {
   };
 
   const submitReadings = async () => {
-    if (
-      !readingDate ||
-      !coldWaterReading ||
-      !hotWaterReading ||
-      !electricityReading
-    ) {
-      setBillingMessage("Reading date and all meter values are required.");
+    const validationErrors = validateReadingsInput({
+      readingDate,
+      coldWaterReading,
+      hotWaterReading,
+      electricityReading,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setReadingsFieldErrors(validationErrors);
+      setBillingMessage("Review highlighted reading fields and try again.");
       return;
     }
 
+    setReadingsFieldErrors({});
     setLoading(true);
     try {
       const body = await portalClient.submitReadings({
@@ -495,6 +649,7 @@ function App() {
       await loadLatestReadings();
     } catch (error) {
       if (error instanceof PortalApiError) {
+        setReadingsFieldErrors(error.errors);
         setBillingMessage(`Reading submission failed. ${error.message}`);
       } else {
         setBillingMessage("Reading submission failed.");
@@ -523,21 +678,22 @@ function App() {
   };
 
   const submitTariffVersion = async () => {
-    if (
-      !tariffEffectiveFromDate ||
-      !waterTariffPerUnit ||
-      !waterStandingChargePerDay ||
-      !waterVatPercent ||
-      !electricityTariffPerUnit ||
-      !electricityStandingChargePerDay ||
-      !electricityVatPercent
-    ) {
-      setBillingMessage(
-        "Tariff effective date, unit rates, standing/day, and VAT values are required.",
-      );
+    const validationErrors = validateTariffInput({
+      effectiveFromDate: tariffEffectiveFromDate,
+      waterTariffPerUnit,
+      waterStandingChargePerDay,
+      waterVatPercent,
+      electricityTariffPerUnit,
+      electricityStandingChargePerDay,
+      electricityVatPercent,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setTariffFieldErrors(validationErrors);
+      setBillingMessage("Review highlighted tariff fields and try again.");
       return;
     }
 
+    setTariffFieldErrors({});
     setLoading(true);
     try {
       const body = await portalClient.submitTariffVersion({
@@ -555,6 +711,7 @@ function App() {
       await loadActiveTariff();
     } catch (error) {
       if (error instanceof PortalApiError) {
+        setTariffFieldErrors(error.errors);
         setBillingMessage(`Tariff save failed. ${error.message}`);
       } else {
         setBillingMessage("Tariff save failed.");
@@ -620,13 +777,20 @@ function App() {
   };
 
   const recordLatestPeriodPayment = async () => {
-    if (!paymentAmount || !paymentDate || !paymentMethod) {
-      setPaymentMessage(
-        "Amount, payment date, and payment method are required.",
-      );
+    const validationErrors = validatePaymentInput({
+      amount: paymentAmount,
+      paymentDate,
+      method: paymentMethod,
+      reference: paymentReference,
+      notes: paymentNotes,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setPaymentFieldErrors(validationErrors);
+      setPaymentMessage("Review highlighted payment fields and try again.");
       return;
     }
 
+    setPaymentFieldErrors({});
     setLoading(true);
     try {
       const body = await portalClient.recordLatestPeriodPayment({
@@ -644,6 +808,7 @@ function App() {
       ]);
     } catch (error) {
       if (error instanceof PortalApiError) {
+        setPaymentFieldErrors(error.errors);
         setPaymentMessage(`Payment save failed. ${error.message}`);
       } else {
         setPaymentMessage("Payment save failed.");
@@ -1128,23 +1293,26 @@ function App() {
       electricityTariffPerUnit={electricityTariffPerUnit}
       electricityStandingChargePerDay={electricityStandingChargePerDay}
       electricityVatPercent={electricityVatPercent}
+      readingsFieldErrors={readingsFieldErrors}
+      tariffFieldErrors={tariffFieldErrors}
       billingMessage={billingMessage}
       latestReadings={latestReadings}
       activeTariff={activeTariff}
       latestCalculation={latestCalculation}
-      onReadingDateChange={setReadingDate}
-      onColdWaterReadingChange={setColdWaterReading}
-      onHotWaterReadingChange={setHotWaterReading}
-      onElectricityReadingChange={setElectricityReading}
-      onTariffEffectiveFromDateChange={setTariffEffectiveFromDate}
-      onWaterTariffPerUnitChange={setWaterTariffPerUnit}
-      onWaterStandingChargePerDayChange={setWaterStandingChargePerDay}
-      onWaterVatPercentChange={setWaterVatPercent}
-      onElectricityTariffPerUnitChange={setElectricityTariffPerUnit}
+      getFieldErrors={getFieldErrors}
+      onReadingDateChange={handleReadingDateChange}
+      onColdWaterReadingChange={handleColdWaterReadingChange}
+      onHotWaterReadingChange={handleHotWaterReadingChange}
+      onElectricityReadingChange={handleElectricityReadingChange}
+      onTariffEffectiveFromDateChange={handleTariffEffectiveFromDateChange}
+      onWaterTariffPerUnitChange={handleWaterTariffPerUnitChange}
+      onWaterStandingChargePerDayChange={handleWaterStandingChargePerDayChange}
+      onWaterVatPercentChange={handleWaterVatPercentChange}
+      onElectricityTariffPerUnitChange={handleElectricityTariffPerUnitChange}
       onElectricityStandingChargePerDayChange={
-        setElectricityStandingChargePerDay
+        handleElectricityStandingChargePerDayChange
       }
-      onElectricityVatPercentChange={setElectricityVatPercent}
+      onElectricityVatPercentChange={handleElectricityVatPercentChange}
       onSubmitReadings={submitReadings}
       onLoadLatestReadings={loadLatestReadings}
       onSubmitTariffVersion={submitTariffVersion}
@@ -1166,15 +1334,17 @@ function App() {
       paymentMethod={paymentMethod}
       paymentReference={paymentReference}
       paymentNotes={paymentNotes}
+      paymentFieldErrors={paymentFieldErrors}
       paymentMessage={paymentMessage}
       latestPaymentSummary={latestPaymentSummary}
       balanceSummary={balanceSummary}
       paymentHistory={paymentHistory}
-      onPaymentAmountChange={setPaymentAmount}
-      onPaymentDateChange={setPaymentDate}
-      onPaymentMethodChange={setPaymentMethod}
-      onPaymentReferenceChange={setPaymentReference}
-      onPaymentNotesChange={setPaymentNotes}
+      getFieldErrors={getFieldErrors}
+      onPaymentAmountChange={handlePaymentAmountChange}
+      onPaymentDateChange={handlePaymentDateChange}
+      onPaymentMethodChange={handlePaymentMethodChange}
+      onPaymentReferenceChange={handlePaymentReferenceChange}
+      onPaymentNotesChange={handlePaymentNotesChange}
       onRecordLatestPeriodPayment={recordLatestPeriodPayment}
       onLoadLatestPeriodPaymentSummary={() => loadLatestPeriodPaymentSummary()}
       onLoadPaymentHistory={() => loadPaymentHistory()}

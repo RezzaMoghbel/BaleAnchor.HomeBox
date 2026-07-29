@@ -410,6 +410,17 @@ export function OnboardingView({
                       onInitialWaterTariffPerUnitChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(
+                    utilityFieldErrors,
+                    "initialWaterTariffPerUnit",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "initialWaterTariffPerUnit",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label
@@ -430,6 +441,17 @@ export function OnboardingView({
                       )
                     }
                   />
+                  {getFieldErrors(
+                    utilityFieldErrors,
+                    "initialElectricityTariffPerUnit",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "initialElectricityTariffPerUnit",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="boilerKwh-onboarding" className="form-label">
@@ -445,6 +467,15 @@ export function OnboardingView({
                       onBoilerKwhPerCubicMeterChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "boilerKwhPerCubicMeter")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "boilerKwhPerCubicMeter",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label
@@ -463,6 +494,15 @@ export function OnboardingView({
                       onBoilerEfficiencyPercentChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(utilityFieldErrors, "boilerEfficiencyPercent")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        utilityFieldErrors,
+                        "boilerEfficiencyPercent",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 

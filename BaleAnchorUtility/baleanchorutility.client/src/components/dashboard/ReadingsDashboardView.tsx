@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type {
   ActiveTariffResponse,
   CalculateLatestPeriodResponse,
+  FieldErrors,
   LatestReadingsResponse,
 } from "../../shared/contracts";
 
@@ -20,10 +21,13 @@ interface ReadingsDashboardViewProps {
   electricityTariffPerUnit: string;
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
+  readingsFieldErrors: FieldErrors;
+  tariffFieldErrors: FieldErrors;
   billingMessage: string;
   latestReadings: LatestReadingsResponse | null;
   activeTariff: ActiveTariffResponse | null;
   latestCalculation: CalculateLatestPeriodResponse | null;
+  getFieldErrors: (errors: FieldErrors, fieldName: string) => string[];
   onReadingDateChange: (value: string) => void;
   onColdWaterReadingChange: (value: string) => void;
   onHotWaterReadingChange: (value: string) => void;
@@ -60,10 +64,13 @@ export function ReadingsDashboardView({
   electricityTariffPerUnit,
   electricityStandingChargePerDay,
   electricityVatPercent,
+  readingsFieldErrors,
+  tariffFieldErrors,
   billingMessage,
   latestReadings,
   activeTariff,
   latestCalculation,
+  getFieldErrors,
   onReadingDateChange,
   onColdWaterReadingChange,
   onHotWaterReadingChange,
@@ -117,12 +124,20 @@ export function ReadingsDashboardView({
                   <input
                     id="readingDate"
                     type="date"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(readingsFieldErrors, "readingDate").length > 0 ? "is-invalid" : ""}`}
                     value={readingDate}
                     onChange={(event) =>
                       onReadingDateChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(readingsFieldErrors, "readingDate").length >
+                    0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(readingsFieldErrors, "readingDate").join(
+                        " ",
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="coldWaterReading" className="form-label">
@@ -131,13 +146,22 @@ export function ReadingsDashboardView({
                   <input
                     id="coldWaterReading"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(readingsFieldErrors, "coldWaterReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={coldWaterReading}
                     onChange={(event) =>
                       onColdWaterReadingChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(readingsFieldErrors, "coldWaterReading")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        readingsFieldErrors,
+                        "coldWaterReading",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="hotWaterReading" className="form-label">
@@ -146,13 +170,22 @@ export function ReadingsDashboardView({
                   <input
                     id="hotWaterReading"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(readingsFieldErrors, "hotWaterReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={hotWaterReading}
                     onChange={(event) =>
                       onHotWaterReadingChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(readingsFieldErrors, "hotWaterReading")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        readingsFieldErrors,
+                        "hotWaterReading",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-3">
                   <label htmlFor="electricityReading" className="form-label">
@@ -161,13 +194,22 @@ export function ReadingsDashboardView({
                   <input
                     id="electricityReading"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(readingsFieldErrors, "electricityReading").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000"
                     value={electricityReading}
                     onChange={(event) =>
                       onElectricityReadingChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(readingsFieldErrors, "electricityReading")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        readingsFieldErrors,
+                        "electricityReading",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -203,12 +245,20 @@ export function ReadingsDashboardView({
                   <input
                     id="tariffEffectiveFromDate"
                     type="date"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "effectiveFromDate").length > 0 ? "is-invalid" : ""}`}
                     value={tariffEffectiveFromDate}
                     onChange={(event) =>
                       onTariffEffectiveFromDateChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(tariffFieldErrors, "effectiveFromDate")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(tariffFieldErrors, "effectiveFromDate").join(
+                        " ",
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label htmlFor="waterTariffPerUnit" className="form-label">
@@ -217,13 +267,22 @@ export function ReadingsDashboardView({
                   <input
                     id="waterTariffPerUnit"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "waterTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000000"
                     value={waterTariffPerUnit}
                     onChange={(event) =>
                       onWaterTariffPerUnitChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(tariffFieldErrors, "waterTariffPerUnit")
+                    .length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "waterTariffPerUnit",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label
@@ -235,13 +294,24 @@ export function ReadingsDashboardView({
                   <input
                     id="waterStandingChargePerDay"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "waterStandingChargePerDay").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000000"
                     value={waterStandingChargePerDay}
                     onChange={(event) =>
                       onWaterStandingChargePerDayChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(
+                    tariffFieldErrors,
+                    "waterStandingChargePerDay",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "waterStandingChargePerDay",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label htmlFor="waterVatPercent" className="form-label">
@@ -250,13 +320,21 @@ export function ReadingsDashboardView({
                   <input
                     id="waterVatPercent"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "waterVatPercent").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.00"
                     value={waterVatPercent}
                     onChange={(event) =>
                       onWaterVatPercentChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(tariffFieldErrors, "waterVatPercent").length >
+                    0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(tariffFieldErrors, "waterVatPercent").join(
+                        " ",
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label
@@ -268,13 +346,24 @@ export function ReadingsDashboardView({
                   <input
                     id="electricityTariffPerUnit"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "electricityTariffPerUnit").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000000"
                     value={electricityTariffPerUnit}
                     onChange={(event) =>
                       onElectricityTariffPerUnitChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(
+                    tariffFieldErrors,
+                    "electricityTariffPerUnit",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "electricityTariffPerUnit",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label
@@ -286,7 +375,7 @@ export function ReadingsDashboardView({
                   <input
                     id="electricityStandingChargePerDay"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "electricityStandingChargePerDay").length > 0 ? "is-invalid" : ""}`}
                     placeholder="0.000000"
                     value={electricityStandingChargePerDay}
                     onChange={(event) =>
@@ -295,6 +384,17 @@ export function ReadingsDashboardView({
                       )
                     }
                   />
+                  {getFieldErrors(
+                    tariffFieldErrors,
+                    "electricityStandingChargePerDay",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "electricityStandingChargePerDay",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-lg-2">
                   <label htmlFor="electricityVatPercent" className="form-label">
@@ -303,13 +403,24 @@ export function ReadingsDashboardView({
                   <input
                     id="electricityVatPercent"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${getFieldErrors(tariffFieldErrors, "electricityVatPercent").length > 0 ? "is-invalid" : ""}`}
                     placeholder="5.00"
                     value={electricityVatPercent}
                     onChange={(event) =>
                       onElectricityVatPercentChange(event.target.value)
                     }
                   />
+                  {getFieldErrors(
+                    tariffFieldErrors,
+                    "electricityVatPercent",
+                  ).length > 0 && (
+                    <div className="invalid-feedback d-block">
+                      {getFieldErrors(
+                        tariffFieldErrors,
+                        "electricityVatPercent",
+                      ).join(" ")}
+                    </div>
+                  )}
                 </div>
               </div>
 
