@@ -18,6 +18,14 @@ Resident portal client response and cross-view shape contracts now live in `Bale
 - Keep component-local prop interfaces local, but import shared contract types instead of redefining server-facing data shapes in multiple views.
 - When server DTOs change, update the shared contracts module first so route components and `App.tsx` stay version-aligned.
 
+## Client Transport Boundary
+
+Auth, terms, and onboarding HTTP calls now start moving behind `BaleAnchorUtility/baleanchorutility.client/src/api/portalClient.ts`.
+
+- Keep `App.tsx` focused on route state, UI messages, and orchestration.
+- Add new typed fetch wrappers to `portalClient.ts` before wiring additional workflow slices out of `App.tsx`.
+- Reuse `PortalApiError` so RFC 7807 field errors and user-facing failure messages stay consistent across views.
+
 ## SMTP Configuration
 
 Server email transport is configured in `BaleAnchorUtility/BaleAnchorUtility.Server/appsettings.json` under `EmailTransport`.

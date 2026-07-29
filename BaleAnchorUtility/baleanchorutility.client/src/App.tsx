@@ -7,16 +7,14 @@ import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardV
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import { LoginView } from "./components/auth/LoginView";
 import { OnboardingView } from "./components/onboarding/OnboardingView";
+import { portalClient, PortalApiError } from "./api/portalClient";
 import type {
-  AcceptTermsResponse,
   ActiveTariffResponse,
   ActiveTermsResponse,
   AdminDecisionResponse,
   AdminRoleChangeResponse,
   AllTimeBalanceResponse,
   CalculateLatestPeriodResponse,
-  CompleteProfileResponse,
-  CompleteUtilitySetupResponse,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
   OnboardingProgressResponse,
@@ -25,7 +23,6 @@ import type {
   PendingApprovalListResponse,
   PendingApprovalUserItem,
   RecordLatestPeriodPaymentResponse,
-  RequestCodeResponse,
   SessionStatusResponse,
   StatementExportHistoryItemResponse,
   StatementExportHistoryResponse,
@@ -34,7 +31,7 @@ import type {
   StatementSummaryResponse,
   SubmitReadingsResponse,
   UpsertTariffResponse,
-  VerifyCodeResponse,
+  FieldErrors,
 } from "./shared/contracts";
 import {
   formatCurrencyGbp,
@@ -56,11 +53,10 @@ function App() {
     "No authentication action run yet.",
   );
 
-  const [activeTerms, setActiveTerms] =
-    useState<ActiveTermsResponse | null>(null);
-  const [termsMessage, setTermsMessage] = useState(
-    "Active terms not loaded.",
+  const [activeTerms, setActiveTerms] = useState<ActiveTermsResponse | null>(
+    null,
   );
+  const [termsMessage, setTermsMessage] = useState("Active terms not loaded.");
 
   const [surname, setSurname] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -69,9 +65,7 @@ function App() {
   const [profileMessage, setProfileMessage] = useState(
     "Profile details not submitted.",
   );
-  const [profileFieldErrors, setProfileFieldErrors] = useState<
-    Record<string, string[]>
-  >({});
+  const [profileFieldErrors, setProfileFieldErrors] = useState<FieldErrors>({});
 
   const [moveInDate, setMoveInDate] = useState("");
   const [openingColdWaterReading, setOpeningColdWaterReading] = useState("");
@@ -87,9 +81,7 @@ function App() {
   const [utilitySetupMessage, setUtilitySetupMessage] = useState(
     "Utility setup not submitted.",
   );
-  const [utilityFieldErrors, setUtilityFieldErrors] = useState<
-    Record<string, string[]>
-  >({});
+  const [utilityFieldErrors, setUtilityFieldErrors] = useState<FieldErrors>({});
 
   const [onboardingProgress, setOnboardingProgress] =
     useState<OnboardingProgressResponse | null>(null);
@@ -163,26 +155,16 @@ function App() {
   const requestCode = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/auth/request-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatusMessage(`Failed to request OTP code. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as RequestCodeResponse;
+      const body = await portalClient.requestCode({ email });
       setStatusMessage(
         `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.`,
       );
-    } catch {
-      setStatusMessage("Failed to request OTP code.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to request OTP code. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to request OTP code.");
+      }
     } finally {
       setLoading(false);
     }
@@ -191,28 +173,17 @@ function App() {
   const verifyCode = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/auth/verify-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, code }),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatusMessage(`Failed to verify OTP code. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as VerifyCodeResponse;
+      const body = await portalClient.verifyCode({ email, code });
       setStatusMessage(
         `${body.message} Current user status: ${body.userStatus}.`,
       );
       await refreshSession(true);
-    } catch {
-      setStatusMessage("Failed to verify OTP code.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to verify OTP code. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to verify OTP code.");
+      }
     } finally {
       setLoading(false);
     }
@@ -224,24 +195,7 @@ function App() {
     }
 
     try {
-      const response = await fetch("/api/v1/auth/session", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        if (!silent) {
-          setStatusMessage(
-            `Failed to retrieve session status. ${error.message}`,
-          );
-        }
-        setSession(null);
-        setSessionChecked(true);
-        return;
-      }
-
-      const body = (await response.json()) as SessionStatusResponse;
+      const body = await portalClient.getSession();
       setSession(body);
       if (!silent) {
         setStatusMessage(
@@ -249,9 +203,13 @@ function App() {
         );
       }
       setSessionChecked(true);
-    } catch {
+    } catch (error) {
       if (!silent) {
-        setStatusMessage("Failed to retrieve session status.");
+        if (error instanceof PortalApiError) {
+          setStatusMessage(`Failed to retrieve session status. ${error.message}`);
+        } else {
+          setStatusMessage("Failed to retrieve session status.");
+        }
       }
       setSession(null);
       setSessionChecked(true);
@@ -265,21 +223,15 @@ function App() {
   const logout = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setStatusMessage(`Failed to sign out. ${error.message}`);
-        return;
-      }
-
+      await portalClient.logout();
       setSession(null);
       setStatusMessage("Signed out successfully.");
-    } catch {
-      setStatusMessage("Failed to sign out.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to sign out. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to sign out.");
+      }
     } finally {
       setLoading(false);
     }
@@ -288,25 +240,18 @@ function App() {
   const loadActiveTerms = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/terms/active", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
+      const body = await portalClient.getActiveTerms();
+      setActiveTerms(body);
+      setTermsMessage(`Loaded ${body.versionLabel}.`);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
         setTermsMessage(
           `No active terms are currently published. ${error.message}`,
         );
-        setActiveTerms(null);
-        return;
+      } else {
+        setTermsMessage("Failed to load active terms.");
       }
-
-      const body = (await response.json()) as ActiveTermsResponse;
-      setActiveTerms(body);
-      setTermsMessage(`Loaded ${body.versionLabel}.`);
-    } catch {
-      setTermsMessage("Failed to load active terms.");
+      setActiveTerms(null);
     } finally {
       setLoading(false);
     }
@@ -320,24 +265,14 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/v1/terms/${encodeURIComponent(activeTerms.versionId)}/accept`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setTermsMessage(`Terms acceptance failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as AcceptTermsResponse;
+      const body = await portalClient.acceptTerms(activeTerms.versionId);
       setTermsMessage(`${body.message} Accepted at ${body.acceptedAtUtc}.`);
-    } catch {
-      setTermsMessage("Failed to accept terms.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setTermsMessage(`Terms acceptance failed. ${error.message}`);
+      } else {
+        setTermsMessage("Failed to accept terms.");
+      }
     } finally {
       setLoading(false);
     }
@@ -347,13 +282,7 @@ function App() {
     setUtilityFieldErrors({});
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/onboarding/utility-setup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
+      const body = await portalClient.submitUtilitySetup({
           moveInDate,
           openingColdWaterReading,
           openingHotWaterReading,
@@ -362,23 +291,18 @@ function App() {
           initialElectricityTariffPerUnit,
           boilerKwhPerCubicMeter,
           boilerEfficiencyPercent,
-        }),
       });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setUtilityFieldErrors(error.errors);
-        setUtilitySetupMessage(`Utility setup failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as CompleteUtilitySetupResponse;
       setUtilityFieldErrors({});
       setUtilitySetupMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Utility setup complete for user ${body.userId}.`);
       await refreshSession();
-    } catch {
-      setUtilitySetupMessage("Failed to submit utility setup.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setUtilityFieldErrors(error.errors);
+        setUtilitySetupMessage(`Utility setup failed. ${error.message}`);
+      } else {
+        setUtilitySetupMessage("Failed to submit utility setup.");
+      }
     } finally {
       setLoading(false);
     }
@@ -388,34 +312,23 @@ function App() {
     setProfileFieldErrors({});
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/onboarding/profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
+      const body = await portalClient.submitProfile({
           surname,
           dateOfBirth,
           flatNumber,
           mobileNumber,
-        }),
       });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setProfileFieldErrors(error.errors);
-        setProfileMessage(`Profile submission failed. ${error.message}`);
-        return;
-      }
-
-      const body = (await response.json()) as CompleteProfileResponse;
       setProfileFieldErrors({});
       setProfileMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Profile details saved for user ${body.userId}.`);
       await refreshSession();
-    } catch {
-      setProfileMessage("Failed to submit profile details.");
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setProfileFieldErrors(error.errors);
+        setProfileMessage(`Profile submission failed. ${error.message}`);
+      } else {
+        setProfileMessage("Failed to submit profile details.");
+      }
     } finally {
       setLoading(false);
     }
@@ -424,26 +337,18 @@ function App() {
   const loadOnboardingProgress = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/v1/onboarding/progress", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await readProblemDetails(response);
-        setOnboardingProgress(null);
+      const body = await portalClient.getOnboardingProgress();
+      setOnboardingProgress(body);
+      setProgressMessage(`Next required step: ${body.nextStep}.`);
+    } catch (error) {
+      setOnboardingProgress(null);
+      if (error instanceof PortalApiError) {
         setProgressMessage(
           `Unable to load onboarding progress. ${error.message}`,
         );
-        return;
+      } else {
+        setProgressMessage("Failed to load onboarding progress.");
       }
-
-      const body = (await response.json()) as OnboardingProgressResponse;
-      setOnboardingProgress(body);
-      setProgressMessage(`Next required step: ${body.nextStep}.`);
-    } catch {
-      setOnboardingProgress(null);
-      setProgressMessage("Failed to load onboarding progress.");
     } finally {
       setLoading(false);
     }
