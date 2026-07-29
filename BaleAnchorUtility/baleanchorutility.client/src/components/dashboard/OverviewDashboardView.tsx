@@ -125,6 +125,9 @@ export function OverviewDashboardView({
                 <span className="badge rounded-pill bg-light text-dark border">
                   PWA reminders
                 </span>
+                <span className="badge rounded-pill bg-light text-dark border">
+                  Push subscriptions
+                </span>
               </div>
             </div>
           </div>

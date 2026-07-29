@@ -4,6 +4,7 @@ import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
 import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardView";
 import { PaymentsDashboardView } from "./components/dashboard/PaymentsDashboardView";
 import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardView";
+import { NotificationsDashboardView } from "./components/dashboard/NotificationsDashboardView";
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import { LoginView } from "./components/auth/LoginView";
 import { OnboardingView } from "./components/onboarding/OnboardingView";
@@ -24,6 +25,7 @@ import {
 import { useAdminWorkflow } from "./hooks/useAdminWorkflow";
 import { useBillingFormState } from "./hooks/useBillingFormState";
 import { useBillingPaymentsWorkflow } from "./hooks/useBillingPaymentsWorkflow";
+import { useNotificationsWorkflow } from "./hooks/useNotificationsWorkflow";
 import { useOnboardingWorkflow } from "./hooks/useOnboardingWorkflow";
 import { useStatementsWorkflow } from "./hooks/useStatementsWorkflow";
 import "./App.css";
@@ -280,6 +282,30 @@ function App() {
     setLoading,
   });
 
+  const {
+    notificationMessage,
+    pushConfig,
+    preferences,
+    subscriptions,
+    reminderJobs,
+    loadPreferences,
+    savePreferences,
+    loadSubscriptions,
+    loadReminderJobs,
+    subscribePush,
+    unsubscribePush,
+    sendTestNotification,
+    setTimeZoneId,
+    setEmailRemindersEnabled,
+    setPushRemindersEnabled,
+    setReadingReminderEnabled,
+  } = useNotificationsWorkflow({
+    isNotificationsDashboard: location.pathname.startsWith(
+      "/dashboard/notifications",
+    ),
+    setLoading,
+  });
+
   const handleEmailChange = (value: string) => {
     setEmail(value);
     setLoginFieldErrors((current) => {
@@ -479,11 +505,13 @@ function App() {
     ? "payments"
     : location.pathname.startsWith("/dashboard/statements")
       ? "statements"
-      : location.pathname.startsWith("/dashboard/admin")
-        ? "admin"
-        : location.pathname.startsWith("/dashboard/readings")
-          ? "readings"
-          : "overview";
+      : location.pathname.startsWith("/dashboard/notifications")
+        ? "notifications"
+        : location.pathname.startsWith("/dashboard/admin")
+          ? "admin"
+          : location.pathname.startsWith("/dashboard/readings")
+            ? "readings"
+            : "overview";
 
   const userRole = session?.userRole?.trim().toLowerCase() ?? "";
   const isAdminUser = userRole === "admin" || userRole === "superadmin";
@@ -626,6 +654,12 @@ function App() {
         to="/dashboard/statements"
       >
         Statements
+      </Link>
+      <Link
+        className={`shell-nav-link ${dashboardSection === "notifications" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/notifications"
+      >
+        Notifications
       </Link>
       {isAdminUser && (
         <Link
@@ -876,6 +910,31 @@ function App() {
     />
   );
 
+  const renderNotificationsView = () => (
+    <NotificationsDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardRouteTabs()}
+      loading={loading}
+      notificationMessage={notificationMessage}
+      pushConfig={pushConfig}
+      preferences={preferences}
+      subscriptions={subscriptions}
+      reminderJobs={reminderJobs}
+      onLoadPreferences={loadPreferences}
+      onSavePreferences={savePreferences}
+      onLoadSubscriptions={() => loadSubscriptions()}
+      onLoadReminderJobs={() => loadReminderJobs()}
+      onSubscribePush={subscribePush}
+      onUnsubscribePush={unsubscribePush}
+      onSendTestNotification={sendTestNotification}
+      onTimeZoneIdChange={setTimeZoneId}
+      onEmailRemindersEnabledChange={setEmailRemindersEnabled}
+      onPushRemindersEnabledChange={setPushRemindersEnabled}
+      onReadingReminderEnabledChange={setReadingReminderEnabled}
+      formatDisplayDateTime={formatDisplayDateTime}
+    />
+  );
+
   if (pageMode === "login") {
     return renderLoginView();
   }
@@ -894,6 +953,10 @@ function App() {
 
   if (dashboardSection === "statements") {
     return renderStatementsView();
+  }
+
+  if (dashboardSection === "notifications") {
+    return renderNotificationsView();
   }
 
   if (dashboardSection === "admin") {

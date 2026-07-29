@@ -30,4 +30,15 @@ public sealed class ConfiguredEmailSender : IEmailSender
 
         return loggingSender.SendOtpCodeAsync(email, code, expiresAtUtc, cancellationToken);
     }
+
+    public Task SendReadingReminderAsync(string email, string recommendedReadingDate, string timeZoneId, CancellationToken cancellationToken)
+    {
+        var mode = (options.Value.Mode ?? string.Empty).Trim();
+        if (string.Equals(mode, "smtp", StringComparison.OrdinalIgnoreCase))
+        {
+            return smtpSender.SendReadingReminderAsync(email, recommendedReadingDate, timeZoneId, cancellationToken);
+        }
+
+        return loggingSender.SendReadingReminderAsync(email, recommendedReadingDate, timeZoneId, cancellationToken);
+    }
 }

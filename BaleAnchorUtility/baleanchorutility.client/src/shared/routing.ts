@@ -8,6 +8,7 @@ export function getTargetRoute(
   const isOnboardingPath = path === "/onboarding";
   const isDashboardPath = path.startsWith("/dashboard");
   const isAdminPath = path.startsWith("/dashboard/admin");
+  const isNotificationsPath = path.startsWith("/dashboard/notifications");
 
   const isAuthenticated = currentSession?.isAuthenticated === true;
   const status = currentSession?.userStatus?.trim().toLowerCase();
@@ -25,6 +26,10 @@ export function getTargetRoute(
 
   if (isAdminPath && !isAdminUser) {
     return "/dashboard";
+  }
+
+  if (isNotificationsPath && !isAuthenticated) {
+    return "/login";
   }
 
   return isDashboardPath ? null : "/dashboard";

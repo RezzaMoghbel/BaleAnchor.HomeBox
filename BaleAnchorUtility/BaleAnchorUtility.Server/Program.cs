@@ -3,12 +3,14 @@ using BaleAnchorUtility.Server.Application.Admin;
 using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Billing;
 using BaleAnchorUtility.Server.Application.Calculations;
+using BaleAnchorUtility.Server.Application.Notifications;
 using BaleAnchorUtility.Server.Application.Onboarding;
 using BaleAnchorUtility.Server.Application.Terms;
 using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Infrastructure.Email;
 using BaleAnchorUtility.Server.Infrastructure.Errors;
 using BaleAnchorUtility.Server.Infrastructure.Middleware;
+using BaleAnchorUtility.Server.Infrastructure.Notifications;
 using BaleAnchorUtility.Server.Infrastructure.Pdf;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 using BaleAnchorUtility.Server.Infrastructure.Startup;
@@ -70,6 +72,10 @@ builder.Services.AddOptions<EmailTransportOptions>()
     .Bind(builder.Configuration.GetSection(EmailTransportOptions.SectionName))
     .ValidateOnStart();
 builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<EmailTransportOptions>, EmailTransportOptionsValidator>();
+builder.Services.AddOptions<PushNotificationOptions>()
+    .Bind(builder.Configuration.GetSection(PushNotificationOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<PushNotificationOptions>, PushNotificationOptionsValidator>();
 builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
@@ -141,9 +147,13 @@ builder.Services.AddScoped<ITariffVersionRepository, JsonTariffVersionRepository
 builder.Services.AddScoped<ICalculationSnapshotRepository, JsonCalculationSnapshotRepository>();
 builder.Services.AddScoped<IPaymentRepository, JsonPaymentRepository>();
 builder.Services.AddScoped<IStatementExportRepository, JsonStatementExportRepository>();
+builder.Services.AddScoped<INotificationPreferencesRepository, JsonNotificationPreferencesRepository>();
+builder.Services.AddScoped<IPushSubscriptionRepository, JsonPushSubscriptionRepository>();
+builder.Services.AddScoped<IReminderDispatchJobRepository, JsonReminderDispatchJobRepository>();
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IEmailSender, ConfiguredEmailSender>();
+builder.Services.AddSingleton<IWebPushSender, ConfiguredWebPushSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApprovalService>();
@@ -154,6 +164,9 @@ builder.Services.AddScoped<CalculationSnapshotService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<StatementSummaryService>();
 builder.Services.AddScoped<StatementPdfExportService>();
+builder.Services.AddScoped<NotificationPreferencesService>();
+builder.Services.AddScoped<PushNotificationService>();
+builder.Services.AddScoped<ReminderDispatchService>();
 builder.Services.AddSingleton<IStatementPdfGenerator, PlaceholderStatementPdfGenerator>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
@@ -161,6 +174,7 @@ builder.Services.AddScoped<DevelopmentSeedDataService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();
 builder.Services.AddHostedService<DevelopmentSeedHostedService>();
 builder.Services.AddHostedService<JsonIndexRebuildHostedService>();
+builder.Services.AddHostedService<ReminderDispatchHostedService>();
 
 var app = builder.Build();
 

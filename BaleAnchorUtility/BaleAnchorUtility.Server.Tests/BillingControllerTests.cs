@@ -2,6 +2,8 @@ using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Billing;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
 using BaleAnchorUtility.Server.Application.Calculations;
+using BaleAnchorUtility.Server.Application.Notifications;
+using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Controllers;
 using BaleAnchorUtility.Server.Domain.Auth;
 using BaleAnchorUtility.Server.Domain.Billing;
@@ -77,6 +79,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
             new InMemoryPaymentRepository(),
+            CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -209,6 +212,7 @@ public sealed class BillingControllerTests
             readings,
             new InMemoryTariffVersionRepository(),
             payments,
+            CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -301,6 +305,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
             payments,
+            CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -391,6 +396,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
             payments,
+            CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -450,6 +456,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
             new InMemoryPaymentRepository(),
+            CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
             NullLogger<BillingInputService>.Instance);
 
@@ -496,6 +503,20 @@ public sealed class BillingControllerTests
                 Version = 1,
             },
         };
+    }
+
+    private static ReminderDispatchService CreateReminderDispatchService(InMemoryUserRepository users)
+    {
+        return new ReminderDispatchService(
+            users,
+            new InMemoryNotificationPreferencesRepository(),
+            new InMemoryPushSubscriptionRepository(),
+            new InMemoryReminderDispatchJobRepository(),
+            new NoOpEmailSender(),
+            new NoOpWebPushSender(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            Options.Create(new PushNotificationOptions()),
+            NullLogger<ReminderDispatchService>.Instance);
     }
 
     private static DefaultHttpContext NewHttpContext(string path, bool withSessionCookie)

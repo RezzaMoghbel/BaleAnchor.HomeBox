@@ -1,8 +1,11 @@
 using BaleAnchorUtility.Server.Application.Billing;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
+using BaleAnchorUtility.Server.Application.Notifications;
+using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Domain.Users;
 using BaleAnchorUtility.Server.Tests.TestDoubles;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace BaleAnchorUtility.Server.Tests;
 
@@ -296,6 +299,16 @@ public sealed class BillingInputServiceTests
             readings,
             tariffs,
             payments,
+            new ReminderDispatchService(
+                users,
+                new InMemoryNotificationPreferencesRepository(),
+                new InMemoryPushSubscriptionRepository(),
+                new InMemoryReminderDispatchJobRepository(),
+                new NoOpEmailSender(),
+                new NoOpWebPushSender(),
+                new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-28T12:00:00Z") },
+                Options.Create(new PushNotificationOptions()),
+                NullLogger<ReminderDispatchService>.Instance),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-28T12:00:00Z") },
             NullLogger<BillingInputService>.Instance);
     }

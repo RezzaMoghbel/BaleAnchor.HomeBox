@@ -1,6 +1,7 @@
 using System.Globalization;
 using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
+using BaleAnchorUtility.Server.Application.Notifications;
 using BaleAnchorUtility.Server.Domain.Billing;
 using BaleAnchorUtility.Server.Domain.Users;
 
@@ -12,6 +13,7 @@ public sealed class BillingInputService
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
     private readonly IPaymentRepository paymentRepository;
+    private readonly ReminderDispatchService reminderDispatchService;
     private readonly ISystemClock clock;
     private readonly ILogger<BillingInputService> logger;
 
@@ -20,6 +22,7 @@ public sealed class BillingInputService
         IReadingSubmissionRepository readingSubmissionRepository,
         ITariffVersionRepository tariffVersionRepository,
         IPaymentRepository paymentRepository,
+        ReminderDispatchService reminderDispatchService,
         ISystemClock clock,
         ILogger<BillingInputService> logger)
     {
@@ -27,6 +30,7 @@ public sealed class BillingInputService
         this.readingSubmissionRepository = readingSubmissionRepository;
         this.tariffVersionRepository = tariffVersionRepository;
         this.paymentRepository = paymentRepository;
+        this.reminderDispatchService = reminderDispatchService;
         this.clock = clock;
         this.logger = logger;
     }
@@ -78,6 +82,7 @@ public sealed class BillingInputService
         };
 
         await readingSubmissionRepository.AddAsync(submission, cancellationToken);
+        await reminderDispatchService.ScheduleForNextRecommendedDateAsync(user.Id, readingDate, cancellationToken);
 
         logger.LogInformation("Readings submitted for user {UserId} on {ReadingDate}.", user.Id, submission.ReadingDate);
 

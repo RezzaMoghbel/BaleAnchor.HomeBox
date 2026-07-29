@@ -479,6 +479,74 @@ export interface StatementExportHistoryResponse {
   items: StatementExportHistoryItemResponse[];
 }
 
+export interface NotificationPreferencesResponse {
+  userId: string;
+  emailRemindersEnabled: boolean;
+  pushRemindersEnabled: boolean;
+  readingReminderEnabled: boolean;
+  timeZoneId: string;
+  updatedAtUtc: string;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  emailRemindersEnabled: boolean;
+  pushRemindersEnabled: boolean;
+  readingReminderEnabled: boolean;
+  timeZoneId: string;
+}
+
+export interface PushPublicConfigResponse {
+  pushEnabled: boolean;
+  vapidPublicKey?: string;
+  deepLinkPath: string;
+}
+
+export interface UpsertPushSubscriptionRequest {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  clientUserAgent?: string;
+}
+
+export interface PushSubscriptionResponse {
+  subscriptionId: string;
+  endpoint: string;
+  isActive: boolean;
+  expiresAtUtc?: string;
+  updatedAtUtc: string;
+}
+
+export interface PushSubscriptionListResponse {
+  userId: string;
+  count: number;
+  items: PushSubscriptionResponse[];
+}
+
+export interface SendTestNotificationResponse {
+  userId: string;
+  deliveredSubscriptions: number;
+  message: string;
+}
+
+export interface ReminderJobItemResponse {
+  jobId: string;
+  kind: string;
+  channel: string;
+  recommendedReadingDate: string;
+  scheduledForUtc: string;
+  status: string;
+  attemptCount: number;
+  maxAttempts: number;
+  lastErrorCode?: string;
+  lastErrorMessage?: string;
+}
+
+export interface ReminderJobListResponse {
+  userId: string;
+  count: number;
+  items: ReminderJobItemResponse[];
+}
+
 export interface FieldErrors {
   [fieldName: string]: string[];
 }

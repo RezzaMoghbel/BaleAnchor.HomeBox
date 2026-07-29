@@ -129,24 +129,24 @@ export function StatementsDashboardView({
                   {latestStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period: {" "}
+                        Period:{" "}
                         {formatDateRange(
                           latestStatementSummary.periodStartDate,
                           latestStatementSummary.periodEndDateExclusive,
                         )}
                       </div>
                       <div>
-                        Period total: {" "}
+                        Period total:{" "}
                         {formatCurrencyGbp(latestStatementSummary.periodTotal)}
                       </div>
                       <div>
-                        Payment: {" "}
+                        Payment:{" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.paymentAmount ?? "0.00",
                         )}
                       </div>
                       <div>
-                        Difference: {" "}
+                        Difference:{" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.periodDifference,
                         )}
@@ -155,13 +155,13 @@ export function StatementsDashboardView({
                         Status: {latestStatementSummary.periodBalanceStatus}
                       </div>
                       <div>
-                        Current balance: {" "}
+                        Current balance:{" "}
                         {formatCurrencyGbp(
                           latestStatementSummary.currentBalance,
                         )}
                       </div>
                       <div>
-                        Balance status: {" "}
+                        Balance status:{" "}
                         {latestStatementSummary.currentBalanceStatus}
                       </div>
                     </div>
@@ -181,24 +181,26 @@ export function StatementsDashboardView({
                   {selectedStatementSummary ? (
                     <div className="text-secondary small">
                       <div>
-                        Period: {" "}
+                        Period:{" "}
                         {formatDateRange(
                           selectedStatementSummary.periodStartDate,
                           selectedStatementSummary.periodEndDateExclusive,
                         )}
                       </div>
                       <div>
-                        Period total: {" "}
-                        {formatCurrencyGbp(selectedStatementSummary.periodTotal)}
+                        Period total:{" "}
+                        {formatCurrencyGbp(
+                          selectedStatementSummary.periodTotal,
+                        )}
                       </div>
                       <div>
-                        Payment: {" "}
+                        Payment:{" "}
                         {formatCurrencyGbp(
                           selectedStatementSummary.paymentAmount ?? "0.00",
                         )}
                       </div>
                       <div>
-                        Difference: {" "}
+                        Difference:{" "}
                         {formatCurrencyGbp(
                           selectedStatementSummary.periodDifference,
                         )}
@@ -207,43 +209,48 @@ export function StatementsDashboardView({
                         Status: {selectedStatementSummary.periodBalanceStatus}
                       </div>
                       <div>
-                        Estimated segments: {" "}
+                        Estimated segments:{" "}
                         {selectedStatementSummary.containsEstimatedSegments
                           ? "Yes"
                           : "No"}
                       </div>
                       {selectedStatementSummary.estimatedAllocationLabel && (
                         <div>
-                          Estimate note: {" "}
+                          Estimate note:{" "}
                           {selectedStatementSummary.estimatedAllocationLabel}
                         </div>
                       )}
                       <div>
-                        Boiler assumptions: {" "}
-                        {selectedStatementSummary.boilerAssumptions
-                          .boilerKwhPerCubicMeter}
-                        {" "}
-                        kWh/m3, {" "}
-                        {selectedStatementSummary.boilerAssumptions
-                          .boilerEfficiencyPercent}
+                        Boiler assumptions:{" "}
+                        {
+                          selectedStatementSummary.boilerAssumptions
+                            .boilerKwhPerCubicMeter
+                        }{" "}
+                        kWh/m3,{" "}
+                        {
+                          selectedStatementSummary.boilerAssumptions
+                            .boilerEfficiencyPercent
+                        }
                         % efficiency
                       </div>
                       <div>
                         Engine version: {selectedStatementSummary.engineVersion}
                       </div>
                       <div>
-                        Rounding policy: {" "}
+                        Rounding policy:{" "}
                         {selectedStatementSummary.roundingPolicyVersion}
                       </div>
-                      <div>Input hash: {selectedStatementSummary.inputHash}</div>
                       <div>
-                        Integrity checks: {" "}
+                        Input hash: {selectedStatementSummary.inputHash}
+                      </div>
+                      <div>
+                        Integrity checks:{" "}
                         {selectedStatementSummary.integrityChecksPassed
                           ? "Passed"
                           : "Failed"}
                       </div>
                       <div>
-                        Integrity digest: {" "}
+                        Integrity digest:{" "}
                         {selectedStatementSummary.integrityDigest}
                       </div>
                     </div>
@@ -277,17 +284,21 @@ export function StatementsDashboardView({
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedStatementSummary.componentLines.map((line) => (
-                            <tr key={line.component}>
-                              <td>{line.component}</td>
-                              <td>{line.usage}</td>
-                              <td>{formatCurrencyGbp(line.usageSubtotal)}</td>
-                              <td>{formatCurrencyGbp(line.standingSubtotal)}</td>
-                              <td>{formatCurrencyGbp(line.vatAmount)}</td>
-                              <td>{formatCurrencyGbp(line.total)}</td>
-                              <td>{line.equation}</td>
-                            </tr>
-                          ))}
+                          {selectedStatementSummary.componentLines.map(
+                            (line) => (
+                              <tr key={line.component}>
+                                <td>{line.component}</td>
+                                <td>{line.usage}</td>
+                                <td>{formatCurrencyGbp(line.usageSubtotal)}</td>
+                                <td>
+                                  {formatCurrencyGbp(line.standingSubtotal)}
+                                </td>
+                                <td>{formatCurrencyGbp(line.vatAmount)}</td>
+                                <td>{formatCurrencyGbp(line.total)}</td>
+                                <td>{line.equation}</td>
+                              </tr>
+                            ),
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -312,39 +323,42 @@ export function StatementsDashboardView({
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedStatementSummary.tariffSegments.map((segment) => (
-                            <tr
-                              key={`${segment.startDate}-${segment.endDateExclusive}`}
-                            >
-                              <td>
-                                {formatDateRange(
-                                  segment.startDate,
-                                  segment.endDateExclusive,
-                                )}
-                              </td>
-                              <td>{segment.days}</td>
-                              <td>
-                                {segment.isEstimatedAllocation ? "Yes" : "No"}
-                              </td>
-                              <td>
-                                Unit {segment.waterTariffPerUnit}, standing/day {" "}
-                                {segment.waterStandingChargePerDay}, VAT {" "}
-                                {segment.waterVatPercent}%
-                              </td>
-                              <td>
-                                Unit {segment.electricityTariffPerUnit},
-                                standing/day {" "}
-                                {segment.electricityStandingChargePerDay}, VAT {" "}
-                                {segment.electricityVatPercent}%
-                              </td>
-                              <td>
-                                Cold {segment.coldWaterUsage}, hot {" "}
-                                {segment.hotWaterUsage}, apartment {" "}
-                                {segment.apartmentElectricityUsage}, boiler {" "}
-                                {segment.boilerElectricityUsage}
-                              </td>
-                            </tr>
-                          ))}
+                          {selectedStatementSummary.tariffSegments.map(
+                            (segment) => (
+                              <tr
+                                key={`${segment.startDate}-${segment.endDateExclusive}`}
+                              >
+                                <td>
+                                  {formatDateRange(
+                                    segment.startDate,
+                                    segment.endDateExclusive,
+                                  )}
+                                </td>
+                                <td>{segment.days}</td>
+                                <td>
+                                  {segment.isEstimatedAllocation ? "Yes" : "No"}
+                                </td>
+                                <td>
+                                  Unit {segment.waterTariffPerUnit},
+                                  standing/day{" "}
+                                  {segment.waterStandingChargePerDay}, VAT{" "}
+                                  {segment.waterVatPercent}%
+                                </td>
+                                <td>
+                                  Unit {segment.electricityTariffPerUnit},
+                                  standing/day{" "}
+                                  {segment.electricityStandingChargePerDay}, VAT{" "}
+                                  {segment.electricityVatPercent}%
+                                </td>
+                                <td>
+                                  Cold {segment.coldWaterUsage}, hot{" "}
+                                  {segment.hotWaterUsage}, apartment{" "}
+                                  {segment.apartmentElectricityUsage}, boiler{" "}
+                                  {segment.boilerElectricityUsage}
+                                </td>
+                              </tr>
+                            ),
+                          )}
                         </tbody>
                       </table>
                     </div>

@@ -8,4 +8,9 @@ internal sealed class NoOpEmailSender : IEmailSender
     {
         return Task.CompletedTask;
     }
+
+    public Task SendReadingReminderAsync(string email, string recommendedReadingDate, string timeZoneId, CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 }

@@ -19,11 +19,17 @@ import type {
   FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
+  NotificationPreferencesResponse,
   OnboardingProgressResponse,
   PaymentHistoryResponse,
   PendingApprovalListResponse,
+  PushPublicConfigResponse,
+  PushSubscriptionListResponse,
+  PushSubscriptionResponse,
+  ReminderJobListResponse,
   RecordLatestPeriodPaymentResponse,
   RequestCodeResponse,
+  SendTestNotificationResponse,
   SessionStatusResponse,
   StatementExportHistoryResponse,
   StatementPeriodListResponse,
@@ -34,7 +40,9 @@ import type {
   TermsAcceptanceListResponse,
   TermsVersionListResponse,
   PublishTermsVersionResponse,
+  UpdateNotificationPreferencesRequest,
   UpdatePaymentResponse,
+  UpsertPushSubscriptionRequest,
   UpsertTariffResponse,
   VerifyCodeResponse,
 } from "../shared/contracts";
@@ -138,6 +146,10 @@ interface UpsertTenantGapAllocationRequest {
   reason: string;
   status?: string;
 }
+
+interface UpdateReminderPreferencesRequest extends UpdateNotificationPreferencesRequest {}
+
+interface SavePushSubscriptionRequest extends UpsertPushSubscriptionRequest {}
 
 interface SubmitReadingsRequest {
   readingDate: string;
@@ -794,5 +806,81 @@ export const portalClient = {
         credentials: "include",
       },
     );
+  },
+
+  getPushPublicConfig() {
+    return requestJson<PushPublicConfigResponse>("/api/v1/push/config", {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  getReminderPreferences() {
+    return requestJson<NotificationPreferencesResponse>(
+      "/api/v1/reminders/preferences",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updateReminderPreferences(request: UpdateReminderPreferencesRequest) {
+    return requestJson<NotificationPreferencesResponse>(
+      "/api/v1/reminders/preferences",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getReminderJobs() {
+    return requestJson<ReminderJobListResponse>("/api/v1/reminders/jobs", {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  getPushSubscriptions() {
+    return requestJson<PushSubscriptionListResponse>(
+      "/api/v1/push/subscriptions",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  upsertPushSubscription(request: SavePushSubscriptionRequest) {
+    return requestJson<PushSubscriptionResponse>("/api/v1/push/subscriptions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(request),
+    });
+  },
+
+  deletePushSubscription(subscriptionId: string) {
+    return requestJson<void>(
+      `/api/v1/push/subscriptions/${encodeURIComponent(subscriptionId)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      },
+    );
+  },
+
+  sendPushTestNotification() {
+    return requestJson<SendTestNotificationResponse>("/api/v1/push/test", {
+      method: "POST",
+      credentials: "include",
+    });
   },
 };

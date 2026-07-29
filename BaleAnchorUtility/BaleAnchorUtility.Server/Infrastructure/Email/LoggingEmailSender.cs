@@ -17,6 +17,16 @@ public sealed class LoggingEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 
+    public Task SendReadingReminderAsync(string email, string recommendedReadingDate, string timeZoneId, CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "Reading reminder issued to {EmailMasked}. Recommended reading date {RecommendedReadingDate}. User timezone {TimeZoneId}.",
+            MaskEmail(email),
+            recommendedReadingDate,
+            timeZoneId);
+        return Task.CompletedTask;
+    }
+
     private static string MaskEmail(string email)
     {
         var parts = email.Split('@');
