@@ -103,6 +103,141 @@ export interface AdminRoleChangeResponse {
   message: string;
 }
 
+export interface AdminUserSummaryItem {
+  userId: string;
+  email: string;
+  role: string;
+  status: string;
+  flatNumber?: string;
+  updatedAtUtc: string;
+}
+
+export interface AdminUserSearchResponse {
+  count: number;
+  items: AdminUserSummaryItem[];
+}
+
+export interface AdminBillingContextResponse {
+  userId: string;
+  latestReadingDate?: string;
+  latestColdWaterReading?: string;
+  latestHotWaterReading?: string;
+  latestElectricityReading?: string;
+  activeTariffEffectiveFromDate?: string;
+  waterTariffPerUnit?: string;
+  waterStandingChargePerDay?: string;
+  waterVatPercent?: string;
+  electricityTariffPerUnit?: string;
+  electricityStandingChargePerDay?: string;
+  electricityVatPercent?: string;
+  latestPaymentId?: string;
+  latestPaymentAmount?: string;
+  latestPaymentDate?: string;
+  latestPaymentMethod?: string;
+  moveInDate?: string;
+  boilerKwhPerCubicMeter?: string;
+  boilerEfficiencyPercent?: string;
+}
+
+export interface AdminActionResultResponse {
+  userId: string;
+  message: string;
+}
+
+export interface TermsVersionSummaryItem {
+  versionId: string;
+  versionLabel: string;
+  title: string;
+  effectiveFromUtc: string;
+  publishedAtUtc: string;
+  isActive: boolean;
+}
+
+export interface TermsVersionListResponse {
+  count: number;
+  items: TermsVersionSummaryItem[];
+}
+
+export interface PublishTermsVersionResponse {
+  versionId: string;
+  versionLabel: string;
+  message: string;
+}
+
+export interface TermsAcceptanceSummaryItem {
+  acceptanceId: string;
+  userId: string;
+  termsVersionId: string;
+  acceptedAtUtc: string;
+  acceptedFromIp: string;
+}
+
+export interface TermsAcceptanceListResponse {
+  count: number;
+  items: TermsAcceptanceSummaryItem[];
+}
+
+export interface AuditLogSummaryItem {
+  auditId: string;
+  actorUserId: string;
+  targetUserId: string;
+  category: string;
+  action: string;
+  reason: string;
+  metadata: string;
+  createdAtUtc: string;
+}
+
+export interface AuditLogListResponse {
+  count: number;
+  items: AuditLogSummaryItem[];
+}
+
+export interface FlatSummaryItem {
+  flatNumber: string;
+  label: string;
+  isActive: boolean;
+  updatedAtUtc: string;
+}
+
+export interface FlatListResponse {
+  count: number;
+  items: FlatSummaryItem[];
+}
+
+export interface TenancySummaryItem {
+  tenancyId: string;
+  userId: string;
+  flatNumber: string;
+  moveInDate: string;
+  moveOutDate?: string;
+  status: string;
+  notes?: string;
+  updatedAtUtc: string;
+}
+
+export interface TenancyListResponse {
+  count: number;
+  items: TenancySummaryItem[];
+}
+
+export interface TenantGapAllocationSummaryItem {
+  allocationId: string;
+  flatNumber: string;
+  fromDate: string;
+  toDateExclusive: string;
+  assignedUserId: string;
+  amount: string;
+  reason: string;
+  status: string;
+  updatedAtUtc: string;
+}
+
+export interface TenantGapAllocationListResponse {
+  count: number;
+  items: TenantGapAllocationSummaryItem[];
+}
+
 export interface SubmitReadingsResponse {
   userId: string;
   readingDate: string;
@@ -175,6 +310,27 @@ export interface RecordLatestPeriodPaymentResponse {
   notes?: string;
   source: string;
   verificationStatus: string;
+  message: string;
+}
+
+export interface UpdatePaymentResponse {
+  paymentId: string;
+  userId: string;
+  periodStartDate: string;
+  periodEndDateExclusive: string;
+  amount: string;
+  paymentDate: string;
+  method: string;
+  reference?: string;
+  notes?: string;
+  source: string;
+  verificationStatus: string;
+  message: string;
+}
+
+export interface DeletePaymentResponse {
+  paymentId: string;
+  userId: string;
   message: string;
 }
 

@@ -5,4 +5,5 @@ namespace BaleAnchorUtility.Server.Application.Abstractions;
 public interface IAuditLogRepository
 {
     Task AddAsync(AuditLogEntry entry, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AuditLogEntry>> GetAllAsync(CancellationToken cancellationToken);
 }

@@ -20,6 +20,7 @@ interface PaymentsDashboardViewProps {
   latestPaymentSummary: LatestPeriodPaymentSummaryResponse | null;
   balanceSummary: AllTimeBalanceResponse | null;
   paymentHistory: PaymentHistoryItemResponse[];
+  editingPaymentId: string | null;
   getFieldErrors: (errors: FieldErrors, fieldName: string) => string[];
   onPaymentAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
@@ -27,6 +28,9 @@ interface PaymentsDashboardViewProps {
   onPaymentReferenceChange: (value: string) => void;
   onPaymentNotesChange: (value: string) => void;
   onRecordLatestPeriodPayment: () => Promise<void>;
+  onBeginPaymentEdit: (item: PaymentHistoryItemResponse) => void;
+  onCancelPaymentEdit: () => void;
+  onDeletePayment: (paymentId: string) => Promise<void>;
   onLoadLatestPeriodPaymentSummary: () => Promise<void>;
   onLoadPaymentHistory: () => Promise<void>;
   onLoadAllTimeBalance: () => Promise<void>;
@@ -49,6 +53,7 @@ export function PaymentsDashboardView({
   latestPaymentSummary,
   balanceSummary,
   paymentHistory,
+  editingPaymentId,
   getFieldErrors,
   onPaymentAmountChange,
   onPaymentDateChange,
@@ -56,6 +61,9 @@ export function PaymentsDashboardView({
   onPaymentReferenceChange,
   onPaymentNotesChange,
   onRecordLatestPeriodPayment,
+  onBeginPaymentEdit,
+  onCancelPaymentEdit,
+  onDeletePayment,
   onLoadLatestPeriodPaymentSummary,
   onLoadPaymentHistory,
   onLoadAllTimeBalance,
@@ -83,6 +91,17 @@ export function PaymentsDashboardView({
           <div className="card radius-10 border-0 shadow-sm">
             <div className="card-body">
               <h5 className="mb-3">Record latest-period payment</h5>
+
+              {editingPaymentId && (
+                <div className="alert alert-warning border mb-3" role="status">
+                  <div className="fw-semibold">
+                    Editing payment {editingPaymentId}
+                  </div>
+                  <div className="small">
+                    Save will update this payment instead of creating a new one.
+                  </div>
+                </div>
+              )}
 
               <div className="row g-3 align-items-end">
                 <div className="col-12 col-lg-2">
@@ -198,8 +217,18 @@ export function PaymentsDashboardView({
                   onClick={() => void onRecordLatestPeriodPayment()}
                   disabled={loading}
                 >
-                  Save payment
+                  {editingPaymentId ? "Update payment" : "Save payment"}
                 </button>
+                {editingPaymentId && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={onCancelPaymentEdit}
+                    disabled={loading}
+                  >
+                    Cancel edit
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
@@ -272,6 +301,7 @@ export function PaymentsDashboardView({
                         <th>Amount</th>
                         <th>Method</th>
                         <th>Verification</th>
+                        <th className="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -287,6 +317,37 @@ export function PaymentsDashboardView({
                           <td>{formatCurrencyGbp(item.amount)}</td>
                           <td>{item.method}</td>
                           <td>{item.verificationStatus}</td>
+                          <td className="text-end">
+                            <div
+                              className="btn-group btn-group-sm"
+                              role="group"
+                            >
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary"
+                                onClick={() => onBeginPaymentEdit(item)}
+                                disabled={loading}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Delete this payment record? This cannot be undone.",
+                                    )
+                                  ) {
+                                    void onDeletePayment(item.paymentId);
+                                  }
+                                }}
+                                disabled={loading}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

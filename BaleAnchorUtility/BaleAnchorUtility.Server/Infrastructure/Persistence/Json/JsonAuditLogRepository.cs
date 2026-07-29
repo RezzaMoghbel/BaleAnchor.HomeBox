@@ -17,4 +17,9 @@ public sealed class JsonAuditLogRepository : IAuditLogRepository
     {
         return store.UpsertAsync(Collection, entry.Id, entry, cancellationToken);
     }
+
+    public Task<IReadOnlyList<AuditLogEntry>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return store.GetAllAsync<AuditLogEntry>(Collection, cancellationToken);
+    }
 }

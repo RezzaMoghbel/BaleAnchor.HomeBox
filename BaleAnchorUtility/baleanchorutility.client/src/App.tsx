@@ -59,6 +59,11 @@ function App() {
     paymentReference,
     paymentNotes,
     paymentFieldErrors,
+    setPaymentAmount,
+    setPaymentDate,
+    setPaymentMethod,
+    setPaymentReference,
+    setPaymentNotes,
     setReadingsFieldErrors,
     setTariffFieldErrors,
     setPaymentFieldErrors,
@@ -83,14 +88,119 @@ function App() {
 
   const {
     pendingApprovals,
+    adminUsers,
     adminTargetUserId,
     adminReason,
+    adminSearchQuery,
+    adminSearchStatus,
+    adminBillingOnDate,
+    adminBillingContext,
+    adminTariffEffectiveFromDate,
+    adminWaterTariffPerUnit,
+    adminWaterStandingChargePerDay,
+    adminWaterVatPercent,
+    adminElectricityTariffPerUnit,
+    adminElectricityStandingChargePerDay,
+    adminElectricityVatPercent,
+    adminBoilerKwhPerCubicMeter,
+    adminBoilerEfficiencyPercent,
+    termsVersionLabel,
+    termsVersionTitle,
+    termsContentMarkdown,
+    termsEffectiveFromUtc,
+    termsFilterUserId,
+    termsFilterVersionId,
+    termsVersions,
+    termsAcceptances,
+    auditActorUserId,
+    auditTargetUserId,
+    auditCategory,
+    auditAction,
+    auditEntries,
+    flats,
+    flatNumberInput,
+    flatLabelInput,
+    flatIsActiveInput,
+    tenancies,
+    tenancyIdInput,
+    tenancyUserIdInput,
+    tenancyFlatNumberInput,
+    tenancyMoveInDateInput,
+    tenancyMoveOutDateInput,
+    tenancyStatusInput,
+    tenancyNotesInput,
+    tenancyFilterUserId,
+    tenancyFilterFlatNumber,
+    tenantGaps,
+    gapFlatNumberInput,
+    gapFromDateInput,
+    gapToDateExclusiveInput,
+    gapAssignedUserIdInput,
+    gapAmountInput,
+    gapStatusInput,
+    gapFilterFlatNumber,
     adminRoleTarget,
     adminMessage,
+    setAdminSearchQuery,
+    setAdminSearchStatus,
     setAdminTargetUserId,
     setAdminReason,
+    setAdminBillingOnDate,
+    setAdminTariffEffectiveFromDate,
+    setAdminWaterTariffPerUnit,
+    setAdminWaterStandingChargePerDay,
+    setAdminWaterVatPercent,
+    setAdminElectricityTariffPerUnit,
+    setAdminElectricityStandingChargePerDay,
+    setAdminElectricityVatPercent,
+    setAdminBoilerKwhPerCubicMeter,
+    setAdminBoilerEfficiencyPercent,
+    setTermsVersionLabel,
+    setTermsVersionTitle,
+    setTermsContentMarkdown,
+    setTermsEffectiveFromUtc,
+    setTermsFilterUserId,
+    setTermsFilterVersionId,
+    setAuditActorUserId,
+    setAuditTargetUserId,
+    setAuditCategory,
+    setAuditAction,
+    setFlatNumberInput,
+    setFlatLabelInput,
+    setFlatIsActiveInput,
+    setTenancyIdInput,
+    setTenancyUserIdInput,
+    setTenancyFlatNumberInput,
+    setTenancyMoveInDateInput,
+    setTenancyMoveOutDateInput,
+    setTenancyStatusInput,
+    setTenancyNotesInput,
+    setTenancyFilterUserId,
+    setTenancyFilterFlatNumber,
+    setGapFlatNumberInput,
+    setGapFromDateInput,
+    setGapToDateExclusiveInput,
+    setGapAssignedUserIdInput,
+    setGapAmountInput,
+    setGapStatusInput,
+    setGapFilterFlatNumber,
     setAdminRoleTarget,
     loadPendingApprovals,
+    searchAdminUsers,
+    loadAdminBillingContext,
+    deleteAdminLatestReading,
+    upsertAdminTariff,
+    updateAdminBoilerAssumptions,
+    loadTermsVersions,
+    publishTermsVersion,
+    loadTermsAcceptances,
+    loadAuditLogs,
+    loadFlats,
+    upsertFlat,
+    loadTenancies,
+    upsertTenancy,
+    loadTenantGaps,
+    upsertTenantGap,
     submitAdminDecision,
     submitRoleChange,
   } = useAdminWorkflow({ setLoading });
@@ -104,6 +214,7 @@ function App() {
     latestPaymentSummary,
     paymentHistory,
     balanceSummary,
+    editingPaymentId,
     submitReadings,
     loadLatestReadings,
     submitTariffVersion,
@@ -111,6 +222,9 @@ function App() {
     runLatestCalculation,
     loadLatestCalculation,
     recordLatestPeriodPayment,
+    beginPaymentEdit,
+    cancelPaymentEdit,
+    deletePayment,
     loadLatestPeriodPaymentSummary,
     loadPaymentHistory,
     loadAllTimeBalance,
@@ -132,6 +246,11 @@ function App() {
     paymentMethod,
     paymentReference,
     paymentNotes,
+    setPaymentAmount,
+    setPaymentDate,
+    setPaymentMethod,
+    setPaymentReference,
+    setPaymentNotes,
     setReadingsFieldErrors,
     setTariffFieldErrors,
     setPaymentFieldErrors,
@@ -524,11 +643,120 @@ function App() {
       adminReason={adminReason}
       adminRoleTarget={adminRoleTarget}
       adminMessage={adminMessage}
+      adminUsers={adminUsers}
+      adminSearchQuery={adminSearchQuery}
+      adminSearchStatus={adminSearchStatus}
+      adminBillingOnDate={adminBillingOnDate}
+      adminBillingContext={adminBillingContext}
+      adminTariffEffectiveFromDate={adminTariffEffectiveFromDate}
+      adminWaterTariffPerUnit={adminWaterTariffPerUnit}
+      adminWaterStandingChargePerDay={adminWaterStandingChargePerDay}
+      adminWaterVatPercent={adminWaterVatPercent}
+      adminElectricityTariffPerUnit={adminElectricityTariffPerUnit}
+      adminElectricityStandingChargePerDay={
+        adminElectricityStandingChargePerDay
+      }
+      adminElectricityVatPercent={adminElectricityVatPercent}
+      adminBoilerKwhPerCubicMeter={adminBoilerKwhPerCubicMeter}
+      adminBoilerEfficiencyPercent={adminBoilerEfficiencyPercent}
+      termsVersionLabel={termsVersionLabel}
+      termsVersionTitle={termsVersionTitle}
+      termsContentMarkdown={termsContentMarkdown}
+      termsEffectiveFromUtc={termsEffectiveFromUtc}
+      termsFilterUserId={termsFilterUserId}
+      termsFilterVersionId={termsFilterVersionId}
+      termsVersions={termsVersions}
+      termsAcceptances={termsAcceptances}
+      auditActorUserId={auditActorUserId}
+      auditTargetUserId={auditTargetUserId}
+      auditCategory={auditCategory}
+      auditAction={auditAction}
+      auditEntries={auditEntries}
+      flats={flats}
+      flatNumberInput={flatNumberInput}
+      flatLabelInput={flatLabelInput}
+      flatIsActiveInput={flatIsActiveInput}
+      tenancies={tenancies}
+      tenancyIdInput={tenancyIdInput}
+      tenancyUserIdInput={tenancyUserIdInput}
+      tenancyFlatNumberInput={tenancyFlatNumberInput}
+      tenancyMoveInDateInput={tenancyMoveInDateInput}
+      tenancyMoveOutDateInput={tenancyMoveOutDateInput}
+      tenancyStatusInput={tenancyStatusInput}
+      tenancyNotesInput={tenancyNotesInput}
+      tenancyFilterUserId={tenancyFilterUserId}
+      tenancyFilterFlatNumber={tenancyFilterFlatNumber}
+      tenantGaps={tenantGaps}
+      gapFlatNumberInput={gapFlatNumberInput}
+      gapFromDateInput={gapFromDateInput}
+      gapToDateExclusiveInput={gapToDateExclusiveInput}
+      gapAssignedUserIdInput={gapAssignedUserIdInput}
+      gapAmountInput={gapAmountInput}
+      gapStatusInput={gapStatusInput}
+      gapFilterFlatNumber={gapFilterFlatNumber}
       pendingApprovals={pendingApprovals}
+      onAdminSearchQueryChange={setAdminSearchQuery}
+      onAdminSearchStatusChange={setAdminSearchStatus}
       onAdminTargetUserIdChange={setAdminTargetUserId}
       onAdminReasonChange={setAdminReason}
       onAdminRoleTargetChange={setAdminRoleTarget}
+      onAdminBillingOnDateChange={setAdminBillingOnDate}
+      onAdminTariffEffectiveFromDateChange={setAdminTariffEffectiveFromDate}
+      onAdminWaterTariffPerUnitChange={setAdminWaterTariffPerUnit}
+      onAdminWaterStandingChargePerDayChange={setAdminWaterStandingChargePerDay}
+      onAdminWaterVatPercentChange={setAdminWaterVatPercent}
+      onAdminElectricityTariffPerUnitChange={setAdminElectricityTariffPerUnit}
+      onAdminElectricityStandingChargePerDayChange={
+        setAdminElectricityStandingChargePerDay
+      }
+      onAdminElectricityVatPercentChange={setAdminElectricityVatPercent}
+      onAdminBoilerKwhPerCubicMeterChange={setAdminBoilerKwhPerCubicMeter}
+      onAdminBoilerEfficiencyPercentChange={setAdminBoilerEfficiencyPercent}
+      onTermsVersionLabelChange={setTermsVersionLabel}
+      onTermsVersionTitleChange={setTermsVersionTitle}
+      onTermsContentMarkdownChange={setTermsContentMarkdown}
+      onTermsEffectiveFromUtcChange={setTermsEffectiveFromUtc}
+      onTermsFilterUserIdChange={setTermsFilterUserId}
+      onTermsFilterVersionIdChange={setTermsFilterVersionId}
+      onAuditActorUserIdChange={setAuditActorUserId}
+      onAuditTargetUserIdChange={setAuditTargetUserId}
+      onAuditCategoryChange={setAuditCategory}
+      onAuditActionChange={setAuditAction}
+      onFlatNumberInputChange={setFlatNumberInput}
+      onFlatLabelInputChange={setFlatLabelInput}
+      onFlatIsActiveInputChange={setFlatIsActiveInput}
+      onTenancyIdInputChange={setTenancyIdInput}
+      onTenancyUserIdInputChange={setTenancyUserIdInput}
+      onTenancyFlatNumberInputChange={setTenancyFlatNumberInput}
+      onTenancyMoveInDateInputChange={setTenancyMoveInDateInput}
+      onTenancyMoveOutDateInputChange={setTenancyMoveOutDateInput}
+      onTenancyStatusInputChange={setTenancyStatusInput}
+      onTenancyNotesInputChange={setTenancyNotesInput}
+      onTenancyFilterUserIdChange={setTenancyFilterUserId}
+      onTenancyFilterFlatNumberChange={setTenancyFilterFlatNumber}
+      onGapFlatNumberInputChange={setGapFlatNumberInput}
+      onGapFromDateInputChange={setGapFromDateInput}
+      onGapToDateExclusiveInputChange={setGapToDateExclusiveInput}
+      onGapAssignedUserIdInputChange={setGapAssignedUserIdInput}
+      onGapAmountInputChange={setGapAmountInput}
+      onGapStatusInputChange={setGapStatusInput}
+      onGapFilterFlatNumberChange={setGapFilterFlatNumber}
       onLoadPendingApprovals={loadPendingApprovals}
+      onSearchAdminUsers={searchAdminUsers}
+      onLoadAdminBillingContext={loadAdminBillingContext}
+      onDeleteAdminLatestReading={deleteAdminLatestReading}
+      onUpsertAdminTariff={upsertAdminTariff}
+      onUpdateAdminBoilerAssumptions={updateAdminBoilerAssumptions}
+      onLoadTermsVersions={loadTermsVersions}
+      onPublishTermsVersion={publishTermsVersion}
+      onLoadTermsAcceptances={loadTermsAcceptances}
+      onLoadAuditLogs={loadAuditLogs}
+      onLoadFlats={loadFlats}
+      onUpsertFlat={upsertFlat}
+      onLoadTenancies={loadTenancies}
+      onUpsertTenancy={upsertTenancy}
+      onLoadTenantGaps={loadTenantGaps}
+      onUpsertTenantGap={upsertTenantGap}
       onSubmitAdminDecision={submitAdminDecision}
       onSubmitRoleChange={submitRoleChange}
       formatDisplayDateTime={formatDisplayDateTime}
@@ -597,6 +825,7 @@ function App() {
       latestPaymentSummary={latestPaymentSummary}
       balanceSummary={balanceSummary}
       paymentHistory={paymentHistory}
+      editingPaymentId={editingPaymentId}
       getFieldErrors={getFieldErrors}
       onPaymentAmountChange={handlePaymentAmountChange}
       onPaymentDateChange={handlePaymentDateChange}
@@ -604,6 +833,9 @@ function App() {
       onPaymentReferenceChange={handlePaymentReferenceChange}
       onPaymentNotesChange={handlePaymentNotesChange}
       onRecordLatestPeriodPayment={recordLatestPeriodPayment}
+      onBeginPaymentEdit={beginPaymentEdit}
+      onCancelPaymentEdit={cancelPaymentEdit}
+      onDeletePayment={deletePayment}
       onLoadLatestPeriodPaymentSummary={() => loadLatestPeriodPaymentSummary()}
       onLoadPaymentHistory={() => loadPaymentHistory()}
       onLoadAllTimeBalance={() => loadAllTimeBalance()}

@@ -30,6 +30,11 @@ public sealed class JsonUserRepository : IUserRepository
         return users.Where(x => x.Status == status).ToList();
     }
 
+    public Task<IReadOnlyList<UserAccount>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return store.GetAllAsync<UserAccount>(Collection, cancellationToken);
+    }
+
     public Task UpsertAsync(UserAccount user, CancellationToken cancellationToken)
     {
         return store.UpsertAsync(Collection, user.Id, user, cancellationToken);

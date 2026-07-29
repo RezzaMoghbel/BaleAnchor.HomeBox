@@ -61,6 +61,9 @@ builder.Services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<Emai
 
 builder.Services.AddSingleton<JsonCollectionStore>();
 builder.Services.AddScoped<IUserRepository, JsonUserRepository>();
+builder.Services.AddScoped<IFlatRepository, JsonFlatRepository>();
+builder.Services.AddScoped<ITenancyRepository, JsonTenancyRepository>();
+builder.Services.AddScoped<ITenantGapRepository, JsonTenantGapRepository>();
 builder.Services.AddScoped<IAuditLogRepository, JsonAuditLogRepository>();
 builder.Services.AddScoped<IOtpChallengeRepository, JsonOtpChallengeRepository>();
 builder.Services.AddScoped<ISessionRepository, JsonSessionRepository>();
@@ -79,6 +82,7 @@ builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApprovalService>();
 builder.Services.AddScoped<AdminRoleService>();
+builder.Services.AddScoped<AdminCmsService>();
 builder.Services.AddScoped<BillingInputService>();
 builder.Services.AddScoped<CalculationSnapshotService>();
 builder.Services.AddScoped<PaymentService>();

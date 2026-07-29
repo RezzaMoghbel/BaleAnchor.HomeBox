@@ -21,6 +21,11 @@ public sealed class JsonTermsAcceptanceRepository : ITermsAcceptanceRepository
             && string.Equals(x.TermsVersionId, termsVersionId, StringComparison.Ordinal));
     }
 
+    public Task<IReadOnlyList<TermsAcceptance>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return store.GetAllAsync<TermsAcceptance>(Collection, cancellationToken);
+    }
+
     public Task AddAsync(TermsAcceptance acceptance, CancellationToken cancellationToken)
     {
         return store.UpsertAsync(Collection, acceptance.Id, acceptance, cancellationToken);

@@ -2,14 +2,20 @@ import type {
   AcceptTermsResponse,
   ActiveTariffResponse,
   ActiveTermsResponse,
+  AdminActionResultResponse,
+  AdminBillingContextResponse,
   AdminDecisionResponse,
   AdminRoleChangeResponse,
+  AdminUserSearchResponse,
   AllTimeBalanceResponse,
+  AuditLogListResponse,
   CalculateLatestPeriodResponse,
   CompleteProfileResponse,
   CompleteUtilitySetupResponse,
   DevelopmentSeedOperationResponse,
   DevelopmentSeedStatusResponse,
+  DeletePaymentResponse,
+  FlatListResponse,
   FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
@@ -23,6 +29,12 @@ import type {
   StatementPeriodListResponse,
   StatementSummaryResponse,
   SubmitReadingsResponse,
+  TenancyListResponse,
+  TenantGapAllocationListResponse,
+  TermsAcceptanceListResponse,
+  TermsVersionListResponse,
+  PublishTermsVersionResponse,
+  UpdatePaymentResponse,
   UpsertTariffResponse,
   VerifyCodeResponse,
 } from "../shared/contracts";
@@ -74,6 +86,59 @@ interface RoleChangeRequest {
   reason: string;
 }
 
+interface AdminTargetedTariffRequest {
+  effectiveFromDate: string;
+  waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
+  electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
+  reason: string;
+}
+
+interface AdminTargetedBoilerAssumptionsRequest {
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+  reason: string;
+}
+
+interface PublishTermsVersionRequest {
+  versionLabel: string;
+  title: string;
+  contentMarkdown: string;
+  effectiveFromUtc: string;
+  reason: string;
+}
+
+interface UpsertFlatRequest {
+  flatNumber: string;
+  label: string;
+  isActive: boolean;
+  reason: string;
+}
+
+interface UpsertTenancyRequest {
+  tenancyId?: string;
+  userId: string;
+  flatNumber: string;
+  moveInDate: string;
+  moveOutDate?: string;
+  status?: string;
+  notes?: string;
+  reason: string;
+}
+
+interface UpsertTenantGapAllocationRequest {
+  flatNumber: string;
+  fromDate: string;
+  toDateExclusive: string;
+  assignedUserId: string;
+  amount: string;
+  reason: string;
+  status?: string;
+}
+
 interface SubmitReadingsRequest {
   readingDate: string;
   coldWaterReading: string;
@@ -92,6 +157,14 @@ interface UpsertTariffRequest {
 }
 
 interface RecordLatestPeriodPaymentRequest {
+  amount: string;
+  paymentDate: string;
+  method: string;
+  reference?: string;
+  notes?: string;
+}
+
+interface UpdatePaymentRequest {
   amount: string;
   paymentDate: string;
   method: string;
@@ -291,6 +364,243 @@ export const portalClient = {
     );
   },
 
+  searchAdminUsers(query?: string, status?: string) {
+    const params = new URLSearchParams();
+    if (query && query.trim().length > 0) {
+      params.set("query", query.trim());
+    }
+
+    if (status && status.trim().length > 0) {
+      params.set("status", status.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<AdminUserSearchResponse>(
+      `/api/v1/admin/cms/users${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getAdminBillingContext(targetUserId: string, onDate?: string) {
+    const params = new URLSearchParams();
+    if (onDate && onDate.trim().length > 0) {
+      params.set("onDate", onDate.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<AdminBillingContextResponse>(
+      `/api/v1/admin/cms/users/${encodeURIComponent(targetUserId)}/billing-context${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  deleteAdminLatestReading(targetUserId: string, reason: string) {
+    const params = new URLSearchParams({ reason });
+    return requestJson<AdminActionResultResponse>(
+      `/api/v1/admin/cms/users/${encodeURIComponent(targetUserId)}/readings/latest?${params.toString()}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      },
+    );
+  },
+
+  upsertAdminTariff(targetUserId: string, request: AdminTargetedTariffRequest) {
+    return requestJson<AdminActionResultResponse>(
+      `/api/v1/admin/cms/users/${encodeURIComponent(targetUserId)}/tariffs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  updateAdminBoilerAssumptions(
+    targetUserId: string,
+    request: AdminTargetedBoilerAssumptionsRequest,
+  ) {
+    return requestJson<AdminActionResultResponse>(
+      `/api/v1/admin/cms/users/${encodeURIComponent(targetUserId)}/boiler-assumptions`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getTermsVersions() {
+    return requestJson<TermsVersionListResponse>(
+      "/api/v1/admin/cms/terms/versions",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  publishTermsVersion(request: PublishTermsVersionRequest) {
+    return requestJson<PublishTermsVersionResponse>(
+      "/api/v1/admin/cms/terms/versions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getTermsAcceptances(userId?: string, termsVersionId?: string) {
+    const params = new URLSearchParams();
+    if (userId && userId.trim().length > 0) {
+      params.set("userId", userId.trim());
+    }
+
+    if (termsVersionId && termsVersionId.trim().length > 0) {
+      params.set("termsVersionId", termsVersionId.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<TermsAcceptanceListResponse>(
+      `/api/v1/admin/cms/terms/acceptances${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getAuditLogs(filters?: {
+    actorUserId?: string;
+    targetUserId?: string;
+    category?: string;
+    action?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.actorUserId && filters.actorUserId.trim().length > 0) {
+      params.set("actorUserId", filters.actorUserId.trim());
+    }
+
+    if (filters?.targetUserId && filters.targetUserId.trim().length > 0) {
+      params.set("targetUserId", filters.targetUserId.trim());
+    }
+
+    if (filters?.category && filters.category.trim().length > 0) {
+      params.set("category", filters.category.trim());
+    }
+
+    if (filters?.action && filters.action.trim().length > 0) {
+      params.set("action", filters.action.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<AuditLogListResponse>(
+      `/api/v1/admin/cms/audit${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getFlats() {
+    return requestJson<FlatListResponse>("/api/v1/admin/cms/flats", {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  upsertFlat(request: UpsertFlatRequest) {
+    return requestJson<AdminActionResultResponse>("/api/v1/admin/cms/flats", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(request),
+    });
+  },
+
+  getTenancies(filters?: { userId?: string; flatNumber?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.userId && filters.userId.trim().length > 0) {
+      params.set("userId", filters.userId.trim());
+    }
+
+    if (filters?.flatNumber && filters.flatNumber.trim().length > 0) {
+      params.set("flatNumber", filters.flatNumber.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<TenancyListResponse>(
+      `/api/v1/admin/cms/tenancies${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  upsertTenancy(request: UpsertTenancyRequest) {
+    return requestJson<AdminActionResultResponse>(
+      "/api/v1/admin/cms/tenancies",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getTenantGaps(flatNumber?: string) {
+    const params = new URLSearchParams();
+    if (flatNumber && flatNumber.trim().length > 0) {
+      params.set("flatNumber", flatNumber.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<TenantGapAllocationListResponse>(
+      `/api/v1/admin/cms/tenant-gaps${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  upsertTenantGap(request: UpsertTenantGapAllocationRequest) {
+    return requestJson<AdminActionResultResponse>(
+      "/api/v1/admin/cms/tenant-gaps",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   submitReadings(request: SubmitReadingsRequest) {
     return requestJson<SubmitReadingsResponse>("/api/v1/billing/readings", {
       method: "POST",
@@ -379,6 +689,30 @@ export const portalClient = {
       "/api/v1/billing/payments/history",
       {
         method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updatePayment(paymentId: string, request: UpdatePaymentRequest) {
+    return requestJson<UpdatePaymentResponse>(
+      `/api/v1/billing/payments/${encodeURIComponent(paymentId)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  deletePayment(paymentId: string) {
+    return requestJson<DeletePaymentResponse>(
+      `/api/v1/billing/payments/${encodeURIComponent(paymentId)}`,
+      {
+        method: "DELETE",
         credentials: "include",
       },
     );

@@ -1,5 +1,15 @@
 import type { ReactNode } from "react";
-import type { PendingApprovalUserItem } from "../../shared/contracts";
+import type {
+  AdminBillingContextResponse,
+  AdminUserSummaryItem,
+  AuditLogSummaryItem,
+  FlatSummaryItem,
+  PendingApprovalUserItem,
+  TenancySummaryItem,
+  TenantGapAllocationSummaryItem,
+  TermsAcceptanceSummaryItem,
+  TermsVersionSummaryItem,
+} from "../../shared/contracts";
 
 interface AdminDashboardViewProps {
   shellHeader: ReactNode;
@@ -9,11 +19,116 @@ interface AdminDashboardViewProps {
   adminReason: string;
   adminRoleTarget: string;
   adminMessage: string;
+  adminUsers: AdminUserSummaryItem[];
+  adminSearchQuery: string;
+  adminSearchStatus: string;
+  adminBillingOnDate: string;
+  adminBillingContext: AdminBillingContextResponse | null;
+  adminTariffEffectiveFromDate: string;
+  adminWaterTariffPerUnit: string;
+  adminWaterStandingChargePerDay: string;
+  adminWaterVatPercent: string;
+  adminElectricityTariffPerUnit: string;
+  adminElectricityStandingChargePerDay: string;
+  adminElectricityVatPercent: string;
+  adminBoilerKwhPerCubicMeter: string;
+  adminBoilerEfficiencyPercent: string;
+  termsVersionLabel: string;
+  termsVersionTitle: string;
+  termsContentMarkdown: string;
+  termsEffectiveFromUtc: string;
+  termsFilterUserId: string;
+  termsFilterVersionId: string;
+  termsVersions: TermsVersionSummaryItem[];
+  termsAcceptances: TermsAcceptanceSummaryItem[];
+  auditActorUserId: string;
+  auditTargetUserId: string;
+  auditCategory: string;
+  auditAction: string;
+  auditEntries: AuditLogSummaryItem[];
+  flats: FlatSummaryItem[];
+  flatNumberInput: string;
+  flatLabelInput: string;
+  flatIsActiveInput: boolean;
+  tenancies: TenancySummaryItem[];
+  tenancyIdInput: string;
+  tenancyUserIdInput: string;
+  tenancyFlatNumberInput: string;
+  tenancyMoveInDateInput: string;
+  tenancyMoveOutDateInput: string;
+  tenancyStatusInput: string;
+  tenancyNotesInput: string;
+  tenancyFilterUserId: string;
+  tenancyFilterFlatNumber: string;
+  tenantGaps: TenantGapAllocationSummaryItem[];
+  gapFlatNumberInput: string;
+  gapFromDateInput: string;
+  gapToDateExclusiveInput: string;
+  gapAssignedUserIdInput: string;
+  gapAmountInput: string;
+  gapStatusInput: string;
+  gapFilterFlatNumber: string;
   pendingApprovals: PendingApprovalUserItem[];
+  onAdminSearchQueryChange: (value: string) => void;
+  onAdminSearchStatusChange: (value: string) => void;
   onAdminTargetUserIdChange: (value: string) => void;
   onAdminReasonChange: (value: string) => void;
   onAdminRoleTargetChange: (value: string) => void;
+  onAdminBillingOnDateChange: (value: string) => void;
+  onAdminTariffEffectiveFromDateChange: (value: string) => void;
+  onAdminWaterTariffPerUnitChange: (value: string) => void;
+  onAdminWaterStandingChargePerDayChange: (value: string) => void;
+  onAdminWaterVatPercentChange: (value: string) => void;
+  onAdminElectricityTariffPerUnitChange: (value: string) => void;
+  onAdminElectricityStandingChargePerDayChange: (value: string) => void;
+  onAdminElectricityVatPercentChange: (value: string) => void;
+  onAdminBoilerKwhPerCubicMeterChange: (value: string) => void;
+  onAdminBoilerEfficiencyPercentChange: (value: string) => void;
+  onTermsVersionLabelChange: (value: string) => void;
+  onTermsVersionTitleChange: (value: string) => void;
+  onTermsContentMarkdownChange: (value: string) => void;
+  onTermsEffectiveFromUtcChange: (value: string) => void;
+  onTermsFilterUserIdChange: (value: string) => void;
+  onTermsFilterVersionIdChange: (value: string) => void;
+  onAuditActorUserIdChange: (value: string) => void;
+  onAuditTargetUserIdChange: (value: string) => void;
+  onAuditCategoryChange: (value: string) => void;
+  onAuditActionChange: (value: string) => void;
+  onFlatNumberInputChange: (value: string) => void;
+  onFlatLabelInputChange: (value: string) => void;
+  onFlatIsActiveInputChange: (value: boolean) => void;
+  onTenancyIdInputChange: (value: string) => void;
+  onTenancyUserIdInputChange: (value: string) => void;
+  onTenancyFlatNumberInputChange: (value: string) => void;
+  onTenancyMoveInDateInputChange: (value: string) => void;
+  onTenancyMoveOutDateInputChange: (value: string) => void;
+  onTenancyStatusInputChange: (value: string) => void;
+  onTenancyNotesInputChange: (value: string) => void;
+  onTenancyFilterUserIdChange: (value: string) => void;
+  onTenancyFilterFlatNumberChange: (value: string) => void;
+  onGapFlatNumberInputChange: (value: string) => void;
+  onGapFromDateInputChange: (value: string) => void;
+  onGapToDateExclusiveInputChange: (value: string) => void;
+  onGapAssignedUserIdInputChange: (value: string) => void;
+  onGapAmountInputChange: (value: string) => void;
+  onGapStatusInputChange: (value: string) => void;
+  onGapFilterFlatNumberChange: (value: string) => void;
   onLoadPendingApprovals: () => Promise<void>;
+  onSearchAdminUsers: () => Promise<void>;
+  onLoadAdminBillingContext: () => Promise<void>;
+  onDeleteAdminLatestReading: () => Promise<void>;
+  onUpsertAdminTariff: () => Promise<void>;
+  onUpdateAdminBoilerAssumptions: () => Promise<void>;
+  onLoadTermsVersions: () => Promise<void>;
+  onPublishTermsVersion: () => Promise<void>;
+  onLoadTermsAcceptances: () => Promise<void>;
+  onLoadAuditLogs: () => Promise<void>;
+  onLoadFlats: () => Promise<void>;
+  onUpsertFlat: () => Promise<void>;
+  onLoadTenancies: () => Promise<void>;
+  onUpsertTenancy: () => Promise<void>;
+  onLoadTenantGaps: () => Promise<void>;
+  onUpsertTenantGap: () => Promise<void>;
   onSubmitAdminDecision: (action: "approve" | "reject") => Promise<void>;
   onSubmitRoleChange: () => Promise<void>;
   formatDisplayDateTime: (value?: string) => string;
@@ -27,11 +142,116 @@ export function AdminDashboardView({
   adminReason,
   adminRoleTarget,
   adminMessage,
+  adminUsers,
+  adminSearchQuery,
+  adminSearchStatus,
+  adminBillingOnDate,
+  adminBillingContext,
+  adminTariffEffectiveFromDate,
+  adminWaterTariffPerUnit,
+  adminWaterStandingChargePerDay,
+  adminWaterVatPercent,
+  adminElectricityTariffPerUnit,
+  adminElectricityStandingChargePerDay,
+  adminElectricityVatPercent,
+  adminBoilerKwhPerCubicMeter,
+  adminBoilerEfficiencyPercent,
+  termsVersionLabel,
+  termsVersionTitle,
+  termsContentMarkdown,
+  termsEffectiveFromUtc,
+  termsFilterUserId,
+  termsFilterVersionId,
+  termsVersions,
+  termsAcceptances,
+  auditActorUserId,
+  auditTargetUserId,
+  auditCategory,
+  auditAction,
+  auditEntries,
+  flats,
+  flatNumberInput,
+  flatLabelInput,
+  flatIsActiveInput,
+  tenancies,
+  tenancyIdInput,
+  tenancyUserIdInput,
+  tenancyFlatNumberInput,
+  tenancyMoveInDateInput,
+  tenancyMoveOutDateInput,
+  tenancyStatusInput,
+  tenancyNotesInput,
+  tenancyFilterUserId,
+  tenancyFilterFlatNumber,
+  tenantGaps,
+  gapFlatNumberInput,
+  gapFromDateInput,
+  gapToDateExclusiveInput,
+  gapAssignedUserIdInput,
+  gapAmountInput,
+  gapStatusInput,
+  gapFilterFlatNumber,
   pendingApprovals,
+  onAdminSearchQueryChange,
+  onAdminSearchStatusChange,
   onAdminTargetUserIdChange,
   onAdminReasonChange,
   onAdminRoleTargetChange,
+  onAdminBillingOnDateChange,
+  onAdminTariffEffectiveFromDateChange,
+  onAdminWaterTariffPerUnitChange,
+  onAdminWaterStandingChargePerDayChange,
+  onAdminWaterVatPercentChange,
+  onAdminElectricityTariffPerUnitChange,
+  onAdminElectricityStandingChargePerDayChange,
+  onAdminElectricityVatPercentChange,
+  onAdminBoilerKwhPerCubicMeterChange,
+  onAdminBoilerEfficiencyPercentChange,
+  onTermsVersionLabelChange,
+  onTermsVersionTitleChange,
+  onTermsContentMarkdownChange,
+  onTermsEffectiveFromUtcChange,
+  onTermsFilterUserIdChange,
+  onTermsFilterVersionIdChange,
+  onAuditActorUserIdChange,
+  onAuditTargetUserIdChange,
+  onAuditCategoryChange,
+  onAuditActionChange,
+  onFlatNumberInputChange,
+  onFlatLabelInputChange,
+  onFlatIsActiveInputChange,
+  onTenancyIdInputChange,
+  onTenancyUserIdInputChange,
+  onTenancyFlatNumberInputChange,
+  onTenancyMoveInDateInputChange,
+  onTenancyMoveOutDateInputChange,
+  onTenancyStatusInputChange,
+  onTenancyNotesInputChange,
+  onTenancyFilterUserIdChange,
+  onTenancyFilterFlatNumberChange,
+  onGapFlatNumberInputChange,
+  onGapFromDateInputChange,
+  onGapToDateExclusiveInputChange,
+  onGapAssignedUserIdInputChange,
+  onGapAmountInputChange,
+  onGapStatusInputChange,
+  onGapFilterFlatNumberChange,
   onLoadPendingApprovals,
+  onSearchAdminUsers,
+  onLoadAdminBillingContext,
+  onDeleteAdminLatestReading,
+  onUpsertAdminTariff,
+  onUpdateAdminBoilerAssumptions,
+  onLoadTermsVersions,
+  onPublishTermsVersion,
+  onLoadTermsAcceptances,
+  onLoadAuditLogs,
+  onLoadFlats,
+  onUpsertFlat,
+  onLoadTenancies,
+  onUpsertTenancy,
+  onLoadTenantGaps,
+  onUpsertTenantGap,
   onSubmitAdminDecision,
   onSubmitRoleChange,
   formatDisplayDateTime,
@@ -164,6 +384,885 @@ export function AdminDashboardView({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Search users and target account context</h5>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-5">
+                  <label htmlFor="adminSearchQuery" className="form-label">
+                    Search query
+                  </label>
+                  <input
+                    id="adminSearchQuery"
+                    type="text"
+                    className="form-control"
+                    placeholder="email, user id, flat"
+                    value={adminSearchQuery}
+                    onChange={(event) =>
+                      onAdminSearchQueryChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="adminSearchStatus" className="form-label">
+                    Status filter
+                  </label>
+                  <input
+                    id="adminSearchStatus"
+                    type="text"
+                    className="form-control"
+                    placeholder="Active"
+                    value={adminSearchStatus}
+                    onChange={(event) =>
+                      onAdminSearchStatusChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark"
+                    onClick={() => void onSearchAdminUsers()}
+                    disabled={loading}
+                  >
+                    Search users
+                  </button>
+                </div>
+              </div>
+
+              {adminUsers.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>User ID</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Flat</th>
+                        <th>Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminUsers.slice(0, 20).map((item) => (
+                        <tr key={item.userId}>
+                          <td>{item.userId}</td>
+                          <td>{item.email}</td>
+                          <td>{item.role}</td>
+                          <td>{item.status}</td>
+                          <td>{item.flatNumber ?? "-"}</td>
+                          <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="row g-3 align-items-end mt-2">
+                <div className="col-12 col-lg-3">
+                  <label htmlFor="adminBillingOnDate" className="form-label">
+                    Billing context date
+                  </label>
+                  <input
+                    id="adminBillingOnDate"
+                    type="date"
+                    className="form-control"
+                    value={adminBillingOnDate}
+                    onChange={(event) =>
+                      onAdminBillingOnDateChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onLoadAdminBillingContext()}
+                    disabled={loading}
+                  >
+                    Load billing context
+                  </button>
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger"
+                    onClick={() => void onDeleteAdminLatestReading()}
+                    disabled={loading}
+                  >
+                    Delete latest reading
+                  </button>
+                </div>
+              </div>
+
+              {adminBillingContext && (
+                <div
+                  className="alert alert-light border mt-3 mb-0"
+                  role="status"
+                >
+                  <div className="fw-semibold mb-1">Target billing context</div>
+                  <div className="small text-secondary">
+                    Latest reading:{" "}
+                    {adminBillingContext.latestReadingDate ?? "N/A"}
+                    {` | Latest payment: ${adminBillingContext.latestPaymentAmount ?? "N/A"}`}
+                    {` | Tariff from: ${adminBillingContext.activeTariffEffectiveFromDate ?? "N/A"}`}
+                    {` | Boiler efficiency: ${adminBillingContext.boilerEfficiencyPercent ?? "N/A"}`}
+                  </div>
+                </div>
+              )}
+
+              <h6 className="mt-4">Target tariff management</h6>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={adminTariffEffectiveFromDate}
+                    onChange={(event) =>
+                      onAdminTariffEffectiveFromDateChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Water unit"
+                    value={adminWaterTariffPerUnit}
+                    onChange={(event) =>
+                      onAdminWaterTariffPerUnitChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Water standing"
+                    value={adminWaterStandingChargePerDay}
+                    onChange={(event) =>
+                      onAdminWaterStandingChargePerDayChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Water VAT"
+                    value={adminWaterVatPercent}
+                    onChange={(event) =>
+                      onAdminWaterVatPercentChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Elec unit"
+                    value={adminElectricityTariffPerUnit}
+                    onChange={(event) =>
+                      onAdminElectricityTariffPerUnitChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Elec standing"
+                    value={adminElectricityStandingChargePerDay}
+                    onChange={(event) =>
+                      onAdminElectricityStandingChargePerDayChange(
+                        event.target.value,
+                      )
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Elec VAT"
+                    value={adminElectricityVatPercent}
+                    onChange={(event) =>
+                      onAdminElectricityVatPercentChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onUpsertAdminTariff()}
+                    disabled={loading}
+                  >
+                    Save target tariff
+                  </button>
+                </div>
+              </div>
+
+              <h6 className="mt-4">Boiler assumptions management</h6>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="kWh per m3"
+                    value={adminBoilerKwhPerCubicMeter}
+                    onChange={(event) =>
+                      onAdminBoilerKwhPerCubicMeterChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Efficiency %"
+                    value={adminBoilerEfficiencyPercent}
+                    onChange={(event) =>
+                      onAdminBoilerEfficiencyPercentChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onUpdateAdminBoilerAssumptions()}
+                    disabled={loading}
+                  >
+                    Update boiler assumptions
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Flat register management</h5>
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={() => void onLoadFlats()}
+                  disabled={loading}
+                >
+                  Load flats
+                </button>
+              </div>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Flat number"
+                    value={flatNumberInput}
+                    onChange={(event) =>
+                      onFlatNumberInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Flat label"
+                    value={flatLabelInput}
+                    onChange={(event) => onFlatLabelInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <div className="form-check mt-2">
+                    <input
+                      id="flatIsActiveInput"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={flatIsActiveInput}
+                      onChange={(event) =>
+                        onFlatIsActiveInputChange(event.target.checked)
+                      }
+                    />
+                    <label htmlFor="flatIsActiveInput" className="form-check-label">
+                      Active
+                    </label>
+                  </div>
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onUpsertFlat()}
+                    disabled={loading}
+                  >
+                    Save flat
+                  </button>
+                </div>
+              </div>
+
+              {flats.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Flat</th>
+                        <th>Label</th>
+                        <th>Active</th>
+                        <th>Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flats.slice(0, 50).map((item) => (
+                        <tr key={item.flatNumber}>
+                          <td>{item.flatNumber}</td>
+                          <td>{item.label}</td>
+                          <td>{item.isActive ? "Yes" : "No"}</td>
+                          <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Tenancy management</h5>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Filter user ID"
+                    value={tenancyFilterUserId}
+                    onChange={(event) =>
+                      onTenancyFilterUserIdChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Filter flat number"
+                    value={tenancyFilterFlatNumber}
+                    onChange={(event) =>
+                      onTenancyFilterFlatNumberChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark"
+                    onClick={() => void onLoadTenancies()}
+                    disabled={loading}
+                  >
+                    Load tenancies
+                  </button>
+                </div>
+              </div>
+
+              <div className="row g-3 align-items-end mt-2">
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Tenancy ID (edit)"
+                    value={tenancyIdInput}
+                    onChange={(event) => onTenancyIdInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="User ID"
+                    value={tenancyUserIdInput}
+                    onChange={(event) =>
+                      onTenancyUserIdInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Flat number"
+                    value={tenancyFlatNumberInput}
+                    onChange={(event) =>
+                      onTenancyFlatNumberInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={tenancyMoveInDateInput}
+                    onChange={(event) =>
+                      onTenancyMoveInDateInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={tenancyMoveOutDateInput}
+                    onChange={(event) =>
+                      onTenancyMoveOutDateInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Status"
+                    value={tenancyStatusInput}
+                    onChange={(event) => onTenancyStatusInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-6">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Notes"
+                    value={tenancyNotesInput}
+                    onChange={(event) => onTenancyNotesInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onUpsertTenancy()}
+                    disabled={loading}
+                  >
+                    Save tenancy
+                  </button>
+                </div>
+              </div>
+
+              {tenancies.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Tenancy ID</th>
+                        <th>User</th>
+                        <th>Flat</th>
+                        <th>Move-in</th>
+                        <th>Move-out</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tenancies.slice(0, 50).map((item) => (
+                        <tr key={item.tenancyId}>
+                          <td>{item.tenancyId}</td>
+                          <td>{item.userId}</td>
+                          <td>{item.flatNumber}</td>
+                          <td>{item.moveInDate}</td>
+                          <td>{item.moveOutDate ?? "-"}</td>
+                          <td>{item.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Tenant-gap allocation management</h5>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Filter flat number"
+                    value={gapFilterFlatNumber}
+                    onChange={(event) =>
+                      onGapFilterFlatNumberChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark"
+                    onClick={() => void onLoadTenantGaps()}
+                    disabled={loading}
+                  >
+                    Load gap allocations
+                  </button>
+                </div>
+              </div>
+
+              <div className="row g-3 align-items-end mt-2">
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Flat number"
+                    value={gapFlatNumberInput}
+                    onChange={(event) => onGapFlatNumberInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={gapFromDateInput}
+                    onChange={(event) => onGapFromDateInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={gapToDateExclusiveInput}
+                    onChange={(event) =>
+                      onGapToDateExclusiveInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Assigned user ID"
+                    value={gapAssignedUserIdInput}
+                    onChange={(event) =>
+                      onGapAssignedUserIdInputChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Amount"
+                    value={gapAmountInput}
+                    onChange={(event) => onGapAmountInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Status"
+                    value={gapStatusInput}
+                    onChange={(event) => onGapStatusInputChange(event.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onUpsertTenantGap()}
+                    disabled={loading}
+                  >
+                    Save gap allocation
+                  </button>
+                </div>
+              </div>
+
+              {tenantGaps.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Allocation ID</th>
+                        <th>Flat</th>
+                        <th>From</th>
+                        <th>To (exclusive)</th>
+                        <th>Assigned user</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tenantGaps.slice(0, 50).map((item) => (
+                        <tr key={item.allocationId}>
+                          <td>{item.allocationId}</td>
+                          <td>{item.flatNumber}</td>
+                          <td>{item.fromDate}</td>
+                          <td>{item.toDateExclusive}</td>
+                          <td>{item.assignedUserId}</td>
+                          <td>{item.amount}</td>
+                          <td>{item.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Terms and declarations management</h5>
+              <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-dark"
+                  onClick={() => void onLoadTermsVersions()}
+                  disabled={loading}
+                >
+                  Load terms versions
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => void onLoadTermsAcceptances()}
+                  disabled={loading}
+                >
+                  Load acceptances
+                </button>
+              </div>
+
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Version label"
+                    value={termsVersionLabel}
+                    onChange={(event) =>
+                      onTermsVersionLabelChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Title"
+                    value={termsVersionTitle}
+                    onChange={(event) =>
+                      onTermsVersionTitleChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Effective UTC (ISO)"
+                    value={termsEffectiveFromUtc}
+                    onChange={(event) =>
+                      onTermsEffectiveFromUtcChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onPublishTermsVersion()}
+                    disabled={loading}
+                  >
+                    Publish terms version
+                  </button>
+                </div>
+                <div className="col-12">
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Terms markdown"
+                    value={termsContentMarkdown}
+                    onChange={(event) =>
+                      onTermsContentMarkdownChange(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              {termsVersions.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Version</th>
+                        <th>Title</th>
+                        <th>Effective</th>
+                        <th>Published</th>
+                        <th>Active</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {termsVersions.slice(0, 10).map((item) => (
+                        <tr key={item.versionId}>
+                          <td>{item.versionLabel}</td>
+                          <td>{item.title}</td>
+                          <td>
+                            {formatDisplayDateTime(item.effectiveFromUtc)}
+                          </td>
+                          <td>{formatDisplayDateTime(item.publishedAtUtc)}</td>
+                          <td>{item.isActive ? "Yes" : "No"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="row g-3 align-items-end mt-2">
+                <div className="col-12 col-lg-4">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Acceptance userId filter"
+                    value={termsFilterUserId}
+                    onChange={(event) =>
+                      onTermsFilterUserIdChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Acceptance version filter"
+                    value={termsFilterVersionId}
+                    onChange={(event) =>
+                      onTermsFilterVersionIdChange(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              {termsAcceptances.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Version ID</th>
+                        <th>Accepted</th>
+                        <th>IP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {termsAcceptances.slice(0, 20).map((item) => (
+                        <tr key={item.acceptanceId}>
+                          <td>{item.userId}</td>
+                          <td>{item.termsVersionId}</td>
+                          <td>{formatDisplayDateTime(item.acceptedAtUtc)}</td>
+                          <td>{item.acceptedFromIp}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card radius-10 border-0 shadow-sm mt-4">
+            <div className="card-body">
+              <h5 className="mb-3">Audit viewer</h5>
+              <div className="row g-3 align-items-end">
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Actor user ID"
+                    value={auditActorUserId}
+                    onChange={(event) =>
+                      onAuditActorUserIdChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Target user ID"
+                    value={auditTargetUserId}
+                    onChange={(event) =>
+                      onAuditTargetUserIdChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Category"
+                    value={auditCategory}
+                    onChange={(event) =>
+                      onAuditCategoryChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Action"
+                    value={auditAction}
+                    onChange={(event) =>
+                      onAuditActionChange(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="col-12 col-lg-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark"
+                    onClick={() => void onLoadAuditLogs()}
+                    disabled={loading}
+                  >
+                    Load audit logs
+                  </button>
+                </div>
+              </div>
+
+              {auditEntries.length > 0 && (
+                <div className="table-responsive mt-3">
+                  <table className="table align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>UTC</th>
+                        <th>Actor</th>
+                        <th>Target</th>
+                        <th>Category</th>
+                        <th>Action</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditEntries.slice(0, 30).map((item) => (
+                        <tr key={item.auditId}>
+                          <td>{formatDisplayDateTime(item.createdAtUtc)}</td>
+                          <td>{item.actorUserId}</td>
+                          <td>{item.targetUserId}</td>
+                          <td>{item.category}</td>
+                          <td>{item.action}</td>
+                          <td>{item.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 

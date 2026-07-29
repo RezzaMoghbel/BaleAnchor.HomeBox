@@ -33,6 +33,11 @@ interface UseBillingPaymentsWorkflowArgs {
   paymentMethod: string;
   paymentReference: string;
   paymentNotes: string;
+  setPaymentAmount: Dispatch<SetStateAction<string>>;
+  setPaymentDate: Dispatch<SetStateAction<string>>;
+  setPaymentMethod: Dispatch<SetStateAction<string>>;
+  setPaymentReference: Dispatch<SetStateAction<string>>;
+  setPaymentNotes: Dispatch<SetStateAction<string>>;
   setReadingsFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
   setTariffFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
   setPaymentFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
@@ -56,6 +61,11 @@ export function useBillingPaymentsWorkflow({
   paymentMethod,
   paymentReference,
   paymentNotes,
+  setPaymentAmount,
+  setPaymentDate,
+  setPaymentMethod,
+  setPaymentReference,
+  setPaymentNotes,
   setReadingsFieldErrors,
   setTariffFieldErrors,
   setPaymentFieldErrors,
@@ -80,6 +90,7 @@ export function useBillingPaymentsWorkflow({
   >([]);
   const [balanceSummary, setBalanceSummary] =
     useState<AllTimeBalanceResponse | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
   const loadLatestReadings = async () => {
     setLoading(true);
@@ -181,7 +192,9 @@ export function useBillingPaymentsWorkflow({
         electricityStandingChargePerDay,
         electricityVatPercent,
       });
-      setBillingMessage(`${body.message} Effective from ${body.effectiveFromDate}.`);
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
       await loadActiveTariff();
     } catch (error) {
       if (error instanceof PortalApiError) {
@@ -305,7 +318,9 @@ export function useBillingPaymentsWorkflow({
       setBalanceSummary(null);
       if (!silent) {
         if (error instanceof PortalApiError) {
-          setPaymentMessage(`Unable to load all-time balance. ${error.message}`);
+          setPaymentMessage(
+            `Unable to load all-time balance. ${error.message}`,
+          );
         } else {
           setPaymentMessage("Unable to load all-time balance.");
         }
@@ -334,14 +349,29 @@ export function useBillingPaymentsWorkflow({
     setPaymentFieldErrors({});
     setLoading(true);
     try {
-      const body = await portalClient.recordLatestPeriodPayment({
-        amount: paymentAmount,
-        paymentDate,
-        method: paymentMethod,
-        reference: paymentReference || undefined,
-        notes: paymentNotes || undefined,
-      });
-      setPaymentMessage(`${body.message} Payment ${body.paymentId} saved.`);
+      if (editingPaymentId) {
+        const body = await portalClient.updatePayment(editingPaymentId, {
+          amount: paymentAmount,
+          paymentDate,
+          method: paymentMethod,
+          reference: paymentReference || undefined,
+          notes: paymentNotes || undefined,
+        });
+
+        setPaymentMessage(`${body.message} Payment ${body.paymentId} updated.`);
+        setEditingPaymentId(null);
+      } else {
+        const body = await portalClient.recordLatestPeriodPayment({
+          amount: paymentAmount,
+          paymentDate,
+          method: paymentMethod,
+          reference: paymentReference || undefined,
+          notes: paymentNotes || undefined,
+        });
+
+        setPaymentMessage(`${body.message} Payment ${body.paymentId} saved.`);
+      }
+
       await Promise.all([
         loadLatestPeriodPaymentSummary(true),
         loadPaymentHistory(true),
@@ -359,6 +389,50 @@ export function useBillingPaymentsWorkflow({
     }
   };
 
+  const beginPaymentEdit = (item: PaymentHistoryItemResponse) => {
+    setEditingPaymentId(item.paymentId);
+    setPaymentAmount(item.amount);
+    setPaymentDate(item.paymentDate);
+    setPaymentMethod(item.method);
+    setPaymentReference(item.reference ?? "");
+    setPaymentNotes(item.notes ?? "");
+    setPaymentFieldErrors({});
+    setPaymentMessage(
+      `Editing payment ${item.paymentId}. Update fields, then save.`,
+    );
+  };
+
+  const cancelPaymentEdit = () => {
+    setEditingPaymentId(null);
+    setPaymentFieldErrors({});
+    setPaymentMessage("Edit cancelled. Ready to record a new payment.");
+  };
+
+  const deletePayment = async (paymentId: string) => {
+    setLoading(true);
+    try {
+      const body = await portalClient.deletePayment(paymentId);
+      if (editingPaymentId === paymentId) {
+        setEditingPaymentId(null);
+      }
+
+      setPaymentMessage(`${body.message} Payment ${body.paymentId} removed.`);
+      await Promise.all([
+        loadLatestPeriodPaymentSummary(true),
+        loadPaymentHistory(true),
+        loadAllTimeBalance(true),
+      ]);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setPaymentMessage(`Payment delete failed. ${error.message}`);
+      } else {
+        setPaymentMessage("Payment delete failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     billingMessage,
     latestReadings,
@@ -368,6 +442,7 @@ export function useBillingPaymentsWorkflow({
     latestPaymentSummary,
     paymentHistory,
     balanceSummary,
+    editingPaymentId,
     submitReadings,
     loadLatestReadings,
     submitTariffVersion,
@@ -375,6 +450,9 @@ export function useBillingPaymentsWorkflow({
     runLatestCalculation,
     loadLatestCalculation,
     recordLatestPeriodPayment,
+    beginPaymentEdit,
+    cancelPaymentEdit,
+    deletePayment,
     loadLatestPeriodPaymentSummary,
     loadPaymentHistory,
     loadAllTimeBalance,

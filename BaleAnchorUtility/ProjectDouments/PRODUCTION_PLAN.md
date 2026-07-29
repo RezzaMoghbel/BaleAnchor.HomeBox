@@ -235,6 +235,19 @@ Tasks:
   - searchable CMS or system settings surfaces where required
 - Ensure all financially relevant actions are audit logged.
 
+Progress update:
+
+- Payment management edit/delete controls are now implemented in client contracts, workflow hook orchestration, and payments dashboard UI.
+- Admin CMS workflow surface is now implemented for:
+  - searchable user lookup
+  - target-user billing context inspection
+  - reading correction via latest-reading delete with reason and audit log
+  - targeted tariff insertion with reason and audit log
+  - boiler assumptions updates with reason and audit log
+  - terms/declarations version listing and publishing
+  - terms acceptance querying
+  - audit log querying with actor/target/category/action filters
+
 Exit criteria:
 
 - Core resident and admin lifecycle tasks can be completed end-to-end without manual JSON editing.
