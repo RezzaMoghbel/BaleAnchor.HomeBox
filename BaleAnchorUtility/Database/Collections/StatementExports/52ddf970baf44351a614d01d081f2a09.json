@@ -1,0 +1,14 @@
+{
+  "id": "52ddf970baf44351a614d01d081f2a09",
+  "userId": "seed-resident-active-0001",
+  "snapshotId": "206e554e0aa04e6f881038d528bf8718",
+  "periodStartDate": "2026-05-01",
+  "periodEndDateExclusive": "2026-06-01",
+  "fileName": "statement-2026-05-01-to-2026-06-01.pdf",
+  "contentType": "application/pdf",
+  "contentSha256": "A5A08844A0DE141A15C058EE067E5B822B223E1AB8C69E45173CE2BAA96B8F22",
+  "templateVersion": "statement-template-v2",
+  "rendererVersion": "questpdf-statement-v1",
+  "createdAtUtc": "2026-07-29T08:46:57.1183237+00:00",
+  "version": 1
+}

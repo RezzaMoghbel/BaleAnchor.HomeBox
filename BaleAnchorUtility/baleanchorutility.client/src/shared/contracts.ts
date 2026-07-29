@@ -20,6 +20,13 @@ export interface SessionStatusResponse {
   expiresAtUtc?: string;
 }
 
+export interface DevelopmentSeedStatusResponse {
+  enabled: boolean;
+  environment: string;
+  fixedOtpCode: string;
+  seedEmails: string[];
+}
+
 export interface ActiveTermsResponse {
   versionId: string;
   versionLabel: string;

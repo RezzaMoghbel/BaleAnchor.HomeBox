@@ -1,0 +1,11 @@
+{
+  "id": "45f6523beb214b3c905ae5a56c7fc618",
+  "actorUserId": "seed-resident-active-0001",
+  "targetUserId": "seed-resident-active-0001",
+  "category": "PAYMENT",
+  "action": "CREATE_PAYMENT",
+  "reason": "Payment recorded by resident",
+  "metadata": "period:2026-05-01_2026-06-01;amount:120.50",
+  "createdAtUtc": "2026-07-29T08:46:55.4117587+00:00",
+  "version": 1
+}

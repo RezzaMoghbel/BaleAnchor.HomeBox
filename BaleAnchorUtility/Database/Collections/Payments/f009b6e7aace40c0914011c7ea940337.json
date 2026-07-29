@@ -1,0 +1,16 @@
+{
+  "id": "f009b6e7aace40c0914011c7ea940337",
+  "userId": "seed-resident-active-0001",
+  "periodStartDate": "2026-05-01",
+  "periodEndDateExclusive": "2026-06-01",
+  "amount": 120.50,
+  "paymentDate": "2026-06-05",
+  "method": "Direct Debit",
+  "reference": "SEED-DEMO-001",
+  "notes": "Development seed payment",
+  "source": "Resident",
+  "verificationStatus": "Unverified",
+  "createdAtUtc": "2026-07-29T08:46:55.4117587+00:00",
+  "updatedAtUtc": "2026-07-29T08:46:55.4117587+00:00",
+  "version": 1
+}

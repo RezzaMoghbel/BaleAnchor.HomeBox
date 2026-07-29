@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DevelopmentSeedAccessCard } from "./DevelopmentSeedAccessCard";
 import type { SessionStatusResponse } from "../../shared/contracts";
 
 interface LoginViewProps {
@@ -207,6 +208,8 @@ export function LoginView({
                           </div>
                         )}
                       </div>
+
+                      <DevelopmentSeedAccessCard />
                     </div>
                   </div>
                 </div>

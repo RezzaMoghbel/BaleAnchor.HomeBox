@@ -8,6 +8,7 @@ import type {
   CalculateLatestPeriodResponse,
   CompleteProfileResponse,
   CompleteUtilitySetupResponse,
+  DevelopmentSeedStatusResponse,
   FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
@@ -161,6 +162,12 @@ export const portalClient = {
     return requestJson<SessionStatusResponse>("/api/v1/auth/session", {
       method: "GET",
       credentials: "include",
+    });
+  },
+
+  getDevelopmentSeedStatus() {
+    return requestJson<DevelopmentSeedStatusResponse>("/api/system/dev-seed", {
+      method: "GET",
     });
   },
 
