@@ -32,6 +32,10 @@ import {
 } from "./shared/formatters";
 import { getFieldErrors } from "./shared/problemDetails";
 import { getTargetRoute } from "./shared/routing";
+import {
+  validateRequestCodeInput,
+  validateVerifyCodeInput,
+} from "./validation/auth";
 import "./App.css";
 function App() {
   const location = useLocation();
@@ -41,6 +45,7 @@ function App() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [loginFieldErrors, setLoginFieldErrors] = useState<FieldErrors>({});
   const [statusMessage, setStatusMessage] = useState(
     "No authentication action run yet.",
   );
@@ -144,7 +149,41 @@ function App() {
   >([]);
   const [loading, setLoading] = useState(false);
 
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setLoginFieldErrors((current) => {
+      if (!current.email) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.email;
+      return next;
+    });
+  };
+
+  const handleCodeChange = (value: string) => {
+    setCode(value);
+    setLoginFieldErrors((current) => {
+      if (!current.code) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next.code;
+      return next;
+    });
+  };
+
   const requestCode = async () => {
+    const validationErrors = validateRequestCodeInput(email);
+    if (Object.keys(validationErrors).length > 0) {
+      setLoginFieldErrors(validationErrors);
+      setStatusMessage("Enter a valid email address before requesting a code.");
+      return;
+    }
+
+    setLoginFieldErrors({});
     setLoading(true);
     try {
       const body = await portalClient.requestCode({ email });
@@ -163,6 +202,14 @@ function App() {
   };
 
   const verifyCode = async () => {
+    const validationErrors = validateVerifyCodeInput(email, code);
+    if (Object.keys(validationErrors).length > 0) {
+      setLoginFieldErrors(validationErrors);
+      setStatusMessage("Enter a valid email address and 6-digit OTP code.");
+      return;
+    }
+
+    setLoginFieldErrors({});
     setLoading(true);
     try {
       const body = await portalClient.verifyCode({ email, code });
@@ -948,10 +995,11 @@ function App() {
       session={session}
       email={email}
       code={code}
+      loginFieldErrors={loginFieldErrors}
       loading={loading}
       statusMessage={statusMessage}
-      onEmailChange={setEmail}
-      onCodeChange={setCode}
+      onEmailChange={handleEmailChange}
+      onCodeChange={handleCodeChange}
       onRequestCode={requestCode}
       onVerifyCode={verifyCode}
       onRefreshSession={() => refreshSession()}

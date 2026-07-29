@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
 import { DevelopmentSeedAccessCard } from "./DevelopmentSeedAccessCard";
-import type { SessionStatusResponse } from "../../shared/contracts";
+import type {
+  FieldErrors,
+  SessionStatusResponse,
+} from "../../shared/contracts";
+import { getFieldErrors } from "../../shared/problemDetails";
 
 interface LoginViewProps {
   shellHeader: ReactNode;
   session: SessionStatusResponse | null;
   email: string;
   code: string;
+  loginFieldErrors: FieldErrors;
   loading: boolean;
   statusMessage: string;
   onEmailChange: (value: string) => void;
@@ -23,6 +28,7 @@ export function LoginView({
   session,
   email,
   code,
+  loginFieldErrors,
   loading,
   statusMessage,
   onEmailChange,
@@ -125,13 +131,21 @@ export function LoginView({
                           <input
                             id="email-login"
                             type="email"
-                            className="form-control form-control-lg"
+                            className={`form-control form-control-lg ${getFieldErrors(loginFieldErrors, "email").length > 0 ? "is-invalid" : ""}`}
                             placeholder="resident@example.com"
                             value={email}
                             onChange={(event) =>
                               onEmailChange(event.target.value)
                             }
                           />
+                          {getFieldErrors(loginFieldErrors, "email").length >
+                            0 && (
+                            <div className="invalid-feedback d-block">
+                              {getFieldErrors(loginFieldErrors, "email").join(
+                                " ",
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="col-12 col-md-5">
                           <label htmlFor="code-login" className="form-label">
@@ -140,7 +154,7 @@ export function LoginView({
                           <input
                             id="code-login"
                             type="text"
-                            className="form-control form-control-lg"
+                            className={`form-control form-control-lg ${getFieldErrors(loginFieldErrors, "code").length > 0 ? "is-invalid" : ""}`}
                             placeholder="123456"
                             value={code}
                             onChange={(event) =>
@@ -148,6 +162,14 @@ export function LoginView({
                             }
                             maxLength={6}
                           />
+                          {getFieldErrors(loginFieldErrors, "code").length >
+                            0 && (
+                            <div className="invalid-feedback d-block">
+                              {getFieldErrors(loginFieldErrors, "code").join(
+                                " ",
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 

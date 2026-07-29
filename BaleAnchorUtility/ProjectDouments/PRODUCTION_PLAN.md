@@ -164,6 +164,10 @@ Tasks:
 - Display field-level errors consistently using current ProblemDetails mapping.
 - Standardize loading, disabled states, empty states, and retry-friendly errors.
 
+Current progress in this phase:
+
+- Login request and OTP verify flows now use schema-based client validation with field-level feedback and unit-test coverage.
+
 Exit criteria:
 
 - All main forms provide immediate client-side guidance.
