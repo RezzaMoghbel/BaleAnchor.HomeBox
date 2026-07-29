@@ -26,6 +26,39 @@ Current resident and admin portal HTTP calls now route through `BaleAnchorUtilit
 - Add new typed fetch wrappers to `portalClient.ts` before wiring any new workflow slices into `App.tsx`.
 - Reuse `PortalApiError` so RFC 7807 field errors and user-facing failure messages stay consistent across views.
 
+## Client Test Harness
+
+Focused client unit tests now run with `vitest` in `BaleAnchorUtility/baleanchorutility.client`.
+
+- Use `npm test` for narrow client-unit validation.
+- Keep pure route-access logic in `src/shared/routing.ts` so login/onboarding/admin guard behavior remains directly testable.
+- Extend `src/api/portalClient.test.ts` when adding new transport behaviors that must preserve `PortalApiError` handling.
+
+## Development Seed Access
+
+Development seed access is enabled through `BaleAnchorUtility.Server/appsettings.Development.json` and is intended for local development only.
+
+- Fixed development OTP code for configured seed accounts: `123456`
+- Seed accounts:
+  - `superadmin@baleanchor.local`
+  - `admin@baleanchor.local`
+  - `resident.active@baleanchor.local`
+  - `resident.onboarding@baleanchor.local`
+- Flow: start the server in Development, request a code for one of the seed emails, then use `123456` in the normal OTP login flow.
+- Seeded demo resident data now includes:
+  - accepted active terms
+  - utility setup baseline
+  - two readings forming one calculation period
+  - two tariff versions across that period
+  - one generated calculation snapshot
+  - one resident payment
+  - one statement export history record
+- Dev utility endpoints:
+  - `GET /api/system/dev-seed` shows configured dev seed status and seed emails
+  - `POST /api/system/dev-seed` clears then recreates seed demo data
+  - `DELETE /api/system/dev-seed` removes dev seed data
+- Removal rule: disable `SeedAccess:Enabled`, delete the dev-only seed hosted service/configuration, and remove the seeded user JSON files before production.
+
 ## SMTP Configuration
 
 Server email transport is configured in `BaleAnchorUtility/BaleAnchorUtility.Server/appsettings.json` under `EmailTransport`.

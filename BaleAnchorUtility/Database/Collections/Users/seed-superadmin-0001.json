@@ -1,0 +1,14 @@
+{
+  "id": "seed-superadmin-0001",
+  "emailDisplay": "superadmin@baleanchor.local",
+  "emailNormalized": "SUPERADMIN@BALEANCHOR.LOCAL",
+  "surnameNormalized": "SUPERADMIN",
+  "dateOfBirth": "1980-01-01",
+  "flatNumberNormalized": "ADMIN-1",
+  "mobileNumber": "07000000001",
+  "role": 2,
+  "status": 6,
+  "createdAtUtc": "2026-07-29T08:39:20.2282448+00:00",
+  "updatedAtUtc": "2026-07-29T08:39:20.2282448+00:00",
+  "version": 1
+}

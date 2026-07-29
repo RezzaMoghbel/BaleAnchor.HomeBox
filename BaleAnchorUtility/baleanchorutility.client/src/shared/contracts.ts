@@ -2,6 +2,7 @@ export interface RequestCodeResponse {
   message: string;
   resendAfterSeconds: number;
   expiresInSeconds: number;
+  developmentCode?: string;
 }
 
 export interface VerifyCodeResponse {

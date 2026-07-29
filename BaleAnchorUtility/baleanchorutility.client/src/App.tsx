@@ -31,6 +31,7 @@ import {
   formatDisplayDateTime,
 } from "./shared/formatters";
 import { getFieldErrors } from "./shared/problemDetails";
+import { getTargetRoute } from "./shared/routing";
 import "./App.css";
 function App() {
   const location = useLocation();
@@ -148,7 +149,7 @@ function App() {
     try {
       const body = await portalClient.requestCode({ email });
       setStatusMessage(
-        `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.`,
+        `${body.message} Expires in ${body.expiresInSeconds}s. Resend after ${body.resendAfterSeconds}s.${body.developmentCode ? ` Development code: ${body.developmentCode}.` : ""}`,
       );
     } catch (error) {
       if (error instanceof PortalApiError) {
@@ -838,36 +839,6 @@ function App() {
         setLoading(false);
       }
     }
-  };
-
-  const getTargetRoute = (
-    path: string,
-    currentSession: SessionStatusResponse | null,
-  ): string | null => {
-    const isLoginPath = path === "/" || path === "/login";
-    const isOnboardingPath = path === "/onboarding";
-    const isDashboardPath = path.startsWith("/dashboard");
-    const isAdminPath = path.startsWith("/dashboard/admin");
-
-    const isAuthenticated = currentSession?.isAuthenticated === true;
-    const status = currentSession?.userStatus?.trim().toLowerCase();
-    const role = currentSession?.userRole?.trim().toLowerCase();
-    const needsOnboarding = isAuthenticated && status !== "active";
-    const isAdminUser = role === "admin" || role === "superadmin";
-
-    if (!isAuthenticated) {
-      return isLoginPath ? null : "/login";
-    }
-
-    if (needsOnboarding) {
-      return isOnboardingPath ? null : "/onboarding";
-    }
-
-    if (isAdminPath && !isAdminUser) {
-      return "/dashboard";
-    }
-
-    return isDashboardPath ? null : "/dashboard";
   };
 
   useEffect(() => {

@@ -53,6 +53,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.Configure<AuthOtpOptions>(builder.Configuration.GetSection(AuthOtpOptions.SectionName));
 builder.Services.Configure<AdminAccessOptions>(builder.Configuration.GetSection(AdminAccessOptions.SectionName));
+builder.Services.Configure<SeedAccessOptions>(builder.Configuration.GetSection(SeedAccessOptions.SectionName));
 builder.Services.AddOptions<EmailTransportOptions>()
     .Bind(builder.Configuration.GetSection(EmailTransportOptions.SectionName))
     .ValidateOnStart();
@@ -86,7 +87,9 @@ builder.Services.AddScoped<StatementPdfExportService>();
 builder.Services.AddSingleton<IStatementPdfGenerator, PlaceholderStatementPdfGenerator>();
 builder.Services.AddScoped<TermsService>();
 builder.Services.AddScoped<OnboardingService>();
+builder.Services.AddScoped<DevelopmentSeedDataService>();
 builder.Services.AddHostedService<TermsSeedHostedService>();
+builder.Services.AddHostedService<DevelopmentSeedHostedService>();
 
 var app = builder.Build();
 

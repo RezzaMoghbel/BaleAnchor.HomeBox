@@ -1,0 +1,14 @@
+{
+  "id": "seed-resident-onboarding-0001",
+  "emailDisplay": "resident.onboarding@baleanchor.local",
+  "emailNormalized": "RESIDENT.ONBOARDING@BALEANCHOR.LOCAL",
+  "surnameNormalized": "ONBOARDING",
+  "dateOfBirth": "1992-04-04",
+  "flatNumberNormalized": "B202",
+  "mobileNumber": "07000000004",
+  "role": 0,
+  "status": 2,
+  "createdAtUtc": "2026-07-29T08:39:20.2282448+00:00",
+  "updatedAtUtc": "2026-07-29T08:39:20.2282448+00:00",
+  "version": 1
+}

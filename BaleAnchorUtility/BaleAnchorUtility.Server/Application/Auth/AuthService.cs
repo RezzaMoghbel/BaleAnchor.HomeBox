@@ -26,6 +26,8 @@ public sealed class AuthService
     private readonly IEmailSender emailSender;
     private readonly ISystemClock clock;
     private readonly AuthOtpOptions options;
+    private readonly SeedAccessOptions seedAccessOptions;
+    private readonly IHostEnvironment environment;
     private readonly ILogger<AuthService> logger;
 
     public AuthService(
@@ -35,6 +37,8 @@ public sealed class AuthService
         IEmailSender emailSender,
         ISystemClock clock,
         IOptions<AuthOtpOptions> options,
+        IOptions<SeedAccessOptions> seedAccessOptions,
+        IHostEnvironment environment,
         ILogger<AuthService> logger)
     {
         this.userRepository = userRepository;
@@ -43,6 +47,8 @@ public sealed class AuthService
         this.emailSender = emailSender;
         this.clock = clock;
         this.options = options.Value;
+        this.seedAccessOptions = seedAccessOptions.Value;
+        this.environment = environment;
         this.logger = logger;
     }
 
@@ -51,6 +57,7 @@ public sealed class AuthService
         var now = clock.UtcNow;
         var normalizedEmail = NormalizeEmail(request.Email);
         var latestActive = await otpChallengeRepository.GetLatestActiveAsync(normalizedEmail, AuthPurpose, cancellationToken);
+        var developmentCode = GetDevelopmentOtpCode(normalizedEmail);
 
         if (latestActive is not null && latestActive.CooldownUntilUtc > now)
         {
@@ -59,6 +66,7 @@ public sealed class AuthService
                 Message = "If the details are valid, a code has been sent.",
                 ResendAfterSeconds = (int)Math.Ceiling((latestActive.CooldownUntilUtc - now).TotalSeconds),
                 ExpiresInSeconds = (int)Math.Ceiling((latestActive.ExpiresAtUtc - now).TotalSeconds),
+                DevelopmentCode = developmentCode,
             };
         }
 
@@ -72,12 +80,13 @@ public sealed class AuthService
                 Message = "If the details are valid, a code has been sent.",
                 ResendAfterSeconds = options.ResendCooldownSeconds,
                 ExpiresInSeconds = options.OtpExpiryMinutes * 60,
+                DevelopmentCode = developmentCode,
             };
         }
 
         await otpChallengeRepository.InvalidateActiveAsync(normalizedEmail, AuthPurpose, cancellationToken);
 
-        var code = GenerateNumericCode(options.OtpLength);
+        var code = developmentCode ?? GenerateNumericCode(options.OtpLength);
         var salt = GenerateRandomBase64(16);
         var challenge = new OtpChallenge
         {
@@ -104,6 +113,7 @@ public sealed class AuthService
             Message = "If the details are valid, a code has been sent.",
             ResendAfterSeconds = options.ResendCooldownSeconds,
             ExpiresInSeconds = options.OtpExpiryMinutes * 60,
+            DevelopmentCode = developmentCode,
         };
     }
 
@@ -267,6 +277,25 @@ public sealed class AuthService
     }
 
     public static string NormalizeEmail(string email) => email.Trim().ToUpperInvariant();
+
+    private string? GetDevelopmentOtpCode(string normalizedEmail)
+    {
+        if (!environment.IsDevelopment() || !seedAccessOptions.Enabled)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(seedAccessOptions.FixedOtpCode))
+        {
+            return null;
+        }
+
+        var isSeedEmail = seedAccessOptions.Accounts.Any(account =>
+            !string.IsNullOrWhiteSpace(account.Email)
+            && string.Equals(NormalizeEmail(account.Email), normalizedEmail, StringComparison.Ordinal));
+
+        return isSeedEmail ? seedAccessOptions.FixedOtpCode.Trim() : null;
+    }
 
     private static string MaskEmail(string normalizedEmail)
     {
