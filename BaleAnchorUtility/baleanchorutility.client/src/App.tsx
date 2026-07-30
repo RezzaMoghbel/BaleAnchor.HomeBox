@@ -249,6 +249,7 @@ function App() {
     submitAdminDecision,
     submitRoleChange,
     submitAdminLifecycleAction,
+    applyAccountStatusRoleChange,
     startDelegatedSupportSession,
     hardDeleteAdminUser,
   } = useAdminWorkflow({ setLoading });
@@ -1283,6 +1284,7 @@ function App() {
       onSubmitAdminDecision={submitAdminDecision}
       onSubmitRoleChange={submitRoleChange}
       onSubmitAdminLifecycleAction={submitAdminLifecycleAction}
+      onApplyAccountStatusRoleChange={applyAccountStatusRoleChange}
       onStartDelegatedSupportSession={startDelegatedSupportSession}
       onHardDeleteAdminUser={hardDeleteAdminUser}
       formatDisplayDateTime={formatDisplayDateTime}

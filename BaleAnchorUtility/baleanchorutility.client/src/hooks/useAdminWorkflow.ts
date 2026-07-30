@@ -835,6 +835,162 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     }
   };
 
+  const applyAccountStatusRoleChange = async (request: {
+    targetUserId: string;
+    reason: string;
+    statusAction?:
+      | "approve"
+      | "reject"
+      | "suspend"
+      | "move-to-onboarding"
+      | "reinstate-approved"
+      | "archive";
+    roleTarget: "Resident" | "Admin" | "SuperAdmin";
+    currentStatus?: string;
+    currentRole?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    userId?: string;
+    newStatus?: string;
+    newRole?: string;
+  }> => {
+    const targetUserId = request.targetUserId.trim();
+    const reason = request.reason.trim();
+    const roleTarget = request.roleTarget.trim();
+    const normalizedCurrentRole = request.currentRole?.trim().toLowerCase();
+    const normalizedRequestedRole = roleTarget.toLowerCase();
+    const shouldSkipRoleUpdate =
+      !!normalizedCurrentRole &&
+      normalizedCurrentRole === normalizedRequestedRole;
+
+    if (!targetUserId || reason.length < 3 || !roleTarget) {
+      const message = "Target user ID, role, and reason are required.";
+      setAdminMessage(message);
+      return { success: false, message };
+    }
+
+    setLoading(true);
+    try {
+      const statusResponse =
+        request.statusAction === undefined
+          ? {
+              userId: targetUserId,
+              newStatus: request.currentStatus ?? "Unchanged",
+              message: "Account status unchanged.",
+            }
+          : request.statusAction === "approve" ||
+              request.statusAction === "reject"
+            ? await portalClient.submitAdminDecision(
+                targetUserId,
+                request.statusAction,
+                {
+                  reason,
+                },
+              )
+            : await portalClient.submitAdminLifecycleAction(
+                targetUserId,
+                request.statusAction,
+                {
+                  reason,
+                },
+              );
+
+      const roleResponse = shouldSkipRoleUpdate
+        ? {
+            userId: targetUserId,
+            previousRole: request.currentRole ?? roleTarget,
+            newRole: roleTarget,
+            message: "User role unchanged.",
+          }
+        : await portalClient.submitRoleChange(targetUserId, {
+            role: roleTarget,
+            reason,
+          });
+
+      if (request.statusAction === undefined && shouldSkipRoleUpdate) {
+        const unchangedMessage =
+          "No changes to apply. Status and role are unchanged.";
+        setAdminMessage(unchangedMessage);
+        return {
+          success: true,
+          message: unchangedMessage,
+          userId: targetUserId,
+          newStatus: request.currentStatus,
+          newRole: roleTarget,
+        };
+      }
+
+      setAdminTargetUserId(targetUserId);
+      setAdminRoleTarget(roleTarget);
+      setAdminReason(reason);
+
+      setAdminMessage(
+        `${statusResponse.message} User ${statusResponse.userId} now in state ${statusResponse.newStatus}. Role: ${roleResponse.previousRole} -> ${roleResponse.newRole}.`,
+      );
+
+      const nowUtc = new Date().toISOString();
+      setAdminUsers((current) =>
+        current.map((item) =>
+          item.userId === targetUserId
+            ? {
+                ...item,
+                status: statusResponse.newStatus,
+                role: roleResponse.newRole,
+                updatedAtUtc: nowUtc,
+              }
+            : item,
+        ),
+      );
+
+      if (
+        statusResponse.newStatus.trim().toLowerCase() !== "pendingapproval" &&
+        statusResponse.newStatus.trim().toLowerCase() !== "pending"
+      ) {
+        setPendingApprovals((current) =>
+          current.filter((item) => item.userId !== targetUserId),
+        );
+      }
+
+      const refreshPromises = [
+        portalClient
+          .searchAdminUsers(adminSearchQuery, adminSearchStatus)
+          .then((body) => setAdminUsers(body.items)),
+        portalClient
+          .getPendingApprovals()
+          .then((body) => setPendingApprovals(body.items)),
+        portalClient
+          .getAuditLogs({
+            actorUserId: auditActorUserId || undefined,
+            targetUserId: auditTargetUserId || undefined,
+            category: auditCategory || undefined,
+            action: auditAction || undefined,
+          })
+          .then((body) => setAuditEntries(body.items)),
+      ];
+
+      await Promise.allSettled(refreshPromises);
+      return {
+        success: true,
+        message: `${statusResponse.message} Role updated to ${roleResponse.newRole}.`,
+        userId: statusResponse.userId,
+        newStatus: statusResponse.newStatus,
+        newRole: roleResponse.newRole,
+      };
+    } catch (error) {
+      let message = "Account update failed.";
+      if (error instanceof PortalApiError) {
+        message = `Account update failed. ${error.message}`;
+      }
+
+      setAdminMessage(message);
+
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startDelegatedSupportSession = async (request: {
     targetUserId: string;
     reason: string;
@@ -1023,6 +1179,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     submitAdminDecision,
     submitRoleChange,
     submitAdminLifecycleAction,
+    applyAccountStatusRoleChange,
     startDelegatedSupportSession,
     hardDeleteAdminUser,
   };

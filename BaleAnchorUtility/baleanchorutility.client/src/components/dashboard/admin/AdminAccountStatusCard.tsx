@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   AdminUserSummaryItem,
   PendingApprovalUserItem,
@@ -16,9 +16,23 @@ type AccountTableRow = {
   canViewAsUser: boolean;
 };
 
+type AccountStatusOption =
+  | "EmailUnverified"
+  | "EmailVerified"
+  | "TermsPending"
+  | "ProfileIncomplete"
+  | "UtilitySetupIncomplete"
+  | "PendingApproval"
+  | "Active"
+  | "Rejected"
+  | "Suspended"
+  | "MovedOut"
+  | "Archived";
+
 interface AdminAccountStatusCardProps {
   loading: boolean;
   isSuperAdmin: boolean;
+  canRunAdminActions: boolean;
   pendingApprovals: PendingApprovalUserItem[];
   adminUsers: AdminUserSummaryItem[];
   formatDisplayDateTime: (value?: string) => string;
@@ -31,22 +45,130 @@ interface AdminAccountStatusCardProps {
     targetUserId: string,
     expectedEmail?: string,
   ) => Promise<void>;
+  onApplyAccountStatusRoleChange: (request: {
+    targetUserId: string;
+    reason: string;
+    statusAction?:
+      | "approve"
+      | "reject"
+      | "suspend"
+      | "move-to-onboarding"
+      | "reinstate-approved"
+      | "archive";
+    roleTarget: "Resident" | "Admin" | "SuperAdmin";
+    currentStatus?: string;
+    currentRole?: string;
+  }) => Promise<{
+    success: boolean;
+    message: string;
+    userId?: string;
+    newStatus?: string;
+    newRole?: string;
+  }>;
 }
 
 export function AdminAccountStatusCard({
   loading,
   isSuperAdmin,
+  canRunAdminActions,
   pendingApprovals,
   adminUsers,
   formatDisplayDateTime,
   onLoadPendingApprovals,
   onSearchAdminUsers,
   onOpenAccountFromSearch,
+  onApplyAccountStatusRoleChange,
 }: AdminAccountStatusCardProps) {
   const [activeFilter, setActiveFilter] = useState<AccountFilter>("all");
   const [tableSearchTerm, setTableSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [changeModalTarget, setChangeModalTarget] =
+    useState<AccountTableRow | null>(null);
+  const [changeModalStatusTarget, setChangeModalStatusTarget] =
+    useState<AccountStatusOption>("Active");
+  const [changeModalRole, setChangeModalRole] = useState<
+    "Resident" | "Admin" | "SuperAdmin"
+  >("Resident");
+  const [changeModalReason, setChangeModalReason] = useState("");
+  const [changeModalConfirmText, setChangeModalConfirmText] = useState("");
+  const [changeModalChecked, setChangeModalChecked] = useState(false);
+  const [updateToast, setUpdateToast] = useState<{
+    tone: "default" | "danger";
+    title: string;
+    message: string;
+  } | null>(null);
   const pageSize = 10;
+
+  const allStatusOptions: Array<{
+    value: AccountStatusOption;
+    label: string;
+    userSelectable: boolean;
+  }> = [
+    {
+      value: "EmailUnverified",
+      label: "Email unverified (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "EmailVerified",
+      label: "Email verified (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "TermsPending",
+      label: "Terms pending (Onboarding)",
+      userSelectable: true,
+    },
+    {
+      value: "ProfileIncomplete",
+      label: "Profile incomplete (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "UtilitySetupIncomplete",
+      label: "Utility setup incomplete (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "PendingApproval",
+      label: "Pending approval (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "Active",
+      label: "Active",
+      userSelectable: true,
+    },
+    {
+      value: "Rejected",
+      label: "Rejected",
+      userSelectable: true,
+    },
+    {
+      value: "Suspended",
+      label: "Suspended",
+      userSelectable: true,
+    },
+    {
+      value: "MovedOut",
+      label: "Moved out (system-managed)",
+      userSelectable: false,
+    },
+    {
+      value: "Archived",
+      label: "Archived",
+      userSelectable: true,
+    },
+  ];
+
+  useEffect(() => {
+    if (!updateToast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setUpdateToast(null), 4200);
+    return () => window.clearTimeout(timer);
+  }, [updateToast]);
 
   const runAllAccounts = async () => {
     setActiveFilter("all");
@@ -358,6 +480,258 @@ export function AdminAccountStatusCard({
     setCurrentPage(page);
   };
 
+  const normalizeRole = (
+    roleValue: string,
+  ): "Resident" | "Admin" | "SuperAdmin" => {
+    const normalized = roleValue.trim().toLowerCase();
+    if (normalized === "superadmin") {
+      return "SuperAdmin";
+    }
+
+    if (normalized === "admin") {
+      return "Admin";
+    }
+
+    return "Resident";
+  };
+
+  const openChangeModal = (item: AccountTableRow) => {
+    const confirmationText = `CONFIRM ${item.userId}`;
+    const normalizedStatus = item.status.trim().toLowerCase();
+    const defaultStatusTarget: AccountStatusOption =
+      normalizedStatus === "emailunverified"
+        ? "EmailUnverified"
+        : normalizedStatus === "emailverified"
+          ? "EmailVerified"
+          : normalizedStatus === "termspending"
+            ? "TermsPending"
+            : normalizedStatus === "profileincomplete"
+              ? "ProfileIncomplete"
+              : normalizedStatus === "utilitysetupincomplete"
+                ? "UtilitySetupIncomplete"
+                : normalizedStatus === "pendingapproval" ||
+                    normalizedStatus === "pending"
+                  ? "PendingApproval"
+                  : normalizedStatus === "rejected"
+                    ? "Rejected"
+                    : normalizedStatus === "suspended"
+                      ? "Suspended"
+                      : normalizedStatus === "movedout"
+                        ? "MovedOut"
+                        : normalizedStatus === "archived"
+                          ? "Archived"
+                          : "Active";
+
+    setChangeModalTarget(item);
+    setChangeModalStatusTarget(defaultStatusTarget);
+    setChangeModalRole(normalizeRole(item.role));
+    setChangeModalReason(`Account status oversight update for ${item.userId}`);
+    setChangeModalConfirmText(confirmationText);
+    setChangeModalChecked(false);
+  };
+
+  const closeChangeModal = () => {
+    setChangeModalTarget(null);
+    setChangeModalConfirmText("");
+    setChangeModalChecked(false);
+  };
+
+  const changeModalStatusTheme = (statusValue: string) => {
+    const normalized = statusValue.trim().toLowerCase();
+    if (normalized === "pendingapproval" || normalized === "pending") {
+      return {
+        header: "bg-warning text-dark",
+        badge: "badge rounded-pill bg-warning text-dark",
+      };
+    }
+
+    if (normalized === "rejected") {
+      return {
+        header: "bg-danger text-white",
+        badge: "badge rounded-pill bg-danger",
+      };
+    }
+
+    if (normalized === "suspended") {
+      return {
+        header: "bg-dark text-white",
+        badge: "badge rounded-pill bg-dark",
+      };
+    }
+
+    return {
+      header: "bg-success text-white",
+      badge: "badge rounded-pill bg-success",
+    };
+  };
+
+  const isChangeModalReady = () => {
+    if (!changeModalTarget) {
+      return false;
+    }
+
+    const expected = `CONFIRM ${changeModalTarget.userId}`;
+    return (
+      changeModalChecked &&
+      changeModalReason.trim().length >= 3 &&
+      changeModalConfirmText.trim() === expected
+    );
+  };
+
+  const submitChangeModal = async () => {
+    if (!changeModalTarget || !isChangeModalReady()) {
+      return;
+    }
+
+    if (!canRunAdminActions) {
+      setUpdateToast({
+        tone: "danger",
+        title: "Update blocked",
+        message:
+          "Admin permission is required to change account statuses. Sign in as Admin or SuperAdmin.",
+      });
+      return;
+    }
+
+    const currentStatus = changeModalTarget.status.trim().toLowerCase();
+    const targetStatus = changeModalStatusTarget;
+
+    const resolveStatusAction = () => {
+      if (
+        (currentStatus === "pendingapproval" || currentStatus === "pending") &&
+        targetStatus === "Active"
+      ) {
+        return { action: "approve" as const };
+      }
+
+      if (
+        (currentStatus === "pendingapproval" || currentStatus === "pending") &&
+        targetStatus === "Rejected"
+      ) {
+        return { action: "reject" as const };
+      }
+
+      if (targetStatus === "Suspended" && currentStatus !== "suspended") {
+        return { action: "suspend" as const };
+      }
+
+      if (targetStatus === "TermsPending" && currentStatus === "archived") {
+        return {
+          validationMessage:
+            "Archived accounts cannot be moved back to onboarding (Terms pending).",
+        };
+      }
+
+      if (targetStatus === "TermsPending" && currentStatus !== "termspending") {
+        return { action: "move-to-onboarding" as const };
+      }
+
+      if (
+        targetStatus === "Active" &&
+        (currentStatus === "rejected" || currentStatus === "suspended")
+      ) {
+        return { action: "reinstate-approved" as const };
+      }
+
+      if (targetStatus === "Archived" && currentStatus !== "archived") {
+        if (
+          changeModalTarget.role.trim().toLowerCase() === "admin" ||
+          changeModalTarget.role.trim().toLowerCase() === "superadmin"
+        ) {
+          return {
+            validationMessage:
+              "Admin and SuperAdmin accounts cannot be archived with this operation.",
+          };
+        }
+
+        return { action: "archive" as const };
+      }
+
+      if (
+        (targetStatus === "EmailUnverified" ||
+          targetStatus === "EmailVerified" ||
+          targetStatus === "ProfileIncomplete" ||
+          targetStatus === "UtilitySetupIncomplete" ||
+          targetStatus === "PendingApproval" ||
+          targetStatus === "MovedOut") &&
+        targetStatus.toLowerCase() !== currentStatus
+      ) {
+        return {
+          validationMessage:
+            "Selected status is system-managed and cannot be set from this admin modal.",
+        };
+      }
+
+      if (
+        targetStatus === "Rejected" &&
+        currentStatus !== "pendingapproval" &&
+        currentStatus !== "pending"
+      ) {
+        return {
+          validationMessage:
+            "Reject is only valid for users currently in Pending approval.",
+        };
+      }
+
+      if (
+        targetStatus === "Active" &&
+        currentStatus !== "active" &&
+        currentStatus !== "pendingapproval" &&
+        currentStatus !== "pending" &&
+        currentStatus !== "rejected" &&
+        currentStatus !== "suspended"
+      ) {
+        return {
+          validationMessage:
+            "Active can only be set from Pending approval, Rejected, or Suspended.",
+        };
+      }
+
+      return { action: undefined };
+    };
+
+    const statusPlan = resolveStatusAction();
+    if (statusPlan.validationMessage) {
+      setUpdateToast({
+        tone: "danger",
+        title: "Update blocked",
+        message: statusPlan.validationMessage,
+      });
+      return;
+    }
+
+    if (
+      !isSuperAdmin &&
+      normalizeRole(changeModalTarget.role) !== changeModalRole
+    ) {
+      setUpdateToast({
+        tone: "danger",
+        title: "Update blocked",
+        message: "Only SuperAdmin can change user roles.",
+      });
+      return;
+    }
+
+    const result = await onApplyAccountStatusRoleChange({
+      targetUserId: changeModalTarget.userId,
+      reason: changeModalReason.trim(),
+      statusAction: statusPlan.action,
+      roleTarget: changeModalRole,
+      currentStatus: changeModalTarget.status,
+      currentRole: changeModalTarget.role,
+    });
+
+    setUpdateToast({
+      tone: result.success ? "default" : "danger",
+      title: result.success ? "Update saved" : "Update failed",
+      message: result.message,
+    });
+
+    if (result.success) {
+      closeChangeModal();
+    }
+  };
+
   const copyUserId = async (userId: string) => {
     try {
       await navigator.clipboard.writeText(userId);
@@ -370,9 +744,50 @@ export function AdminAccountStatusCard({
     return isSuperAdmin && item.canViewAsUser && !!item.expectedEmail;
   };
 
+  const canManageAccount = (item: AccountTableRow) => {
+    return (
+      canRunAdminActions && item.role.trim().toLowerCase() !== "superadmin"
+    );
+  };
+
   return (
     <div className="card radius-10 border-0 shadow-sm mt-4">
       <div className="card-body">
+        {updateToast && (
+          <div
+            className="position-fixed top-0 end-0 p-3"
+            style={{ zIndex: 1080 }}
+          >
+            <div
+              className={`toast show border-0 shadow-lg ${updateToast.tone === "danger" ? "text-bg-danger" : "bg-white text-dark"}`}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <div
+                className={`toast-header ${updateToast.tone === "danger" ? "bg-danger text-white" : "bg-primary text-white"}`}
+              >
+                <span
+                  className="d-inline-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25 me-2"
+                  style={{ width: "1.65rem", height: "1.65rem" }}
+                >
+                  <i
+                    className={`bi ${updateToast.tone === "danger" ? "bi-exclamation-triangle-fill" : "bi-bell-fill"} ${updateToast.tone === "danger" ? "text-white" : "text-white"}`}
+                  ></i>
+                </span>
+                <strong className="me-auto">{updateToast.title}</strong>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  aria-label="Close"
+                  onClick={() => setUpdateToast(null)}
+                ></button>
+              </div>
+              <div className="toast-body">{updateToast.message}</div>
+            </div>
+          </div>
+        )}
+
         <h5 className="mb-3">Account status oversight</h5>
         <p className="text-secondary mb-3">
           Separate visibility for pending, rejected, and suspended accounts,
@@ -539,24 +954,39 @@ export function AdminAccountStatusCard({
                     <td>{item.flatNumber || "-"}</td>
                     <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
                     <td className="text-end">
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() =>
-                          void onOpenAccountFromSearch(
-                            item.userId,
-                            item.expectedEmail,
-                          )
-                        }
-                        disabled={loading || !canOpenAsUser(item)}
-                        title={
-                          canOpenAsUser(item)
-                            ? "Open this user's dashboard as delegated support"
-                            : "View requires SuperAdmin and an active non-SuperAdmin account"
-                        }
-                      >
-                        View
-                      </button>
+                      <div className="d-inline-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() =>
+                            void onOpenAccountFromSearch(
+                              item.userId,
+                              item.expectedEmail,
+                            )
+                          }
+                          disabled={loading || !canOpenAsUser(item)}
+                          title={
+                            canOpenAsUser(item)
+                              ? "Open this user's dashboard as delegated support"
+                              : "View requires SuperAdmin and an active non-SuperAdmin account"
+                          }
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-dark btn-sm"
+                          onClick={() => openChangeModal(item)}
+                          disabled={loading || !canManageAccount(item)}
+                          title={
+                            canManageAccount(item)
+                              ? "Change account status and role"
+                              : "SuperAdmin account updates are blocked"
+                          }
+                        >
+                          Change
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -614,6 +1044,169 @@ export function AdminAccountStatusCard({
           Use the filter buttons to switch the table between all accounts and
           status-specific queues.
         </div>
+
+        {changeModalTarget && (
+          <>
+            <div
+              className="modal fade show d-block"
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="accountStatusChangeModalTitle"
+            >
+              <div className="modal-dialog modal-lg modal-dialog-centered">
+                <div className="modal-content border-0 shadow">
+                  <div
+                    className={`modal-header ${changeModalStatusTheme(changeModalTarget.status).header}`}
+                  >
+                    <h5
+                      className="modal-title"
+                      id="accountStatusChangeModalTitle"
+                    >
+                      Confirm account update
+                    </h5>
+                    <button
+                      type="button"
+                      className="btn-close btn-close-white"
+                      onClick={closeChangeModal}
+                      aria-label="Close"
+                    ></button>
+                  </div>
+                  <div className="modal-body">
+                    <div className="d-flex flex-wrap gap-2 mb-3">
+                      <span className="badge rounded-pill bg-secondary">
+                        User: {changeModalTarget.userId}
+                      </span>
+                      <span className="badge rounded-pill bg-light text-dark border">
+                        Email: {changeModalTarget.email}
+                      </span>
+                      <span
+                        className={
+                          changeModalStatusTheme(changeModalTarget.status).badge
+                        }
+                      >
+                        Current: {toDisplayStatus(changeModalTarget.status)}
+                      </span>
+                    </div>
+
+                    <div className="row g-3">
+                      <div className="col-12 col-md-6">
+                        <label className="form-label">Status target</label>
+                        <select
+                          className="form-select"
+                          value={changeModalStatusTarget}
+                          onChange={(event) =>
+                            setChangeModalStatusTarget(
+                              event.target.value as AccountStatusOption,
+                            )
+                          }
+                        >
+                          {allStatusOptions.map((statusOption) => (
+                            <option
+                              key={statusOption.value}
+                              value={statusOption.value}
+                              disabled={!statusOption.userSelectable}
+                            >
+                              {statusOption.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-6">
+                        <label className="form-label">Role assignment</label>
+                        <select
+                          className="form-select"
+                          value={changeModalRole}
+                          disabled={!isSuperAdmin}
+                          onChange={(event) =>
+                            setChangeModalRole(
+                              event.target.value as
+                                | "Resident"
+                                | "Admin"
+                                | "SuperAdmin",
+                            )
+                          }
+                        >
+                          <option value="Resident">Resident</option>
+                          <option value="Admin">Admin</option>
+                          {isSuperAdmin && (
+                            <option value="SuperAdmin">SuperAdmin</option>
+                          )}
+                        </select>
+                        {!isSuperAdmin && (
+                          <div className="form-text">
+                            Role change is available to SuperAdmin only.
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label">Reason</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={changeModalReason}
+                          onChange={(event) =>
+                            setChangeModalReason(event.target.value)
+                          }
+                          placeholder="Provide an audit reason"
+                        />
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label">
+                          Confirmation text (auto-generated)
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={changeModalConfirmText}
+                          readOnly
+                        />
+                      </div>
+                      <div className="col-12">
+                        <div className="form-check">
+                          <input
+                            id="confirmAccountUpdate"
+                            className="form-check-input"
+                            type="checkbox"
+                            checked={changeModalChecked}
+                            onChange={(event) =>
+                              setChangeModalChecked(event.target.checked)
+                            }
+                          />
+                          <label
+                            className="form-check-label"
+                            htmlFor="confirmAccountUpdate"
+                          >
+                            I confirm this change is approved and should be
+                            applied now.
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={closeChangeModal}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void submitChangeModal()}
+                      disabled={loading || !isChangeModalReady()}
+                    >
+                      Save changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-backdrop fade show"></div>
+          </>
+        )}
       </div>
     </div>
   );

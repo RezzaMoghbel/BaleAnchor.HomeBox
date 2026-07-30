@@ -189,6 +189,26 @@ interface AdminDashboardViewProps {
   onSubmitAdminLifecycleAction: (
     action: "suspend" | "move-to-onboarding" | "reinstate-approved" | "archive",
   ) => Promise<void>;
+  onApplyAccountStatusRoleChange: (request: {
+    targetUserId: string;
+    reason: string;
+    statusAction?:
+      | "approve"
+      | "reject"
+      | "suspend"
+      | "move-to-onboarding"
+      | "reinstate-approved"
+      | "archive";
+    roleTarget: "Resident" | "Admin" | "SuperAdmin";
+    currentStatus?: string;
+    currentRole?: string;
+  }) => Promise<{
+    success: boolean;
+    message: string;
+    userId?: string;
+    newStatus?: string;
+    newRole?: string;
+  }>;
   onHardDeleteAdminUser: () => Promise<void>;
   onStartDelegatedSupportSession: (request: {
     targetUserId: string;
@@ -360,11 +380,15 @@ export function AdminDashboardView({
   onSubmitAdminDecision,
   onSubmitRoleChange,
   onSubmitAdminLifecycleAction,
+  onApplyAccountStatusRoleChange,
   onHardDeleteAdminUser,
   onStartDelegatedSupportSession,
   formatDisplayDateTime,
 }: AdminDashboardViewProps) {
   const isSuperAdmin = currentUserRole.trim().toLowerCase() === "superadmin";
+  const canRunAdminActions =
+    currentUserRole.trim().toLowerCase() === "admin" ||
+    currentUserRole.trim().toLowerCase() === "superadmin";
   const showAccount = adminSection === "account";
   const showAccountAccess = adminSection === "account-access";
   const showSettings = adminSection === "settings";
@@ -410,12 +434,14 @@ export function AdminDashboardView({
             <AdminAccountStatusCard
               loading={loading}
               isSuperAdmin={isSuperAdmin}
+              canRunAdminActions={canRunAdminActions}
               pendingApprovals={pendingApprovals}
               adminUsers={adminUsers}
               formatDisplayDateTime={formatDisplayDateTime}
               onLoadPendingApprovals={onLoadPendingApprovals}
               onSearchAdminUsers={onSearchAdminUsers}
               onOpenAccountFromSearch={onOpenAccountFromSearch}
+              onApplyAccountStatusRoleChange={onApplyAccountStatusRoleChange}
             />
           )}
 
