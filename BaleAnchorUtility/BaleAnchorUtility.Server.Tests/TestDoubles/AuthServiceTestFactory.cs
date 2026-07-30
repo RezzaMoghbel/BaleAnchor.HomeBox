@@ -19,6 +19,7 @@ internal static class AuthServiceTestFactory
             users,
             new NoOpOtpChallengeRepository(),
             sessions,
+            new InMemoryAuditLogRepository(),
             new NoOpEmailSender(),
             new NoOpAuthAccessSettingsProvider(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-28T12:00:00Z") },

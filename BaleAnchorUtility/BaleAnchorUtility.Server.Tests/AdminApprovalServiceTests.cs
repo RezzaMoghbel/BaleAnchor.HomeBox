@@ -67,6 +67,55 @@ public sealed class AdminApprovalServiceTests
             service.RejectAsync("admin-1", "u-active", "Invalid state", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ReinstateApprovedAsync_TransitionsRejectedToActive()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateUser("u-rejected", "rejected@example.com", UserAccountStatus.Rejected));
+
+        var auditLogs = new InMemoryAuditLogRepository();
+        var service = new AdminApprovalService(
+            users,
+            auditLogs,
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<AdminApprovalService>.Instance);
+
+        var result = await service.ReinstateApprovedAsync(
+            "admin-1",
+            "u-rejected",
+            "Appeal accepted",
+            CancellationToken.None);
+
+        Assert.Equal("Active", result.NewStatus);
+        Assert.Contains(auditLogs.Entries, x => x.Action == "REINSTATE_APPROVED");
+    }
+
+    [Fact]
+    public async Task ArchiveAsync_RejectsAdminRoleTargets()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(new UserAccount
+        {
+            Id = "u-admin",
+            EmailDisplay = "admin@example.com",
+            EmailNormalized = "ADMIN@EXAMPLE.COM",
+            Role = UserRole.Admin,
+            Status = UserAccountStatus.Active,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        });
+
+        var service = new AdminApprovalService(
+            users,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<AdminApprovalService>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ArchiveAsync("admin-1", "u-admin", "archive request", CancellationToken.None));
+    }
+
     private static UserAccount CreateUser(string id, string email, UserAccountStatus status)
     {
         return new UserAccount

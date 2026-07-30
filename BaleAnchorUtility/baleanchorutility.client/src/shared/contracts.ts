@@ -27,6 +27,9 @@ export interface SessionStatusResponse {
   userStatus?: string;
   userRole?: string;
   expiresAtUtc?: string;
+  isDelegatedSession?: boolean;
+  delegatedByUserId?: string;
+  delegationReason?: string;
 }
 
 export interface DevelopmentSeedStatusResponse {
@@ -129,6 +132,21 @@ export interface AdminDecisionResponse {
   message: string;
 }
 
+export interface StartDelegatedSupportSessionRequest {
+  targetUserId: string;
+  reason: string;
+  expectedEmail?: string;
+  expectedFlatNumber?: string;
+  expectedDateOfBirth?: string;
+}
+
+export interface StartDelegatedSupportSessionResponse {
+  switchedUserId: string;
+  switchedUserEmailMasked: string;
+  expiresAtUtc: string;
+  message: string;
+}
+
 export interface AdminRoleChangeResponse {
   userId: string;
   previousRole: string;
@@ -199,12 +217,12 @@ export interface UpdateAdminEmailTransportSettingsRequest {
   smtpUseSsl: boolean;
   smtpUsername: string;
   smtpPassword?: string;
-  reason: string;
+  reason?: string;
 }
 
 export interface SendAdminEmailTransportTestRequest {
   email: string;
-  reason: string;
+  reason?: string;
 }
 
 export interface AdminEmailTransportTestResponse {
@@ -227,7 +245,7 @@ export interface UpdateAdminAuthAccessSettingsRequest {
   allowLocalDomainFixedOtp: boolean;
   fixedOtpCode: string;
   localFixedOtpDomains: string[];
-  reason: string;
+  reason?: string;
 }
 
 export interface TermsVersionSummaryItem {
@@ -277,6 +295,17 @@ export interface AuditLogSummaryItem {
 export interface AuditLogListResponse {
   count: number;
   items: AuditLogSummaryItem[];
+}
+
+export interface HardDeleteUserRequest {
+  reason: string;
+  confirmationText: string;
+}
+
+export interface HardDeleteUserResponse {
+  userId: string;
+  deletedRecordCount: number;
+  message: string;
 }
 
 export interface FlatSummaryItem {

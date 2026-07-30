@@ -11,5 +11,8 @@ public sealed class AuthSession
     public DateTimeOffset ExpiresAtUtc { get; set; }
     public DateTimeOffset LastUsedAtUtc { get; set; }
     public DateTimeOffset? RevokedAtUtc { get; set; }
+    public bool IsDelegatedSession { get; set; }
+    public string? DelegatedByUserId { get; set; }
+    public string? DelegationReason { get; set; }
     public int Version { get; set; }
 }

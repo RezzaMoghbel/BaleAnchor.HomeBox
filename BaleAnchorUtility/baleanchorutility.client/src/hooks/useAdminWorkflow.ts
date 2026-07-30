@@ -133,14 +133,14 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
       setEmailSmtpUseSsl(email.smtpUseSsl);
       setEmailSmtpUsername(email.smtpUsername);
       setEmailSmtpPassword("");
-      setEmailTestRecipient(email.fromAddress);
+      setEmailTestRecipient("");
 
-      setAdminMessage("Loaded system auth and SMTP settings.");
+      setAdminMessage("System auth and SMTP settings refreshed.");
     } catch (error) {
       if (error instanceof PortalApiError) {
-        setAdminMessage(`Unable to load system settings. ${error.message}`);
+        setAdminMessage(`Unable to refresh system settings. ${error.message}`);
       } else {
-        setAdminMessage("Unable to load system settings.");
+        setAdminMessage("Unable to refresh system settings.");
       }
     } finally {
       setLoading(false);
@@ -148,11 +148,6 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   };
 
   const saveAuthAccessSettings = async () => {
-    if (!adminReason) {
-      setAdminMessage("Reason is required for auth settings updates.");
-      return;
-    }
-
     setLoading(true);
     try {
       const domains = authLocalDomains
@@ -165,10 +160,11 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         allowLocalDomainFixedOtp: authAllowLocalFixedOtp,
         fixedOtpCode: authFixedOtpCode,
         localFixedOtpDomains: domains,
-        reason: adminReason,
       });
 
-      setAdminMessage("Auth access settings updated.");
+      setAdminMessage(
+        "OTP settings updated. Audit log recorded automatically.",
+      );
       await loadAuditLogs();
     } catch (error) {
       if (error instanceof PortalApiError) {
@@ -182,11 +178,6 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   };
 
   const saveEmailTransportSettings = async () => {
-    if (!adminReason) {
-      setAdminMessage("Reason is required for email settings updates.");
-      return;
-    }
-
     setLoading(true);
     try {
       const parsedPort = Number(emailSmtpPort);
@@ -199,11 +190,12 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         smtpUseSsl: emailSmtpUseSsl,
         smtpUsername: emailSmtpUsername,
         smtpPassword: emailSmtpPassword || undefined,
-        reason: adminReason,
       });
 
       setEmailSmtpPassword("");
-      setAdminMessage("Email transport settings updated.");
+      setAdminMessage(
+        "SMTP settings updated. Audit log recorded automatically.",
+      );
       await loadAuditLogs();
     } catch (error) {
       if (error instanceof PortalApiError) {
@@ -217,11 +209,6 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   };
 
   const sendEmailTransportTest = async () => {
-    if (!adminReason) {
-      setAdminMessage("Reason is required for email transport test.");
-      return;
-    }
-
     if (!emailTestRecipient.trim()) {
       setAdminMessage("A target email is required for email transport test.");
       return;
@@ -232,7 +219,6 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     try {
       const body = await portalClient.sendAdminEmailTransportTest({
         email: emailTestRecipient.trim(),
-        reason: adminReason,
       });
 
       await loadAuditLogs();
@@ -287,16 +273,18 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     }
   };
 
-  const loadAdminBillingContext = async () => {
-    if (!adminTargetUserId) {
+  const loadAdminBillingContext = async (targetUserIdOverride?: string) => {
+    const targetUserId = (targetUserIdOverride ?? adminTargetUserId).trim();
+    if (!targetUserId) {
       setAdminMessage("Target user ID is required.");
       return;
     }
 
+    setAdminTargetUserId(targetUserId);
     setLoading(true);
     try {
       const body = await portalClient.getAdminBillingContext(
-        adminTargetUserId,
+        targetUserId,
         adminBillingOnDate || undefined,
       );
       setAdminBillingContext(body);
@@ -484,6 +472,66 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         setAdminMessage(`Unable to load audit records. ${error.message}`);
       } else {
         setAdminMessage("Unable to load audit records.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSupportLifecycleAuditLogs = async () => {
+    setLoading(true);
+    try {
+      setAuditCategory("");
+      setAuditAction("");
+      const body = await portalClient.getAuditLogs({
+        actorUserId: auditActorUserId || undefined,
+        targetUserId: auditTargetUserId || undefined,
+        scope: "support-lifecycle",
+      });
+      setAuditEntries(body.items);
+      setAdminMessage(
+        `Loaded ${body.count} support and lifecycle audit record(s).`,
+      );
+    } catch (error) {
+      setAuditEntries([]);
+      if (error instanceof PortalApiError) {
+        setAdminMessage(
+          `Unable to load support and lifecycle audit records. ${error.message}`,
+        );
+      } else {
+        setAdminMessage("Unable to load support and lifecycle audit records.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hardDeleteAdminUser = async () => {
+    if (!adminTargetUserId || !adminReason) {
+      setAdminMessage(
+        "Target user ID and reason are required for hard delete.",
+      );
+      return;
+    }
+
+    const confirmationText = `DELETE ${adminTargetUserId}`;
+
+    setLoading(true);
+    try {
+      const body = await portalClient.hardDeleteAdminUser(adminTargetUserId, {
+        reason: adminReason,
+        confirmationText,
+      });
+
+      setAdminMessage(
+        `${body.message} Deleted records: ${body.deletedRecordCount}.`,
+      );
+      await Promise.all([searchAdminUsers(), loadAuditLogs()]);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Hard delete failed. ${error.message}`);
+      } else {
+        setAdminMessage("Hard delete failed.");
       }
     } finally {
       setLoading(false);
@@ -745,6 +793,72 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     }
   };
 
+  const submitAdminLifecycleAction = async (
+    action: "suspend" | "move-to-onboarding" | "reinstate-approved" | "archive",
+  ) => {
+    if (!adminTargetUserId || !adminReason) {
+      setAdminMessage("Target user ID and reason are required.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const body = await portalClient.submitAdminLifecycleAction(
+        adminTargetUserId,
+        action,
+        { reason: adminReason },
+      );
+
+      setAdminMessage(
+        `${body.message} User ${body.userId} now in state ${body.newStatus}.`,
+      );
+      await Promise.all([loadPendingApprovals(), loadAuditLogs()]);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Lifecycle action failed. ${error.message}`);
+      } else {
+        setAdminMessage("Lifecycle action failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startDelegatedSupportSession = async (request: {
+    targetUserId: string;
+    reason: string;
+    expectedEmail?: string;
+    expectedFlatNumber?: string;
+    expectedDateOfBirth?: string;
+  }): Promise<boolean> => {
+    if (!request.targetUserId || !request.reason) {
+      setAdminMessage(
+        "Target user ID and reason are required for support login.",
+      );
+      return false;
+    }
+
+    setLoading(true);
+    try {
+      const body = await portalClient.startDelegatedSupportSession(request);
+      setAdminMessage(
+        `${body.message} Switched to ${body.switchedUserEmailMasked}. Session expires at ${body.expiresAtUtc}.`,
+      );
+      await loadAuditLogs();
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Support login failed. ${error.message}`);
+      } else {
+        setAdminMessage("Support login failed.");
+      }
+
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     pendingApprovals,
     adminUsers,
@@ -884,6 +998,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     publishTermsVersion,
     loadTermsAcceptances,
     loadAuditLogs,
+    loadSupportLifecycleAuditLogs,
     loadFlats,
     upsertFlat,
     loadTenancies,
@@ -896,5 +1011,8 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     clearTenantGapForm,
     submitAdminDecision,
     submitRoleChange,
+    submitAdminLifecycleAction,
+    startDelegatedSupportSession,
+    hardDeleteAdminUser,
   };
 }

@@ -64,6 +64,19 @@ public sealed class AdminActionResultResponse
     public string Message { get; init; } = string.Empty;
 }
 
+public sealed class HardDeleteUserRequest
+{
+    public string Reason { get; init; } = string.Empty;
+    public string ConfirmationText { get; init; } = string.Empty;
+}
+
+public sealed class HardDeleteUserResponse
+{
+    public string UserId { get; init; } = string.Empty;
+    public int DeletedRecordCount { get; init; }
+    public string Message { get; init; } = string.Empty;
+}
+
 public sealed class PublishTermsVersionRequest
 {
     public string VersionLabel { get; init; } = string.Empty;

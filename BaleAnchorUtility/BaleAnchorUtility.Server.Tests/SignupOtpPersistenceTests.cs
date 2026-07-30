@@ -83,6 +83,7 @@ public sealed class SignupOtpPersistenceTests
             users,
             new InMemoryOtpChallengeRepository(),
             new PassThroughSessionRepository(),
+            new InMemoryAuditLogRepository(),
             new NoOpEmailSender(),
             new FixedAuthAccessSettingsProvider(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-29T00:00:00Z") },

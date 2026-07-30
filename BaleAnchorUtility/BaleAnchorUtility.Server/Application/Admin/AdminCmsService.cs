@@ -22,6 +22,7 @@ public sealed class AdminCmsService
     private readonly ITermsVersionRepository termsVersionRepository;
     private readonly ITermsAcceptanceRepository termsAcceptanceRepository;
     private readonly IAuditLogRepository auditLogRepository;
+    private readonly IAdminUserPurgeRepository adminUserPurgeRepository;
     private readonly ISystemClock clock;
 
     public AdminCmsService(
@@ -36,6 +37,7 @@ public sealed class AdminCmsService
         ITermsVersionRepository termsVersionRepository,
         ITermsAcceptanceRepository termsAcceptanceRepository,
         IAuditLogRepository auditLogRepository,
+        IAdminUserPurgeRepository adminUserPurgeRepository,
         ISystemClock clock)
     {
         this.userRepository = userRepository;
@@ -49,6 +51,7 @@ public sealed class AdminCmsService
         this.termsVersionRepository = termsVersionRepository;
         this.termsAcceptanceRepository = termsAcceptanceRepository;
         this.auditLogRepository = auditLogRepository;
+        this.adminUserPurgeRepository = adminUserPurgeRepository;
         this.clock = clock;
     }
 
@@ -714,12 +717,36 @@ public sealed class AdminCmsService
     public async Task<AuditLogListResponse> GetAuditLogsAsync(
         string? actorUserId,
         string? targetUserId,
+        string? scope,
         string? category,
         string? action,
         CancellationToken cancellationToken)
     {
         var all = await auditLogRepository.GetAllAsync(cancellationToken);
         var filtered = all.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(scope))
+        {
+            var normalizedScope = scope.Trim().ToLowerInvariant();
+            if (normalizedScope != "support-lifecycle")
+            {
+                throw new ArgumentException("scope must be one of: support-lifecycle.", nameof(scope));
+            }
+
+            var lifecycleActions = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "SUSPEND",
+                "MOVE_TO_ONBOARDING",
+                "REINSTATE_APPROVED",
+                "ARCHIVE",
+            };
+
+            filtered = filtered.Where(x =>
+                (string.Equals(x.Category, "ADMIN_SUPPORT", StringComparison.Ordinal)
+                 && string.Equals(x.Action, "START_DELEGATED_SESSION", StringComparison.Ordinal))
+                || (string.Equals(x.Category, "ADMIN_APPROVAL", StringComparison.Ordinal)
+                    && lifecycleActions.Contains(x.Action)));
+        }
 
         if (!string.IsNullOrWhiteSpace(actorUserId))
         {
@@ -763,6 +790,65 @@ public sealed class AdminCmsService
         {
             Count = items.Count,
             Items = items,
+        };
+    }
+
+    public async Task<HardDeleteUserResponse> HardDeleteUserAsync(
+        UserAccount actor,
+        string targetUserId,
+        HardDeleteUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (actor.Role != UserRole.SuperAdmin)
+        {
+            throw new InvalidOperationException("Only SuperAdmin users can hard delete user accounts.");
+        }
+
+        var target = await GetTargetUserAsync(targetUserId, cancellationToken);
+        if (string.Equals(actor.Id, target.Id, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("SuperAdmin cannot hard delete their own account.");
+        }
+
+        if (target.Role is UserRole.Admin or UserRole.SuperAdmin)
+        {
+            throw new InvalidOperationException("Admin and SuperAdmin accounts cannot be hard deleted via this operation.");
+        }
+
+        if (target.Status != UserAccountStatus.Archived)
+        {
+            throw new InvalidOperationException("Account must be archived before hard deletion.");
+        }
+
+        var reason = ValidateReason(request.Reason, nameof(request.Reason));
+        var expectedConfirmation = $"DELETE {target.Id}";
+        var providedConfirmation = request.ConfirmationText?.Trim() ?? string.Empty;
+        if (!string.Equals(providedConfirmation, expectedConfirmation, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Confirmation text must exactly match '{expectedConfirmation}'.",
+                nameof(request.ConfirmationText));
+        }
+
+        var summary = await adminUserPurgeRepository.PurgeUserDataAsync(
+            target.Id,
+            target.EmailNormalized,
+            cancellationToken);
+
+        await AddAuditAsync(
+            actor.Id,
+            target.Id,
+            "ADMIN_USER",
+            "HARD_DELETE_USER",
+            reason,
+            BuildHardDeleteMetadata(summary),
+            cancellationToken);
+
+        return new HardDeleteUserResponse
+        {
+            UserId = target.Id,
+            DeletedRecordCount = summary.TotalDeleted,
+            Message = "User account and linked records were permanently deleted.",
         };
     }
 
@@ -875,5 +961,27 @@ public sealed class AdminCmsService
         }
 
         return value;
+    }
+
+    private static string BuildHardDeleteMetadata(AdminUserPurgeSummary summary)
+    {
+        return string.Join(';',
+        [
+            $"users:{summary.UsersDeleted}",
+            $"sessions:{summary.SessionsDeleted}",
+            $"otpChallenges:{summary.OtpChallengesDeleted}",
+            $"termsAcceptances:{summary.TermsAcceptancesDeleted}",
+            $"utilitySetups:{summary.UtilitySetupsDeleted}",
+            $"tariffs:{summary.TariffsDeleted}",
+            $"readings:{summary.ReadingsDeleted}",
+            $"calculationSnapshots:{summary.CalculationSnapshotsDeleted}",
+            $"payments:{summary.PaymentsDeleted}",
+            $"statementExports:{summary.StatementExportsDeleted}",
+            $"pushSubscriptions:{summary.PushSubscriptionsDeleted}",
+            $"notificationPreferences:{summary.NotificationPreferencesDeleted}",
+            $"reminderJobs:{summary.ReminderJobsDeleted}",
+            $"tenancies:{summary.TenanciesDeleted}",
+            $"tenantGaps:{summary.TenantGapsDeleted}",
+        ]);
     }
 }

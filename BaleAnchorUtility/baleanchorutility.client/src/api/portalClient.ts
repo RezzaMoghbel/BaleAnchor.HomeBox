@@ -8,6 +8,10 @@ import type {
   AdminActionResultResponse,
   AdminBillingContextResponse,
   AdminDecisionResponse,
+  HardDeleteUserRequest,
+  HardDeleteUserResponse,
+  StartDelegatedSupportSessionRequest,
+  StartDelegatedSupportSessionResponse,
   AdminRoleChangeResponse,
   AdminUserSearchResponse,
   AuthModeResponse,
@@ -170,9 +174,9 @@ interface UpsertTenantGapAllocationRequest {
   status?: string;
 }
 
-interface UpdateReminderPreferencesRequest extends UpdateNotificationPreferencesRequest {}
+type UpdateReminderPreferencesRequest = UpdateNotificationPreferencesRequest;
 
-interface SavePushSubscriptionRequest extends UpsertPushSubscriptionRequest {}
+type SavePushSubscriptionRequest = UpsertPushSubscriptionRequest;
 
 interface SubmitReadingsRequest {
   readingDate: string;
@@ -422,6 +426,38 @@ export const portalClient = {
     );
   },
 
+  submitAdminLifecycleAction(
+    targetUserId: string,
+    action: "suspend" | "move-to-onboarding" | "reinstate-approved" | "archive",
+    request: AdminDecisionRequest,
+  ) {
+    return requestJson<AdminDecisionResponse>(
+      `/api/v1/admin/approvals/${encodeURIComponent(targetUserId)}/${action}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  startDelegatedSupportSession(request: StartDelegatedSupportSessionRequest) {
+    return requestJson<StartDelegatedSupportSessionResponse>(
+      "/api/v1/admin/approvals/support/login-on-behalf",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   submitRoleChange(targetUserId: string, request: RoleChangeRequest) {
     return requestJson<AdminRoleChangeResponse>(
       `/api/v1/admin/roles/${encodeURIComponent(targetUserId)}`,
@@ -625,6 +661,7 @@ export const portalClient = {
   getAuditLogs(filters?: {
     actorUserId?: string;
     targetUserId?: string;
+    scope?: "support-lifecycle";
     category?: string;
     action?: string;
   }) {
@@ -635,6 +672,10 @@ export const portalClient = {
 
     if (filters?.targetUserId && filters.targetUserId.trim().length > 0) {
       params.set("targetUserId", filters.targetUserId.trim());
+    }
+
+    if (filters?.scope) {
+      params.set("scope", filters.scope);
     }
 
     if (filters?.category && filters.category.trim().length > 0) {
@@ -651,6 +692,20 @@ export const portalClient = {
       {
         method: "GET",
         credentials: "include",
+      },
+    );
+  },
+
+  hardDeleteAdminUser(targetUserId: string, request: HardDeleteUserRequest) {
+    return requestJson<HardDeleteUserResponse>(
+      `/api/v1/admin/cms/users/${encodeURIComponent(targetUserId)}/hard-delete`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
       },
     );
   },

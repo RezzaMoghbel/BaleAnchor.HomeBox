@@ -8,4 +8,7 @@ public sealed class SessionStatusResponse
     public string? UserStatus { get; init; }
     public string? UserRole { get; init; }
     public string? ExpiresAtUtc { get; init; }
+    public bool IsDelegatedSession { get; init; }
+    public string? DelegatedByUserId { get; init; }
+    public string? DelegationReason { get; init; }
 }

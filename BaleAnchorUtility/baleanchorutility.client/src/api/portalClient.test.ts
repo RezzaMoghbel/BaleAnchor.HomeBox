@@ -210,6 +210,165 @@ describe("portalClient", () => {
     expect(result.usersChanged).toBe(4);
   });
 
+  it("loads audit logs with support-lifecycle scope filter", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          count: 1,
+          items: [
+            {
+              auditId: "a1",
+              actorUserId: "super-1",
+              targetUserId: "resident-1",
+              category: "ADMIN_SUPPORT",
+              action: "START_DELEGATED_SESSION",
+              reason: "Support request",
+              metadata: "x",
+              createdAtUtc: "2026-07-30T12:00:00.0000000Z",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const result = await portalClient.getAuditLogs({
+      scope: "support-lifecycle",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/cms/audit?scope=support-lifecycle",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+    expect(result.count).toBe(1);
+  });
+
+  it("posts hard delete admin user request", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          userId: "u-1",
+          deletedRecordCount: 7,
+          message: "User account and linked records were permanently deleted.",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    const result = await portalClient.hardDeleteAdminUser("u-1", {
+      reason: "GDPR delete request",
+      confirmationText: "DELETE u-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/cms/users/u-1/hard-delete",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          reason: "GDPR delete request",
+          confirmationText: "DELETE u-1",
+        }),
+      },
+    );
+    expect(result.deletedRecordCount).toBe(7);
+  });
+
+  it("updates auth access settings without explicit reason", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          otpEnabled: true,
+          allowLocalDomainFixedOtp: true,
+          fixedOtpCode: "123456",
+          localFixedOtpDomains: ["baleanchor.local"],
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    await portalClient.updateAdminAuthAccessSettings({
+      otpEnabled: true,
+      allowLocalDomainFixedOtp: true,
+      fixedOtpCode: "123456",
+      localFixedOtpDomains: ["baleanchor.local"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/system-settings/auth-access",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          otpEnabled: true,
+          allowLocalDomainFixedOtp: true,
+          fixedOtpCode: "123456",
+          localFixedOtpDomains: ["baleanchor.local"],
+        }),
+      },
+    );
+  });
+
+  it("sends smtp transport test without explicit reason", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          email: "recipient@example.com",
+          mode: "smtp",
+          message: "SMTP test email sent.",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    await portalClient.sendAdminEmailTransportTest({
+      email: "recipient@example.com",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/system-settings/email-transport/test",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: "recipient@example.com",
+        }),
+      },
+    );
+  });
+
   it("loads reminder preferences with authenticated request", async () => {
     fetchMock.mockResolvedValue(
       new Response(

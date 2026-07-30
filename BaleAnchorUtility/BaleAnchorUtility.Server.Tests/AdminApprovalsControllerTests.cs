@@ -30,6 +30,7 @@ public sealed class AdminApprovalsControllerTests
             auth,
             users,
             service,
+            new AdminSupportAccessService(users, auth),
             Options.Create(new AdminAccessOptions()));
 
         controller.ControllerContext = new ControllerContext
@@ -62,6 +63,7 @@ public sealed class AdminApprovalsControllerTests
             auth,
             users,
             service,
+            new AdminSupportAccessService(users, auth),
             Options.Create(new AdminAccessOptions()));
 
         controller.ControllerContext = new ControllerContext
@@ -112,6 +114,7 @@ public sealed class AdminApprovalsControllerTests
             auth,
             users,
             service,
+            new AdminSupportAccessService(users, auth),
             Options.Create(new AdminAccessOptions()));
 
         controller.ControllerContext = new ControllerContext
@@ -129,6 +132,106 @@ public sealed class AdminApprovalsControllerTests
 
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
         Assert.Equal("ADMIN_APPROVAL_CONFLICT", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Suspend_Returns200_ForAdminActorAndActiveTarget()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("admin-1", "admin@example.com", UserRole.Admin, UserAccountStatus.Active);
+        var target = CreateUser("user-1", "user@example.com", UserRole.Resident, UserAccountStatus.Active);
+        users.Seed(actor, target);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+        var service = new AdminApprovalService(
+            users,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<AdminApprovalService>.Instance);
+
+        var controller = new AdminApprovalsController(
+            auth,
+            users,
+            service,
+            new AdminSupportAccessService(users, auth),
+            Options.Create(new AdminAccessOptions()));
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = NewHttpContext("/api/v1/admin/approvals/user-1/suspend", withSessionCookie: true),
+        };
+
+        var action = await controller.Suspend(
+            target.Id,
+            new AdminDecisionRequest { Reason = "Policy violation" },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var body = Assert.IsType<AdminDecisionResponse>(ok.Value);
+        Assert.Equal("Suspended", body.NewStatus);
+    }
+
+    [Fact]
+    public async Task StartDelegatedSupportSession_Returns403_ForAdminRole()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("admin-1", "admin@example.com", UserRole.Admin, UserAccountStatus.Active);
+        var target = CreateUser("user-1", "user@example.com", UserRole.Resident, UserAccountStatus.Active);
+        users.Seed(actor, target);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+        var service = new AdminApprovalService(
+            users,
+            new InMemoryAuditLogRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
+            NullLogger<AdminApprovalService>.Instance);
+
+        var controller = new AdminApprovalsController(
+            auth,
+            users,
+            service,
+            new AdminSupportAccessService(users, auth),
+            Options.Create(new AdminAccessOptions()));
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = NewHttpContext("/api/v1/admin/approvals/support/login-on-behalf", withSessionCookie: true),
+        };
+
+        var action = await controller.StartDelegatedSupportSession(
+            new StartDelegatedSupportSessionRequest
+            {
+                TargetUserId = target.Id,
+                Reason = "Resident requested assisted access",
+                ExpectedEmail = target.EmailDisplay,
+            },
+            CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(forbidden.Value);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Equal("ADMIN_ACCESS_DENIED", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    private static PassThroughSessionRepository SessionFor(UserAccount actor)
+    {
+        return new PassThroughSessionRepository
+        {
+            SessionToReturn = new AuthSession
+            {
+                Id = "s1",
+                TokenHash = "irrelevant",
+                EmailNormalized = actor.EmailNormalized,
+                UserId = actor.Id,
+                DeviceSummary = "test",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                LastUsedAtUtc = DateTimeOffset.UtcNow,
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30),
+                Version = 1,
+            },
+        };
     }
 
     private static DefaultHttpContext NewHttpContext(string path, bool withSessionCookie = false)

@@ -67,7 +67,6 @@ public sealed class AdminSystemSettingsService
         UpdateAdminEmailTransportSettingsRequest request,
         CancellationToken cancellationToken)
     {
-        var reason = RequireLength(request.Reason, 3, 240, nameof(request.Reason), "A reason is required and must be between 3 and 240 characters.");
         var mode = NormalizeMode(request.Mode);
         var fromName = RequireLength(request.FromName, 1, 120, nameof(request.FromName), "From name is required and must be between 1 and 120 characters.");
         var fromAddress = ValidateEmail(request.FromAddress, nameof(request.FromAddress), "From address must be a valid email address.");
@@ -84,6 +83,7 @@ public sealed class AdminSystemSettingsService
         document.Mode = mode;
         document.FromName = fromName;
         document.FromAddress = fromAddress;
+        var smtpPasswordUpdated = false;
 
         if (mode == "smtp")
         {
@@ -100,6 +100,7 @@ public sealed class AdminSystemSettingsService
             if (!string.IsNullOrWhiteSpace(request.SmtpPassword))
             {
                 document.SmtpPasswordCiphertext = secretProtector.Protect(request.SmtpPassword.Trim());
+                smtpPasswordUpdated = true;
             }
             else if (string.IsNullOrWhiteSpace(document.SmtpPasswordCiphertext))
             {
@@ -119,6 +120,9 @@ public sealed class AdminSystemSettingsService
         document.Version += 1;
 
         await settingsRepository.UpsertAsync(document, cancellationToken);
+        var reason = ResolveOptionalReason(
+            request.Reason,
+            BuildEmailTransportReason(existing, document, smtpPasswordUpdated));
 
         await auditLogRepository.AddAsync(
             new AuditLogEntry
@@ -129,7 +133,7 @@ public sealed class AdminSystemSettingsService
                 Category = "ADMIN_SYSTEM_SETTINGS",
                 Action = "UPDATE_EMAIL_TRANSPORT",
                 Reason = reason,
-                Metadata = $"mode:{document.Mode};host:{document.SmtpHost};port:{document.SmtpPort};ssl:{document.SmtpUseSsl};username:{document.SmtpUsername};passwordUpdated:{!string.IsNullOrWhiteSpace(request.SmtpPassword)}",
+                Metadata = $"mode:{document.Mode};host:{document.SmtpHost};port:{document.SmtpPort};ssl:{document.SmtpUseSsl};username:{document.SmtpUsername};passwordUpdated:{smtpPasswordUpdated}",
                 CreatedAtUtc = now,
                 Version = 1,
             },
@@ -180,7 +184,6 @@ public sealed class AdminSystemSettingsService
         UpdateAdminAuthAccessSettingsRequest request,
         CancellationToken cancellationToken)
     {
-        var reason = RequireLength(request.Reason, 3, 240, nameof(request.Reason), "A reason is required and must be between 3 and 240 characters.");
         var fixedOtpCode = RequireLength(request.FixedOtpCode, 4, 8, nameof(request.FixedOtpCode), "Fixed OTP code must be between 4 and 8 characters.");
 
         var domains = (request.LocalFixedOtpDomains ?? [])
@@ -211,6 +214,9 @@ public sealed class AdminSystemSettingsService
         document.Version += 1;
 
         await authAccessSettingsRepository.UpsertAsync(document, cancellationToken);
+        var reason = ResolveOptionalReason(
+            request.Reason,
+            BuildAuthAccessReason(document.OtpEnabled, document.AllowLocalDomainFixedOtp));
 
         await auditLogRepository.AddAsync(
             new AuditLogEntry
@@ -243,7 +249,6 @@ public sealed class AdminSystemSettingsService
         SendAdminEmailTransportTestRequest request,
         CancellationToken cancellationToken)
     {
-        var reason = RequireLength(request.Reason, 3, 240, nameof(request.Reason), "A reason is required and must be between 3 and 240 characters.");
         var testEmail = ValidateEmail(request.Email, nameof(request.Email), "A valid target email address is required.");
         var effective = await emailTransportSettingsProvider.GetEffectiveAsync(cancellationToken);
 
@@ -266,6 +271,8 @@ public sealed class AdminSystemSettingsService
             logger.LogWarning(ex, "SMTP transport test failed for {Email}.", testEmail);
             throw new OtpDeliveryException("SMTP test email could not be delivered. Check sender mailbox, recipient mailbox, and SMTP credentials.", ex);
         }
+
+        var reason = ResolveOptionalReason(request.Reason, BuildEmailTransportTestReason(testEmail));
 
         await auditLogRepository.AddAsync(
             new AuditLogEntry
@@ -324,5 +331,86 @@ public sealed class AdminSystemSettingsService
         }
 
         return trimmed;
+    }
+
+    private static string ResolveOptionalReason(string? providedReason, string generatedReason)
+    {
+        var trimmed = providedReason?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmed) && trimmed.Length >= 3 && trimmed.Length <= 240)
+        {
+            return trimmed;
+        }
+
+        return generatedReason;
+    }
+
+    private static string BuildEmailTransportReason(
+        EmailTransportRuntimeSettingsDocument? previous,
+        EmailTransportRuntimeSettingsDocument current,
+        bool smtpPasswordUpdated)
+    {
+        var changes = new List<string>();
+
+        if (previous is null)
+        {
+            changes.Add("initial email transport setup");
+        }
+
+        if (previous is null || !string.Equals(previous.Mode, current.Mode, StringComparison.Ordinal))
+        {
+            changes.Add($"mode set to {current.Mode}");
+        }
+
+        if (previous is null || !string.Equals(previous.FromAddress, current.FromAddress, StringComparison.OrdinalIgnoreCase))
+        {
+            changes.Add("from address updated");
+        }
+
+        if (string.Equals(current.Mode, "smtp", StringComparison.Ordinal))
+        {
+            if (previous is null || !string.Equals(previous.SmtpHost, current.SmtpHost, StringComparison.OrdinalIgnoreCase))
+            {
+                changes.Add("smtp host updated");
+            }
+
+            if (previous is null || previous.SmtpPort != current.SmtpPort)
+            {
+                changes.Add("smtp port updated");
+            }
+
+            if (previous is null || previous.SmtpUseSsl != current.SmtpUseSsl)
+            {
+                changes.Add("smtp ssl flag updated");
+            }
+
+            if (previous is null || !string.Equals(previous.SmtpUsername, current.SmtpUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                changes.Add("smtp username updated");
+            }
+
+            if (smtpPasswordUpdated)
+            {
+                changes.Add("smtp password rotated");
+            }
+        }
+
+        if (changes.Count == 0)
+        {
+            changes.Add("email transport settings saved");
+        }
+
+        return $"System settings update: {string.Join(", ", changes)}.";
+    }
+
+    private static string BuildAuthAccessReason(bool otpEnabled, bool allowLocalFixedOtp)
+    {
+        var otpState = otpEnabled ? "enabled" : "disabled";
+        var localFixedOtpState = allowLocalFixedOtp ? "enabled" : "disabled";
+        return $"System settings update: OTP {otpState}; local fixed OTP {localFixedOtpState}.";
+    }
+
+    private static string BuildEmailTransportTestReason(string testEmail)
+    {
+        return $"System settings action: SMTP test sent to {testEmail}.";
     }
 }

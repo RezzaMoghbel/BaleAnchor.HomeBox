@@ -4,6 +4,7 @@ using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Auth.Dtos;
 using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Domain.Auth;
+using BaleAnchorUtility.Server.Domain.Audit;
 using BaleAnchorUtility.Server.Domain.Users;
 using Microsoft.Extensions.Options;
 
@@ -24,6 +25,7 @@ public sealed class AuthService
     private readonly IUserRepository userRepository;
     private readonly IOtpChallengeRepository otpChallengeRepository;
     private readonly ISessionRepository sessionRepository;
+    private readonly IAuditLogRepository auditLogRepository;
     private readonly IEmailSender emailSender;
     private readonly IAuthAccessSettingsProvider authAccessSettingsProvider;
     private readonly ISystemClock clock;
@@ -35,6 +37,7 @@ public sealed class AuthService
         IUserRepository userRepository,
         IOtpChallengeRepository otpChallengeRepository,
         ISessionRepository sessionRepository,
+        IAuditLogRepository auditLogRepository,
         IEmailSender emailSender,
         IAuthAccessSettingsProvider authAccessSettingsProvider,
         ISystemClock clock,
@@ -45,6 +48,7 @@ public sealed class AuthService
         this.userRepository = userRepository;
         this.otpChallengeRepository = otpChallengeRepository;
         this.sessionRepository = sessionRepository;
+        this.auditLogRepository = auditLogRepository;
         this.emailSender = emailSender;
         this.authAccessSettingsProvider = authAccessSettingsProvider;
         this.clock = clock;
@@ -483,6 +487,9 @@ public sealed class AuthService
             UserStatus = user?.Status.ToString(),
             UserRole = user?.Role.ToString(),
             ExpiresAtUtc = session.ExpiresAtUtc.ToString("O"),
+            IsDelegatedSession = session.IsDelegatedSession,
+            DelegatedByUserId = session.DelegatedByUserId,
+            DelegationReason = session.DelegationReason,
         };
     }
 
@@ -506,6 +513,70 @@ public sealed class AuthService
         {
             OtpEnabled = settings.OtpEnabled,
         };
+    }
+
+    public async Task<(string RawToken, DateTimeOffset ExpiresAtUtc)> StartDelegatedSessionAsync(
+        UserAccount actor,
+        UserAccount target,
+        string reason,
+        string deviceSummary,
+        CancellationToken cancellationToken)
+    {
+        var trimmedReason = reason.Trim();
+        if (trimmedReason.Length < 8)
+        {
+            throw new ArgumentException("A support reason of at least 8 characters is required.", nameof(reason));
+        }
+
+        if (actor.Role != UserRole.SuperAdmin)
+        {
+            throw new InvalidOperationException("Only SuperAdmin users can start delegated support sessions.");
+        }
+
+        if (string.Equals(actor.Id, target.Id, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Delegated support session requires a different target account.");
+        }
+
+        if (target.Role == UserRole.SuperAdmin)
+        {
+            throw new InvalidOperationException("Delegated support session into a SuperAdmin account is not allowed.");
+        }
+
+        if (target.Status is UserAccountStatus.Archived or UserAccountStatus.MovedOut)
+        {
+            throw new InvalidOperationException("Delegated support session cannot be created for archived or moved-out accounts.");
+        }
+
+        var (rawToken, expiresAtUtc) = await CreateSessionAsync(
+            target,
+            deviceSummary,
+            cancellationToken,
+            delegatedByUserId: actor.Id,
+            delegationReason: trimmedReason,
+            sessionLifetime: TimeSpan.FromMinutes(45));
+
+        await auditLogRepository.AddAsync(
+            new AuditLogEntry
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ActorUserId = actor.Id,
+                TargetUserId = target.Id,
+                Category = "ADMIN_SUPPORT",
+                Action = "START_DELEGATED_SESSION",
+                Reason = trimmedReason,
+                Metadata = $"targetStatus:{target.Status};targetRole:{target.Role};expiresAtUtc:{expiresAtUtc:O}",
+                CreatedAtUtc = clock.UtcNow,
+                Version = 1,
+            },
+            cancellationToken);
+
+        logger.LogInformation(
+            "Delegated support session started by actor {ActorUserId} for target {TargetUserId}.",
+            actor.Id,
+            target.Id);
+
+        return (rawToken, expiresAtUtc);
     }
 
     private string? GetDevelopmentOtpCode(string normalizedEmail, AuthAccessRuntimeSettings settings)
@@ -640,10 +711,14 @@ public sealed class AuthService
     private async Task<(string RawToken, DateTimeOffset ExpiresAtUtc)> CreateSessionAsync(
         UserAccount user,
         string deviceSummary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? delegatedByUserId = null,
+        string? delegationReason = null,
+        TimeSpan? sessionLifetime = null)
     {
         var now = clock.UtcNow;
         var rawToken = GenerateRandomBase64(32);
+        var duration = sessionLifetime ?? TimeSpan.FromHours(options.SessionDurationHours);
         var session = new AuthSession
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -653,7 +728,10 @@ public sealed class AuthService
             DeviceSummary = TruncateDeviceSummary(deviceSummary),
             CreatedAtUtc = now,
             LastUsedAtUtc = now,
-            ExpiresAtUtc = now.AddHours(options.SessionDurationHours),
+            ExpiresAtUtc = now.Add(duration),
+            IsDelegatedSession = !string.IsNullOrWhiteSpace(delegatedByUserId),
+            DelegatedByUserId = string.IsNullOrWhiteSpace(delegatedByUserId) ? null : delegatedByUserId.Trim(),
+            DelegationReason = string.IsNullOrWhiteSpace(delegationReason) ? null : delegationReason.Trim(),
             Version = 1,
         };
 

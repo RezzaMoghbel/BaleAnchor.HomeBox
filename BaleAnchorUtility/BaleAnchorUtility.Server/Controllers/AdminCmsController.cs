@@ -460,9 +460,11 @@ public sealed class AdminCmsController : ControllerBase
     [ProducesResponseType(typeof(AuditLogListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuditLogListResponse>> GetAuditLogs(
         [FromQuery] string? actorUserId,
         [FromQuery] string? targetUserId,
+        [FromQuery] string? scope,
         [FromQuery] string? category,
         [FromQuery] string? action,
         CancellationToken cancellationToken)
@@ -473,8 +475,59 @@ public sealed class AdminCmsController : ControllerBase
             return ForbiddenProblem("Admin permission is required to view audit logs.", "ADMIN_ACCESS_DENIED");
         }
 
-        var response = await adminCmsService.GetAuditLogsAsync(actorUserId, targetUserId, category, action, cancellationToken);
-        return Ok(response);
+        try
+        {
+            var response = await adminCmsService.GetAuditLogsAsync(actorUserId, targetUserId, scope, category, action, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, ex.ParamName ?? "request", "ADMIN_CMS_VALIDATION");
+        }
+    }
+
+    [HttpPost("users/{targetUserId}/hard-delete")]
+    [ProducesResponseType(typeof(HardDeleteUserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<HardDeleteUserResponse>> HardDeleteUser(
+        string targetUserId,
+        [FromBody] HardDeleteUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var actor = await ResolveAuthorizedActorAsync(cancellationToken);
+        if (actor is null || actor.Role != UserRole.SuperAdmin)
+        {
+            return ForbiddenProblem("SuperAdmin permission is required to hard delete users.", "ADMIN_ACCESS_DENIED");
+        }
+
+        try
+        {
+            var response = await adminCmsService.HardDeleteUserAsync(actor, targetUserId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = ex.ParamName switch
+            {
+                nameof(HardDeleteUserRequest.Reason) => "reason",
+                nameof(HardDeleteUserRequest.ConfirmationText) => "confirmationText",
+                _ => "targetUserId",
+            };
+
+            return ValidationProblem(ex.Message, field, "ADMIN_CMS_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "ADMIN_CMS_USER_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "ADMIN_CMS_CONFLICT");
+        }
     }
 
     private async Task<UserAccount?> ResolveAuthorizedActorAsync(CancellationToken cancellationToken)

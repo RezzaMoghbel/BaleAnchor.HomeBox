@@ -156,6 +156,7 @@ builder.Services.AddScoped<IAuthAccessRuntimeSettingsRepository, JsonAuthAccessR
 builder.Services.AddScoped<INotificationPreferencesRepository, JsonNotificationPreferencesRepository>();
 builder.Services.AddScoped<IPushSubscriptionRepository, JsonPushSubscriptionRepository>();
 builder.Services.AddScoped<IReminderDispatchJobRepository, JsonReminderDispatchJobRepository>();
+builder.Services.AddScoped<IAdminUserPurgeRepository, JsonAdminUserPurgeRepository>();
 builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddScoped<IEmailTransportSettingsProvider, DatabaseBackedEmailTransportSettingsProvider>();
 builder.Services.AddScoped<IAuthAccessSettingsProvider, DatabaseBackedAuthAccessSettingsProvider>();
@@ -166,6 +167,7 @@ builder.Services.AddSingleton<IWebPushSender, ConfiguredWebPushSender>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminApprovalService>();
+builder.Services.AddScoped<AdminSupportAccessService>();
 builder.Services.AddScoped<AdminRoleService>();
 builder.Services.AddScoped<AdminCmsService>();
 builder.Services.AddScoped<AdminSystemSettingsService>();

@@ -92,6 +92,7 @@ public sealed class AuthServiceTests
             users,
             new NoOpOtpChallengeRepository(),
             new PassThroughSessionRepository(),
+            new InMemoryAuditLogRepository(),
             new ThrowingEmailSender(),
             new FixedAuthAccessSettingsProvider(settings),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-29T00:00:00Z") },

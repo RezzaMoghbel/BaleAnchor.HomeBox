@@ -1,5 +1,6 @@
 using BaleAnchorUtility.Server.Application.Admin;
 using BaleAnchorUtility.Server.Application.Admin.Dtos;
+using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Configuration;
 using BaleAnchorUtility.Server.Controllers;
 using BaleAnchorUtility.Server.Domain.Admin;
@@ -209,12 +210,94 @@ public sealed class AdminCmsControllerTests
         Assert.Equal("A12", body.Items[0].FlatNumber);
     }
 
+    [Fact]
+    public async Task HardDeleteUser_Returns403_WhenActorIsAdminNotSuperAdmin()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("u-admin", "admin@example.com", UserRole.Admin, UserAccountStatus.Active);
+        users.Seed(actor);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+        var controller = CreateController(auth, users, new InMemoryFlatRepository(), new InMemoryTenancyRepository(), new InMemoryTenantGapRepository());
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = NewHttpContext("/api/v1/admin/cms/users/u-target/hard-delete", withSessionCookie: true),
+        };
+
+        var action = await controller.HardDeleteUser(
+            "u-target",
+            new HardDeleteUserRequest
+            {
+                Reason = "GDPR delete request",
+                ConfirmationText = "DELETE u-target",
+            },
+            CancellationToken.None);
+
+        var forbidden = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(forbidden.Value);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Equal("ADMIN_ACCESS_DENIED", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
+    public async Task HardDeleteUser_Returns200_WhenSuperAdminAndArchivedTarget()
+    {
+        var users = new InMemoryUserRepository();
+        var actor = CreateUser("u-super", "super@example.com", UserRole.SuperAdmin, UserAccountStatus.Active);
+        var target = CreateUser("u-target", "target@example.com", UserRole.Resident, UserAccountStatus.Archived);
+        users.Seed(actor, target);
+
+        var sessions = SessionFor(actor);
+        var auth = AuthServiceTestFactory.Create(users, sessions);
+        var purgeRepository = new InMemoryAdminUserPurgeRepository
+        {
+            SummaryToReturn = new AdminUserPurgeSummary
+            {
+                UsersDeleted = 1,
+                SessionsDeleted = 2,
+                PaymentsDeleted = 3,
+            },
+        };
+
+        var controller = CreateController(
+            auth,
+            users,
+            new InMemoryFlatRepository(),
+            new InMemoryTenancyRepository(),
+            new InMemoryTenantGapRepository(),
+            purgeRepository);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = NewHttpContext("/api/v1/admin/cms/users/u-target/hard-delete", withSessionCookie: true),
+        };
+
+        var action = await controller.HardDeleteUser(
+            target.Id,
+            new HardDeleteUserRequest
+            {
+                Reason = "GDPR delete request",
+                ConfirmationText = "DELETE u-target",
+            },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var body = Assert.IsType<HardDeleteUserResponse>(ok.Value);
+        Assert.Equal(target.Id, body.UserId);
+        Assert.Equal(6, body.DeletedRecordCount);
+        Assert.Equal(target.Id, purgeRepository.LastUserId);
+        Assert.Equal(target.EmailNormalized, purgeRepository.LastEmailNormalized);
+    }
+
     private static AdminCmsController CreateController(
         Application.Auth.AuthService auth,
         InMemoryUserRepository users,
         InMemoryFlatRepository flats,
         InMemoryTenancyRepository tenancies,
-        InMemoryTenantGapRepository gaps)
+        InMemoryTenantGapRepository gaps,
+        InMemoryAdminUserPurgeRepository? purgeRepository = null)
     {
         var service = new AdminCmsService(
             users,
@@ -228,6 +311,7 @@ public sealed class AdminCmsControllerTests
             new InMemoryTermsVersionRepository(),
             new InMemoryTermsAcceptanceRepository(),
             new InMemoryAuditLogRepository(),
+            purgeRepository ?? new InMemoryAdminUserPurgeRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-29T00:00:00Z") });
 
         return new AdminCmsController(

@@ -232,6 +232,7 @@ function App() {
     publishTermsVersion,
     loadTermsAcceptances,
     loadAuditLogs,
+    loadSupportLifecycleAuditLogs,
     loadFlats,
     upsertFlat,
     loadTenancies,
@@ -244,6 +245,9 @@ function App() {
     clearTenantGapForm,
     submitAdminDecision,
     submitRoleChange,
+    submitAdminLifecycleAction,
+    startDelegatedSupportSession,
+    hardDeleteAdminUser,
   } = useAdminWorkflow({ setLoading });
 
   const {
@@ -656,6 +660,24 @@ function App() {
   const needsOnboarding =
     isAuthenticated && !isRejected && !isSuspended && userStatus !== "active";
   const isAdminUser = userRole === "admin" || userRole === "superadmin";
+  const isSuperAdminUser = userRole === "superadmin";
+  const isDelegatedSession = session?.isDelegatedSession === true;
+
+  const adminSection = location.pathname.startsWith(
+    "/dashboard/admin/account-access",
+  )
+    ? "account-access"
+    : location.pathname.startsWith("/dashboard/admin/settings")
+      ? "settings"
+      : location.pathname.startsWith("/dashboard/admin/system-auth")
+        ? "system-auth"
+        : location.pathname.startsWith("/dashboard/admin/approvals")
+          ? "approvals"
+          : location.pathname.startsWith("/dashboard/admin/search")
+            ? "search"
+            : location.pathname.startsWith("/dashboard/admin/flat-register")
+              ? "flat-register"
+              : "account";
 
   useEffect(() => {
     void refreshSession(true);
@@ -672,6 +694,19 @@ function App() {
       navigate(target, { replace: true });
     }
   }, [location.pathname, navigate, session, sessionChecked]);
+
+  useEffect(() => {
+    if (!isAdminUser) {
+      return;
+    }
+
+    if (
+      location.pathname.startsWith("/dashboard/admin") &&
+      (adminSection === "settings" || adminSection === "system-auth")
+    ) {
+      void loadSystemSettings();
+    }
+  }, [adminSection, isAdminUser, location.pathname]);
 
   const pageMode =
     location.pathname === "/onboarding"
@@ -931,24 +966,30 @@ function App() {
       >
         Overview
       </Link>
-      <Link
-        className={`shell-nav-link ${dashboardSection === "readings" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/readings"
-      >
-        Readings & Tariffs
-      </Link>
-      <Link
-        className={`shell-nav-link ${dashboardSection === "payments" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/payments"
-      >
-        Payments
-      </Link>
-      <Link
-        className={`shell-nav-link ${dashboardSection === "statements" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/statements"
-      >
-        Statements
-      </Link>
+      {!isSuperAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "readings" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/readings"
+        >
+          Readings & Tariffs
+        </Link>
+      )}
+      {!isAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "payments" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/payments"
+        >
+          Payments
+        </Link>
+      )}
+      {!isAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "statements" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/statements"
+        >
+          Statements
+        </Link>
+      )}
       <Link
         className={`shell-nav-link ${dashboardSection === "notifications" ? "shell-nav-link--active" : ""}`}
         to="/dashboard/notifications"
@@ -966,15 +1007,99 @@ function App() {
     </div>
   );
 
+  const renderAdminRouteTabs = () => (
+    <div className="d-flex flex-wrap gap-2 mb-4">
+      <Link
+        className={`shell-nav-link ${adminSection === "account" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/account"
+      >
+        Account
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "account-access" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/account-access"
+      >
+        Account access
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "settings" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/settings"
+      >
+        Settings
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "system-auth" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/system-auth"
+      >
+        System auth
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "approvals" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/approvals"
+      >
+        Approvals
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "search" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/search"
+      >
+        Search users and target account context
+      </Link>
+      <Link
+        className={`shell-nav-link ${adminSection === "flat-register" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/flat-register"
+      >
+        Flat register management
+      </Link>
+    </div>
+  );
+
+  const renderDashboardTabsWithDelegatedBanner = () => (
+    <>
+      {isDelegatedSession && (
+        <div className="alert alert-warning border mb-3" role="status">
+          Admin delegated access is active.
+          {session?.delegatedByUserId
+            ? ` Started by ${session.delegatedByUserId}.`
+            : ""}
+        </div>
+      )}
+      {renderDashboardRouteTabs()}
+    </>
+  );
+
+  const openAccountFromAdminSearch = async (
+    targetUserId: string,
+    expectedEmail?: string,
+  ) => {
+    const reason =
+      adminReason.trim().length >= 8
+        ? adminReason.trim()
+        : "Support-assisted account access";
+
+    const started = await startDelegatedSupportSession({
+      targetUserId,
+      reason,
+      expectedEmail,
+    });
+
+    if (started) {
+      window.location.assign("/dashboard");
+    }
+  };
+
   const renderAdminView = () => (
     <AdminDashboardView
       shellHeader={renderShellHeader()}
       routeTabs={renderDashboardRouteTabs()}
+      adminRouteTabs={renderAdminRouteTabs()}
+      adminSection={adminSection}
       loading={loading}
       adminTargetUserId={adminTargetUserId}
       adminReason={adminReason}
       adminRoleTarget={adminRoleTarget}
       adminMessage={adminMessage}
+      currentUserRole={userRole}
       adminUsers={adminUsers}
       adminSearchQuery={adminSearchQuery}
       adminSearchStatus={adminSearchStatus}
@@ -1106,6 +1231,7 @@ function App() {
       onSendEmailTransportTest={sendEmailTransportTest}
       onSearchAdminUsers={searchAdminUsers}
       onLoadAdminBillingContext={loadAdminBillingContext}
+      onOpenAccountFromSearch={openAccountFromAdminSearch}
       onDeleteAdminLatestReading={deleteAdminLatestReading}
       onUpsertAdminTariff={upsertAdminTariff}
       onUpdateAdminBoilerAssumptions={updateAdminBoilerAssumptions}
@@ -1113,6 +1239,7 @@ function App() {
       onPublishTermsVersion={publishTermsVersion}
       onLoadTermsAcceptances={loadTermsAcceptances}
       onLoadAuditLogs={loadAuditLogs}
+      onLoadSupportLifecycleAuditLogs={loadSupportLifecycleAuditLogs}
       onLoadFlats={loadFlats}
       onUpsertFlat={upsertFlat}
       onLoadTenancies={loadTenancies}
@@ -1125,6 +1252,9 @@ function App() {
       onClearTenantGapForm={clearTenantGapForm}
       onSubmitAdminDecision={submitAdminDecision}
       onSubmitRoleChange={submitRoleChange}
+      onSubmitAdminLifecycleAction={submitAdminLifecycleAction}
+      onStartDelegatedSupportSession={startDelegatedSupportSession}
+      onHardDeleteAdminUser={hardDeleteAdminUser}
       formatDisplayDateTime={formatDisplayDateTime}
     />
   );
@@ -1132,7 +1262,7 @@ function App() {
   const renderReadingsView = () => (
     <ReadingsDashboardView
       shellHeader={renderShellHeader()}
-      routeTabs={renderDashboardRouteTabs()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
       loading={loading}
       readingDate={readingDate}
       coldWaterReading={coldWaterReading}
@@ -1179,7 +1309,7 @@ function App() {
   const renderPaymentsView = () => (
     <PaymentsDashboardView
       shellHeader={renderShellHeader()}
-      routeTabs={renderDashboardRouteTabs()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
       loading={loading}
       paymentAmount={paymentAmount}
       paymentDate={paymentDate}
@@ -1214,7 +1344,7 @@ function App() {
   const renderStatementsView = () => (
     <StatementsDashboardView
       shellHeader={renderShellHeader()}
-      routeTabs={renderDashboardRouteTabs()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
       loading={loading}
       statementMessage={statementMessage}
       selectedSnapshotId={selectedSnapshotId}
@@ -1237,7 +1367,7 @@ function App() {
   const renderNotificationsView = () => (
     <NotificationsDashboardView
       shellHeader={renderShellHeader()}
-      routeTabs={renderDashboardRouteTabs()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
       loading={loading}
       notificationMessage={notificationMessage}
       pushConfig={pushConfig}
@@ -1280,14 +1410,26 @@ function App() {
   }
 
   if (dashboardSection === "readings") {
+    if (isSuperAdminUser) {
+      return renderAdminView();
+    }
+
     return renderReadingsView();
   }
 
   if (dashboardSection === "payments") {
+    if (isAdminUser) {
+      return renderAdminView();
+    }
+
     return renderPaymentsView();
   }
 
   if (dashboardSection === "statements") {
+    if (isAdminUser) {
+      return renderAdminView();
+    }
+
     return renderStatementsView();
   }
 
@@ -1302,7 +1444,7 @@ function App() {
   return (
     <OverviewDashboardView
       shellHeader={renderShellHeader()}
-      routeTabs={renderDashboardRouteTabs()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
       session={session}
       statusMessage={statusMessage}
       formatDisplayDateTime={formatDisplayDateTime}

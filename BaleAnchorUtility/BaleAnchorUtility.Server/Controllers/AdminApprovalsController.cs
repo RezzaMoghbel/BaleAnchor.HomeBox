@@ -17,17 +17,20 @@ public sealed class AdminApprovalsController : ControllerBase
     private readonly AuthService authService;
     private readonly IUserRepository userRepository;
     private readonly AdminApprovalService adminApprovalService;
+    private readonly AdminSupportAccessService adminSupportAccessService;
     private readonly AdminAccessOptions adminAccessOptions;
 
     public AdminApprovalsController(
         AuthService authService,
         IUserRepository userRepository,
         AdminApprovalService adminApprovalService,
+        AdminSupportAccessService adminSupportAccessService,
         IOptions<AdminAccessOptions> adminAccessOptions)
     {
         this.authService = authService;
         this.userRepository = userRepository;
         this.adminApprovalService = adminApprovalService;
+        this.adminSupportAccessService = adminSupportAccessService;
         this.adminAccessOptions = adminAccessOptions.Value;
     }
 
@@ -115,6 +118,100 @@ public sealed class AdminApprovalsController : ControllerBase
         }
     }
 
+    [HttpPost("{targetUserId}/suspend")]
+    [ProducesResponseType(typeof(AdminDecisionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AdminDecisionResponse>> Suspend(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return await ExecuteLifecycleActionAsync(targetUserId, request, "suspend", adminApprovalService.SuspendAsync, cancellationToken);
+    }
+
+    [HttpPost("{targetUserId}/move-to-onboarding")]
+    [ProducesResponseType(typeof(AdminDecisionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AdminDecisionResponse>> MoveToOnboarding(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return await ExecuteLifecycleActionAsync(targetUserId, request, "move-to-onboarding", adminApprovalService.MoveToOnboardingAsync, cancellationToken);
+    }
+
+    [HttpPost("{targetUserId}/reinstate-approved")]
+    [ProducesResponseType(typeof(AdminDecisionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AdminDecisionResponse>> ReinstateApproved(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return await ExecuteLifecycleActionAsync(targetUserId, request, "reinstate-approved", adminApprovalService.ReinstateApprovedAsync, cancellationToken);
+    }
+
+    [HttpPost("{targetUserId}/archive")]
+    [ProducesResponseType(typeof(AdminDecisionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AdminDecisionResponse>> Archive(string targetUserId, [FromBody] AdminDecisionRequest request, CancellationToken cancellationToken)
+    {
+        return await ExecuteLifecycleActionAsync(targetUserId, request, "archive", adminApprovalService.ArchiveAsync, cancellationToken);
+    }
+
+    [HttpPost("support/login-on-behalf")]
+    [ProducesResponseType(typeof(StartDelegatedSupportSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<StartDelegatedSupportSessionResponse>> StartDelegatedSupportSession(
+        [FromBody] StartDelegatedSupportSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var actor = await ResolveAuthorizedActorAsync(cancellationToken);
+        if (actor is null || actor.Role != UserRole.SuperAdmin)
+        {
+            return ForbiddenProblem("SuperAdmin permission is required to start delegated support sessions.", "ADMIN_ACCESS_DENIED");
+        }
+
+        try
+        {
+            var (response, rawToken) = await adminSupportAccessService.StartDelegatedSessionAsync(
+                actor,
+                request,
+                GetDeviceSummary(),
+                cancellationToken);
+
+            Response.Cookies.Append(
+                authService.SessionCookieName,
+                rawToken,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.Parse(response.ExpiresAtUtc),
+                    IsEssential = true,
+                    Path = "/",
+                });
+
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, ex.ParamName ?? "request", "ADMIN_SUPPORT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "ADMIN_SUPPORT_TARGET_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "ADMIN_SUPPORT_CONFLICT");
+        }
+    }
+
     private ObjectResult? ValidateDecisionInput(string targetUserId, AdminDecisionRequest request)
     {
         if (string.IsNullOrWhiteSpace(targetUserId))
@@ -134,6 +231,51 @@ public sealed class AdminApprovalsController : ControllerBase
         }
 
         return null;
+    }
+
+    private async Task<ActionResult<AdminDecisionResponse>> ExecuteLifecycleActionAsync(
+        string targetUserId,
+        AdminDecisionRequest request,
+        string action,
+        Func<string, string, string, CancellationToken, Task<AdminDecisionResponse>> operation,
+        CancellationToken cancellationToken)
+    {
+        var validationError = ValidateDecisionInput(targetUserId, request);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
+        var actor = await ResolveAuthorizedActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return ForbiddenProblem($"Admin permission is required to {action} users.", "ADMIN_ACCESS_DENIED");
+        }
+
+        if (string.Equals(actor.Id, targetUserId, StringComparison.Ordinal))
+        {
+            return ConflictProblem("Self-targeted lifecycle changes are not allowed.", "ADMIN_APPROVAL_CONFLICT");
+        }
+
+        try
+        {
+            var response = await operation(actor.Id, targetUserId, request.Reason, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "reason", "ADMIN_DECISION_VALIDATION");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "ADMIN_APPROVAL_CONFLICT");
+        }
+    }
+
+    private string GetDeviceSummary()
+    {
+        var userAgent = Request.Headers.UserAgent.ToString();
+        return string.IsNullOrWhiteSpace(userAgent) ? "unknown" : userAgent;
     }
 
     private async Task<Domain.Users.UserAccount?> ResolveAuthorizedActorAsync(CancellationToken cancellationToken)
@@ -191,6 +333,22 @@ public sealed class AdminApprovalsController : ControllerBase
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status403Forbidden,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult NotFoundProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status404NotFound,
+            "Resource not found",
+            detail,
+            errorCode);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status404NotFound,
             ContentTypes = { "application/problem+json" },
         };
     }
