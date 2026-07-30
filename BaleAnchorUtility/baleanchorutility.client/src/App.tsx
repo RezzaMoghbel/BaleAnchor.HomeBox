@@ -234,6 +234,7 @@ function App() {
     loadTermsVersions,
     publishTermsVersion,
     loadTermsAcceptances,
+    loadAllAuditLogs,
     loadAuditLogs,
     loadSupportLifecycleAuditLogs,
     loadFlats,
@@ -689,13 +690,15 @@ function App() {
 
   const adminSection = location.pathname.startsWith("/dashboard/admin/settings")
     ? "settings"
-    : location.pathname.startsWith("/dashboard/admin/system-auth")
-      ? "system-auth"
-      : location.pathname.startsWith("/dashboard/admin/search")
-        ? "search"
-        : location.pathname.startsWith("/dashboard/admin/flat-register")
-          ? "flat-register"
-          : "account";
+    : location.pathname.startsWith("/dashboard/admin/audit")
+      ? "audit"
+      : location.pathname.startsWith("/dashboard/admin/system-auth")
+        ? "system-auth"
+        : location.pathname.startsWith("/dashboard/admin/search")
+          ? "search"
+          : location.pathname.startsWith("/dashboard/admin/flat-register")
+            ? "flat-register"
+            : "account";
 
   useEffect(() => {
     void refreshSession(true);
@@ -723,6 +726,11 @@ function App() {
       location.pathname.startsWith("/dashboard/admin/approvals")
     ) {
       navigate("/dashboard/admin/account", { replace: true });
+      return;
+    }
+
+    if (location.pathname.startsWith("/dashboard/admin/audit")) {
+      void loadAllAuditLogs();
       return;
     }
 
@@ -1042,6 +1050,12 @@ function App() {
         Account
       </Link>
       <Link
+        className={`shell-nav-link ${adminSection === "audit" ? "shell-nav-link--active" : ""}`}
+        to="/dashboard/admin/audit"
+      >
+        Audit viewer
+      </Link>
+      <Link
         className={`shell-nav-link ${adminSection === "settings" ? "shell-nav-link--active" : ""}`}
         to="/dashboard/admin/settings"
       >
@@ -1259,6 +1273,7 @@ function App() {
       onLoadTermsVersions={loadTermsVersions}
       onPublishTermsVersion={publishTermsVersion}
       onLoadTermsAcceptances={loadTermsAcceptances}
+      onLoadAllAuditLogs={loadAllAuditLogs}
       onLoadAuditLogs={loadAuditLogs}
       onLoadSupportLifecycleAuditLogs={loadSupportLifecycleAuditLogs}
       onLoadFlats={loadFlats}

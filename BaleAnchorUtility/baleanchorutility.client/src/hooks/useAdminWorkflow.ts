@@ -418,10 +418,41 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   };
 
   const publishTermsVersion = async () => {
-    if (!adminReason) {
+    if (!termsVersionLabel.trim()) {
+      setAdminMessage("Version label is required to publish terms.");
+      return;
+    }
+
+    if (!termsVersionTitle.trim()) {
+      setAdminMessage("Title is required to publish terms.");
+      return;
+    }
+
+    if (termsContentMarkdown.trim().length < 20) {
+      setAdminMessage(
+        "Terms markdown must be at least 20 characters before publishing.",
+      );
+      return;
+    }
+
+    if (!termsEffectiveFromUtc.trim()) {
+      setAdminMessage("Effective date and time are required to publish terms.");
+      return;
+    }
+
+    if (!adminReason.trim()) {
       setAdminMessage("Reason is required to publish terms.");
       return;
     }
+
+    const normalizedEffectiveFromUtc = (() => {
+      const rawValue = termsEffectiveFromUtc.trim();
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(rawValue)) {
+        return new Date(rawValue).toISOString();
+      }
+
+      return rawValue;
+    })();
 
     setLoading(true);
     try {
@@ -429,9 +460,10 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         versionLabel: termsVersionLabel,
         title: termsVersionTitle,
         contentMarkdown: termsContentMarkdown,
-        effectiveFromUtc: termsEffectiveFromUtc,
-        reason: adminReason,
+        effectiveFromUtc: normalizedEffectiveFromUtc,
+        reason: adminReason.trim(),
       });
+      setTermsEffectiveFromUtc("");
       setAdminMessage(body.message);
       await Promise.all([loadTermsVersions(), loadAuditLogs()]);
     } catch (error) {
@@ -475,6 +507,29 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         category: auditCategory || undefined,
         action: auditAction || undefined,
       });
+      setAuditEntries(body.items);
+      setAdminMessage(`Loaded ${body.count} audit record(s).`);
+    } catch (error) {
+      setAuditEntries([]);
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Unable to load audit records. ${error.message}`);
+      } else {
+        setAdminMessage("Unable to load audit records.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllAuditLogs = async () => {
+    setLoading(true);
+    try {
+      setAuditActorUserId("");
+      setAuditTargetUserId("");
+      setAuditCategory("");
+      setAuditAction("");
+
+      const body = await portalClient.getAuditLogs();
       setAuditEntries(body.items);
       setAdminMessage(`Loaded ${body.count} audit record(s).`);
     } catch (error) {
@@ -1188,6 +1243,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     loadTermsVersions,
     publishTermsVersion,
     loadTermsAcceptances,
+    loadAllAuditLogs,
     loadAuditLogs,
     loadSupportLifecycleAuditLogs,
     loadFlats,

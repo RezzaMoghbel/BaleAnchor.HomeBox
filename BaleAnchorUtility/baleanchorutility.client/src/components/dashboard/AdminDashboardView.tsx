@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AdminAccountStatusCard } from "./admin/AdminAccountStatusCard";
+import { AdminAuditViewerCard } from "./admin/AdminAuditViewerCard";
 import type {
   AdminBillingContextResponse,
   AdminUserSummaryItem,
@@ -18,6 +19,7 @@ interface AdminDashboardViewProps {
   adminRouteTabs: ReactNode;
   adminSection:
     | "account"
+    | "audit"
     | "settings"
     | "system-auth"
     | "search"
@@ -168,6 +170,7 @@ interface AdminDashboardViewProps {
   onLoadTermsVersions: () => Promise<void>;
   onPublishTermsVersion: () => Promise<void>;
   onLoadTermsAcceptances: () => Promise<void>;
+  onLoadAllAuditLogs: () => Promise<void>;
   onLoadAuditLogs: () => Promise<void>;
   onLoadSupportLifecycleAuditLogs: () => Promise<void>;
   onLoadFlats: () => Promise<void>;
@@ -224,6 +227,7 @@ export function AdminDashboardView({
   adminSection,
   loading,
   currentUserRole,
+  adminReason,
   adminMessage,
   adminUsers,
   adminSearchQuery,
@@ -288,6 +292,7 @@ export function AdminDashboardView({
   emailSmtpUsername,
   emailSmtpPassword,
   emailTestRecipient,
+  onAdminReasonChange,
   onAdminSearchQueryChange,
   onAdminSearchStatusChange,
   onAdminBillingOnDateChange,
@@ -356,6 +361,7 @@ export function AdminDashboardView({
   onLoadTermsVersions,
   onPublishTermsVersion,
   onLoadTermsAcceptances,
+  onLoadAllAuditLogs,
   onLoadAuditLogs,
   onLoadSupportLifecycleAuditLogs,
   onLoadFlats,
@@ -376,10 +382,38 @@ export function AdminDashboardView({
     currentUserRole.trim().toLowerCase() === "admin" ||
     currentUserRole.trim().toLowerCase() === "superadmin";
   const showAccount = adminSection === "account";
+  const showAudit = adminSection === "audit";
   const showSettings = adminSection === "settings";
   const showSystemAuth = adminSection === "system-auth";
   const showSearch = adminSection === "search";
   const showFlatRegister = adminSection === "flat-register";
+  const publishTermsValidationMessages: string[] = [];
+
+  if (!termsVersionLabel.trim()) {
+    publishTermsValidationMessages.push("Version label is required.");
+  }
+
+  if (!termsVersionTitle.trim()) {
+    publishTermsValidationMessages.push("Title is required.");
+  }
+
+  if (!termsEffectiveFromUtc.trim()) {
+    publishTermsValidationMessages.push(
+      "Effective date and time are required.",
+    );
+  }
+
+  if (termsContentMarkdown.trim().length < 20) {
+    publishTermsValidationMessages.push(
+      "Terms markdown must be at least 20 characters.",
+    );
+  }
+
+  if (!adminReason.trim()) {
+    publishTermsValidationMessages.push("Audit reason is mandatory.");
+  }
+
+  const canPublishTermsVersion = publishTermsValidationMessages.length === 0;
 
   return (
     <div className="wrapper">
@@ -414,6 +448,26 @@ export function AdminDashboardView({
             />
           )}
 
+          {showAudit && (
+            <AdminAuditViewerCard
+              loading={loading}
+              adminMessage={adminMessage}
+              auditActorUserId={auditActorUserId}
+              auditTargetUserId={auditTargetUserId}
+              auditCategory={auditCategory}
+              auditAction={auditAction}
+              auditEntries={auditEntries}
+              formatDisplayDateTime={formatDisplayDateTime}
+              onAuditActorUserIdChange={onAuditActorUserIdChange}
+              onAuditTargetUserIdChange={onAuditTargetUserIdChange}
+              onAuditCategoryChange={onAuditCategoryChange}
+              onAuditActionChange={onAuditActionChange}
+              onLoadAllAuditLogs={onLoadAllAuditLogs}
+              onLoadAuditLogs={onLoadAuditLogs}
+              onLoadSupportLifecycleAuditLogs={onLoadSupportLifecycleAuditLogs}
+            />
+          )}
+
           {showSettings && (
             <div className="card radius-10 border-0 shadow-sm">
               <div className="card-body">
@@ -431,7 +485,7 @@ export function AdminDashboardView({
                     onClick={() => void onLoadSystemSettings()}
                     disabled={loading}
                   >
-                    Refresh system settings
+                    Refresh auth and SMTP settings
                   </button>
                 </div>
 
@@ -1394,265 +1448,246 @@ export function AdminDashboardView({
             <div className="card radius-10 border-0 shadow-sm mt-4">
               <div className="card-body">
                 <h5 className="mb-3">Terms and declarations management</h5>
-                <div className="d-flex flex-wrap gap-2 mb-3">
-                  <button
-                    type="button"
-                    className="btn btn-outline-dark"
-                    onClick={() => void onLoadTermsVersions()}
-                    disabled={loading}
-                  >
-                    Load terms versions
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => void onLoadTermsAcceptances()}
-                    disabled={loading}
-                  >
-                    Load acceptances
-                  </button>
-                </div>
+                <p className="text-secondary mb-3">
+                  Publish a new active terms version, then review version
+                  history and acceptance activity below.
+                </p>
 
-                <div className="row g-3 align-items-end">
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Version label"
-                      value={termsVersionLabel}
-                      onChange={(event) =>
-                        onTermsVersionLabelChange(event.target.value)
-                      }
-                    />
+                <section className="border rounded-3 p-3 mb-3">
+                  <div className="mb-3">
+                    <h6 className="mb-1">Publish new terms version</h6>
+                    <p className="text-secondary small mb-0">
+                      Required: version label, title, effective date/time,
+                      markdown content, and audit reason.
+                    </p>
                   </div>
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Title"
-                      value={termsVersionTitle}
-                      onChange={(event) =>
-                        onTermsVersionTitleChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Effective UTC (ISO)"
-                      value={termsEffectiveFromUtc}
-                      onChange={(event) =>
-                        onTermsEffectiveFromUtcChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-4">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void onPublishTermsVersion()}
-                      disabled={loading}
-                    >
-                      Publish terms version
-                    </button>
-                  </div>
-                  <div className="col-12">
-                    <textarea
-                      className="form-control"
-                      rows={4}
-                      placeholder="Terms markdown"
-                      value={termsContentMarkdown}
-                      onChange={(event) =>
-                        onTermsContentMarkdownChange(event.target.value)
-                      }
-                    />
-                  </div>
-                </div>
 
-                {termsVersions.length > 0 && (
-                  <div className="table-responsive mt-3">
-                    <table className="table align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>Version</th>
-                          <th>Title</th>
-                          <th>Effective</th>
-                          <th>Published</th>
-                          <th>Active</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {termsVersions.slice(0, 10).map((item) => (
-                          <tr key={item.versionId}>
-                            <td>{item.versionLabel}</td>
-                            <td>{item.title}</td>
-                            <td>
-                              {formatDisplayDateTime(item.effectiveFromUtc)}
-                            </td>
-                            <td>
-                              {formatDisplayDateTime(item.publishedAtUtc)}
-                            </td>
-                            <td>{item.isActive ? "Yes" : "No"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                  <div className="row g-3">
+                    <div className="col-12 col-lg-3">
+                      <label className="form-label">Version label</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="v1.1.0"
+                        value={termsVersionLabel}
+                        onChange={(event) =>
+                          onTermsVersionLabelChange(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="col-12 col-lg-5">
+                      <label className="form-label">Title</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Resident terms and acknowledgement"
+                        value={termsVersionTitle}
+                        onChange={(event) =>
+                          onTermsVersionTitleChange(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="col-12 col-lg-4">
+                      <label className="form-label">Effective from</label>
+                      <input
+                        type="datetime-local"
+                        className="form-control"
+                        value={termsEffectiveFromUtc}
+                        onChange={(event) =>
+                          onTermsEffectiveFromUtcChange(event.target.value)
+                        }
+                      />
+                      <div className="form-text">
+                        Stored as UTC ISO timestamp when published.
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Terms markdown</label>
+                      <textarea
+                        className="form-control"
+                        rows={6}
+                        placeholder="Enter the resident terms markdown content"
+                        value={termsContentMarkdown}
+                        onChange={(event) =>
+                          onTermsContentMarkdownChange(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Audit reason</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Explain why this terms version is being published"
+                        value={adminReason}
+                        onChange={(event) =>
+                          onAdminReasonChange(event.target.value)
+                        }
+                      />
+                      <div className="form-text">
+                        This reason is required and will be written to the audit
+                        log.
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      {publishTermsValidationMessages.length > 0 && (
+                        <div
+                          className="alert alert-warning border mb-3"
+                          role="status"
+                        >
+                          <div className="fw-semibold mb-1">
+                            Complete the required fields before publishing.
+                          </div>
+                          <div>{publishTermsValidationMessages.join(" ")}</div>
+                        </div>
+                      )}
 
-                <div className="row g-3 align-items-end mt-2">
-                  <div className="col-12 col-lg-4">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Acceptance userId filter"
-                      value={termsFilterUserId}
-                      onChange={(event) =>
-                        onTermsFilterUserIdChange(event.target.value)
-                      }
-                    />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => void onPublishTermsVersion()}
+                        disabled={loading || !canPublishTermsVersion}
+                      >
+                        Publish new version
+                      </button>
+                    </div>
                   </div>
-                  <div className="col-12 col-lg-4">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Acceptance version filter"
-                      value={termsFilterVersionId}
-                      onChange={(event) =>
-                        onTermsFilterVersionIdChange(event.target.value)
-                      }
-                    />
-                  </div>
-                </div>
+                </section>
 
-                {termsAcceptances.length > 0 && (
-                  <div className="table-responsive mt-3">
-                    <table className="table align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>User</th>
-                          <th>Version ID</th>
-                          <th>Accepted</th>
-                          <th>IP</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {termsAcceptances.slice(0, 20).map((item) => (
-                          <tr key={item.acceptanceId}>
-                            <td>{item.userId}</td>
-                            <td>{item.termsVersionId}</td>
-                            <td>{formatDisplayDateTime(item.acceptedAtUtc)}</td>
-                            <td>{item.acceptedFromIp}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {showSystemAuth && (
-            <div className="card radius-10 border-0 shadow-sm mt-4">
-              <div className="card-body">
-                <h5 className="mb-3">Audit viewer</h5>
-                <div className="row g-3 align-items-end">
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Actor user ID"
-                      value={auditActorUserId}
-                      onChange={(event) =>
-                        onAuditActorUserIdChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Target user ID"
-                      value={auditTargetUserId}
-                      onChange={(event) =>
-                        onAuditTargetUserIdChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Category"
-                      value={auditCategory}
-                      onChange={(event) =>
-                        onAuditCategoryChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Action"
-                      value={auditAction}
-                      onChange={(event) =>
-                        onAuditActionChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
+                <section className="border rounded-3 p-3 mb-3">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                      <h6 className="mb-1">Published versions</h6>
+                      <p className="text-secondary small mb-0">
+                        Review version history and confirm which version is
+                        currently active.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       className="btn btn-outline-dark"
-                      onClick={() => void onLoadAuditLogs()}
+                      onClick={() => void onLoadTermsVersions()}
                       disabled={loading}
                     >
-                      Load audit logs
+                      View version history
                     </button>
                   </div>
-                  <div className="col-12 col-lg-2">
+
+                  {termsVersions.length > 0 && (
+                    <div className="table-responsive mt-3">
+                      <table className="table align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th>Version</th>
+                            <th>Title</th>
+                            <th>Effective</th>
+                            <th>Published</th>
+                            <th>Active</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {termsVersions.slice(0, 10).map((item) => (
+                            <tr key={item.versionId}>
+                              <td>{item.versionLabel}</td>
+                              <td>{item.title}</td>
+                              <td>
+                                {formatDisplayDateTime(item.effectiveFromUtc)}
+                              </td>
+                              <td>
+                                {formatDisplayDateTime(item.publishedAtUtc)}
+                              </td>
+                              <td>{item.isActive ? "Yes" : "No"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="border rounded-3 p-3 mb-0">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                      <h6 className="mb-1">Acceptance history</h6>
+                      <p className="text-secondary small mb-0">
+                        Filter by user or version to inspect who accepted which
+                        terms release.
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void onLoadSupportLifecycleAuditLogs()}
+                      className="btn btn-outline-secondary"
+                      onClick={() => void onLoadTermsAcceptances()}
                       disabled={loading}
                     >
-                      Support & lifecycle
+                      View acceptance history
                     </button>
                   </div>
-                </div>
 
-                {auditEntries.length > 0 && (
-                  <div className="table-responsive mt-3">
-                    <table className="table align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>UTC</th>
-                          <th>Actor</th>
-                          <th>Target</th>
-                          <th>Category</th>
-                          <th>Action</th>
-                          <th>Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {auditEntries.slice(0, 30).map((item) => (
-                          <tr key={item.auditId}>
-                            <td>{formatDisplayDateTime(item.createdAtUtc)}</td>
-                            <td>{item.actorUserId}</td>
-                            <td>{item.targetUserId}</td>
-                            <td>{item.category}</td>
-                            <td>{item.action}</td>
-                            <td>{item.reason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="row g-3 align-items-end mt-2">
+                    <div className="col-12 col-lg-4">
+                      <label className="form-label">Filter by user ID</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Acceptance user ID"
+                        value={termsFilterUserId}
+                        onChange={(event) =>
+                          onTermsFilterUserIdChange(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="col-12 col-lg-4">
+                      <label className="form-label">Filter by version ID</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Acceptance version ID"
+                        value={termsFilterVersionId}
+                        onChange={(event) =>
+                          onTermsFilterVersionIdChange(event.target.value)
+                        }
+                      />
+                    </div>
                   </div>
-                )}
+
+                  {termsAcceptances.length > 0 && (
+                    <div className="table-responsive mt-3">
+                      <table className="table align-middle mb-0">
+                        <thead>
+                          <tr>
+                            <th>User</th>
+                            <th>Version ID</th>
+                            <th>Accepted</th>
+                            <th>IP</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {termsAcceptances.slice(0, 20).map((item) => (
+                            <tr key={item.acceptanceId}>
+                              <td>{item.userId}</td>
+                              <td>{item.termsVersionId}</td>
+                              <td>
+                                {formatDisplayDateTime(item.acceptedAtUtc)}
+                              </td>
+                              <td>{item.acceptedFromIp}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <div
+                  className="alert alert-light border mt-3 mb-0"
+                  role="status"
+                >
+                  <div className="fw-semibold mb-1">
+                    Terms management status
+                  </div>
+                  <div>{adminMessage}</div>
+                </div>
               </div>
             </div>
           )}
