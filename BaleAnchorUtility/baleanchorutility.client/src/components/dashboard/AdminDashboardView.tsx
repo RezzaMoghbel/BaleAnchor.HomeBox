@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 import { AdminAccountStatusCard } from "./admin/AdminAccountStatusCard";
-import { AdminApprovalActionsCard } from "./admin/AdminApprovalActionsCard";
-import { AdminSupportAccessCard } from "./admin/AdminSupportAccessCard";
 import type {
   AdminBillingContextResponse,
   AdminUserSummaryItem,
@@ -20,10 +18,8 @@ interface AdminDashboardViewProps {
   adminRouteTabs: ReactNode;
   adminSection:
     | "account"
-    | "account-access"
     | "settings"
     | "system-auth"
-    | "approvals"
     | "search"
     | "flat-register";
   loading: boolean;
@@ -198,7 +194,8 @@ interface AdminDashboardViewProps {
       | "suspend"
       | "move-to-onboarding"
       | "reinstate-approved"
-      | "archive";
+      | "archive"
+      | "hard-delete";
     roleTarget: "Resident" | "Admin" | "SuperAdmin";
     currentStatus?: string;
     currentRole?: string;
@@ -227,9 +224,6 @@ export function AdminDashboardView({
   adminSection,
   loading,
   currentUserRole,
-  adminTargetUserId,
-  adminReason,
-  adminRoleTarget,
   adminMessage,
   adminUsers,
   adminSearchQuery,
@@ -296,9 +290,6 @@ export function AdminDashboardView({
   emailTestRecipient,
   onAdminSearchQueryChange,
   onAdminSearchStatusChange,
-  onAdminTargetUserIdChange,
-  onAdminReasonChange,
-  onAdminRoleTargetChange,
   onAdminBillingOnDateChange,
   onAdminTariffEffectiveFromDateChange,
   onAdminWaterTariffPerUnitChange,
@@ -377,12 +368,7 @@ export function AdminDashboardView({
   onUpsertTenantGap,
   onBeginTenantGapEdit,
   onClearTenantGapForm,
-  onSubmitAdminDecision,
-  onSubmitRoleChange,
-  onSubmitAdminLifecycleAction,
   onApplyAccountStatusRoleChange,
-  onHardDeleteAdminUser,
-  onStartDelegatedSupportSession,
   formatDisplayDateTime,
 }: AdminDashboardViewProps) {
   const isSuperAdmin = currentUserRole.trim().toLowerCase() === "superadmin";
@@ -390,10 +376,8 @@ export function AdminDashboardView({
     currentUserRole.trim().toLowerCase() === "admin" ||
     currentUserRole.trim().toLowerCase() === "superadmin";
   const showAccount = adminSection === "account";
-  const showAccountAccess = adminSection === "account-access";
   const showSettings = adminSection === "settings";
   const showSystemAuth = adminSection === "system-auth";
-  const showApprovals = adminSection === "approvals";
   const showSearch = adminSection === "search";
   const showFlatRegister = adminSection === "flat-register";
 
@@ -414,21 +398,6 @@ export function AdminDashboardView({
 
           {routeTabs}
           {adminRouteTabs}
-
-          {showAccountAccess && (
-            <AdminSupportAccessCard
-              loading={loading}
-              isSuperAdmin={isSuperAdmin}
-              adminTargetUserId={adminTargetUserId}
-              adminReason={adminReason}
-              adminUsers={adminUsers}
-              onAdminTargetUserIdChange={onAdminTargetUserIdChange}
-              onAdminSearchQueryChange={onAdminSearchQueryChange}
-              onAdminSearchStatusChange={onAdminSearchStatusChange}
-              onSearchAdminUsers={onSearchAdminUsers}
-              onStartDelegatedSupportSession={onStartDelegatedSupportSession}
-            />
-          )}
 
           {showAccount && (
             <AdminAccountStatusCard
@@ -684,26 +653,6 @@ export function AdminDashboardView({
                 </div>
               </div>
             </div>
-          )}
-
-          {showApprovals && (
-            <AdminApprovalActionsCard
-              loading={loading}
-              currentUserRole={currentUserRole}
-              adminTargetUserId={adminTargetUserId}
-              adminReason={adminReason}
-              adminRoleTarget={adminRoleTarget}
-              adminMessage={adminMessage}
-              pendingApprovals={pendingApprovals}
-              onAdminTargetUserIdChange={onAdminTargetUserIdChange}
-              onAdminReasonChange={onAdminReasonChange}
-              onAdminRoleTargetChange={onAdminRoleTargetChange}
-              onLoadPendingApprovals={onLoadPendingApprovals}
-              onSubmitAdminDecision={onSubmitAdminDecision}
-              onSubmitRoleChange={onSubmitRoleChange}
-              onSubmitAdminLifecycleAction={onSubmitAdminLifecycleAction}
-              onHardDeleteAdminUser={onHardDeleteAdminUser}
-            />
           )}
 
           {showSearch && (
@@ -1698,42 +1647,6 @@ export function AdminDashboardView({
                             <td>{item.category}</td>
                             <td>{item.action}</td>
                             <td>{item.reason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {showApprovals && (
-            <div className="card radius-10 border-0 shadow-sm mt-4">
-              <div className="card-body">
-                <h5 className="mb-3">Pending approvals</h5>
-                {pendingApprovals.length === 0 ? (
-                  <p className="text-secondary mb-0">
-                    No pending approvals loaded yet.
-                  </p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>User ID</th>
-                          <th>Email</th>
-                          <th>Submitted state</th>
-                          <th>Updated UTC</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pendingApprovals.slice(0, 20).map((item) => (
-                          <tr key={item.userId}>
-                            <td>{item.userId}</td>
-                            <td>{item.emailMasked}</td>
-                            <td>{item.submittedState}</td>
-                            <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
                           </tr>
                         ))}
                       </tbody>

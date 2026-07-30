@@ -148,7 +148,11 @@ export function OnboardingView({
 
   const accountStatus =
     onboardingProgress?.accountStatus?.trim().toLowerCase() ?? "";
-  const termsAccepted = onboardingProgress?.termsAccepted ?? false;
+  const hasActiveTerms = activeTerms !== null;
+  const termsAccepted = onboardingProgress?.termsAccepted ?? !hasActiveTerms;
+  const isTermsPendingStatus = accountStatus === "termspending";
+  const termsStepCompleted = termsAccepted && !isTermsPendingStatus;
+  const canRetryTermsAcceptance = hasActiveTerms && isTermsPendingStatus;
   const profileComplete = onboardingProgress?.profileComplete ?? false;
   const utilitySetupComplete =
     onboardingProgress?.utilitySetupComplete ?? false;
@@ -158,13 +162,18 @@ export function OnboardingView({
   const showPendingReadOnlyNotice =
     allStepsComplete && accountStatus === "pendingapproval";
   const lockAfterCompletion = allStepsComplete && isActiveAccount;
+  const canResubmitUtilityForApproval =
+    termsAccepted &&
+    profileComplete &&
+    utilitySetupComplete &&
+    (accountStatus === "termspending" || accountStatus === "profileincomplete");
 
   const profileUnlocked =
     termsAccepted && !profileComplete && !lockAfterCompletion;
   const utilityUnlocked =
     termsAccepted &&
     profileComplete &&
-    !utilitySetupComplete &&
+    (!utilitySetupComplete || canResubmitUtilityForApproval) &&
     !lockAfterCompletion;
 
   const canOpenProfile = termsAccepted;
@@ -243,7 +252,7 @@ export function OnboardingView({
                 >
                   <span>
                     1. Terms and acknowledgement
-                    {termsAccepted && (
+                    {termsStepCompleted && (
                       <span className="badge bg-success ms-2">Completed</span>
                     )}
                   </span>
@@ -276,14 +285,32 @@ export function OnboardingView({
                       onClick={() => void onAcceptTerms()}
                       disabled={
                         loading ||
-                        !activeTerms ||
-                        termsAccepted ||
+                        !hasActiveTerms ||
+                        (termsAccepted && !canRetryTermsAcceptance) ||
                         lockAfterCompletion
                       }
                     >
                       Accept terms and acknowledgement
                     </button>
                   </div>
+
+                  {termsAccepted && isTermsPendingStatus && hasActiveTerms && (
+                    <div
+                      className="alert alert-warning border mb-3"
+                      role="status"
+                    >
+                      Your account status is still Terms pending. Click "Accept
+                      terms and acknowledgement" once to sync your account
+                      status and continue onboarding.
+                    </div>
+                  )}
+
+                  {!hasActiveTerms && (
+                    <div className="alert alert-info border mb-3" role="status">
+                      No active terms are published right now. You can continue
+                      with profile and utility setup.
+                    </div>
+                  )}
 
                   <div className="alert alert-light border mb-0" role="status">
                     <div className="fw-semibold mb-1">Terms status</div>
@@ -486,6 +513,14 @@ export function OnboardingView({
                   {!profileComplete && (
                     <div className="alert alert-warning border" role="status">
                       Complete tenant profile first to unlock utility setup.
+                    </div>
+                  )}
+
+                  {canResubmitUtilityForApproval && (
+                    <div className="alert alert-info border" role="status">
+                      Your onboarding status needs a final utility setup
+                      resubmission. Review your values and submit this section
+                      to move your account to Pending approval.
                     </div>
                   )}
 

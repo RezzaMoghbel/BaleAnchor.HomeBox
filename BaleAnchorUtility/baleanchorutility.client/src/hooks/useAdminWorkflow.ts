@@ -844,7 +844,8 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
       | "suspend"
       | "move-to-onboarding"
       | "reinstate-approved"
-      | "archive";
+      | "archive"
+      | "hard-delete";
     roleTarget: "Resident" | "Admin" | "SuperAdmin";
     currentStatus?: string;
     currentRole?: string;
@@ -860,9 +861,11 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     const roleTarget = request.roleTarget.trim();
     const normalizedCurrentRole = request.currentRole?.trim().toLowerCase();
     const normalizedRequestedRole = roleTarget.toLowerCase();
+    const isHardDeleteAction = request.statusAction === "hard-delete";
     const shouldSkipRoleUpdate =
-      !!normalizedCurrentRole &&
-      normalizedCurrentRole === normalizedRequestedRole;
+      isHardDeleteAction ||
+      (!!normalizedCurrentRole &&
+        normalizedCurrentRole === normalizedRequestedRole);
 
     if (!targetUserId || reason.length < 3 || !roleTarget) {
       const message = "Target user ID, role, and reason are required.";
@@ -873,28 +876,39 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     setLoading(true);
     try {
       const statusResponse =
-        request.statusAction === undefined
-          ? {
-              userId: targetUserId,
-              newStatus: request.currentStatus ?? "Unchanged",
-              message: "Account status unchanged.",
-            }
-          : request.statusAction === "approve" ||
-              request.statusAction === "reject"
-            ? await portalClient.submitAdminDecision(
-                targetUserId,
-                request.statusAction,
-                {
-                  reason,
-                },
-              )
-            : await portalClient.submitAdminLifecycleAction(
-                targetUserId,
-                request.statusAction,
-                {
-                  reason,
-                },
-              );
+        request.statusAction === "hard-delete"
+          ? await portalClient
+              .hardDeleteAdminUser(targetUserId, {
+                reason,
+                confirmationText: `DELETE ${targetUserId}`,
+              })
+              .then((body) => ({
+                userId: targetUserId,
+                newStatus: "Deleted",
+                message: `${body.message} Deleted records: ${body.deletedRecordCount}.`,
+              }))
+          : request.statusAction === undefined
+            ? {
+                userId: targetUserId,
+                newStatus: request.currentStatus ?? "Unchanged",
+                message: "Account status unchanged.",
+              }
+            : request.statusAction === "approve" ||
+                request.statusAction === "reject"
+              ? await portalClient.submitAdminDecision(
+                  targetUserId,
+                  request.statusAction,
+                  {
+                    reason,
+                  },
+                )
+              : await portalClient.submitAdminLifecycleAction(
+                  targetUserId,
+                  request.statusAction,
+                  {
+                    reason,
+                  },
+                );
 
       const roleResponse = shouldSkipRoleUpdate
         ? {
@@ -930,20 +944,30 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
       );
 
       const nowUtc = new Date().toISOString();
-      setAdminUsers((current) =>
-        current.map((item) =>
-          item.userId === targetUserId
-            ? {
-                ...item,
-                status: statusResponse.newStatus,
-                role: roleResponse.newRole,
-                updatedAtUtc: nowUtc,
-              }
-            : item,
-        ),
-      );
+      if (isHardDeleteAction) {
+        setAdminUsers((current) =>
+          current.filter((item) => item.userId !== targetUserId),
+        );
+        setPendingApprovals((current) =>
+          current.filter((item) => item.userId !== targetUserId),
+        );
+      } else {
+        setAdminUsers((current) =>
+          current.map((item) =>
+            item.userId === targetUserId
+              ? {
+                  ...item,
+                  status: statusResponse.newStatus,
+                  role: roleResponse.newRole,
+                  updatedAtUtc: nowUtc,
+                }
+              : item,
+          ),
+        );
+      }
 
       if (
+        !isHardDeleteAction &&
         statusResponse.newStatus.trim().toLowerCase() !== "pendingapproval" &&
         statusResponse.newStatus.trim().toLowerCase() !== "pending"
       ) {

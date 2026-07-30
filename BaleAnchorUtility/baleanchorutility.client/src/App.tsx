@@ -687,21 +687,15 @@ function App() {
   const isSuperAdminUser = userRole === "superadmin";
   const isDelegatedSession = session?.isDelegatedSession === true;
 
-  const adminSection = location.pathname.startsWith(
-    "/dashboard/admin/account-access",
-  )
-    ? "account-access"
-    : location.pathname.startsWith("/dashboard/admin/settings")
-      ? "settings"
-      : location.pathname.startsWith("/dashboard/admin/system-auth")
-        ? "system-auth"
-        : location.pathname.startsWith("/dashboard/admin/approvals")
-          ? "approvals"
-          : location.pathname.startsWith("/dashboard/admin/search")
-            ? "search"
-            : location.pathname.startsWith("/dashboard/admin/flat-register")
-              ? "flat-register"
-              : "account";
+  const adminSection = location.pathname.startsWith("/dashboard/admin/settings")
+    ? "settings"
+    : location.pathname.startsWith("/dashboard/admin/system-auth")
+      ? "system-auth"
+      : location.pathname.startsWith("/dashboard/admin/search")
+        ? "search"
+        : location.pathname.startsWith("/dashboard/admin/flat-register")
+          ? "flat-register"
+          : "account";
 
   useEffect(() => {
     void refreshSession(true);
@@ -725,12 +719,20 @@ function App() {
     }
 
     if (
+      location.pathname.startsWith("/dashboard/admin/account-access") ||
+      location.pathname.startsWith("/dashboard/admin/approvals")
+    ) {
+      navigate("/dashboard/admin/account", { replace: true });
+      return;
+    }
+
+    if (
       location.pathname.startsWith("/dashboard/admin") &&
       (adminSection === "settings" || adminSection === "system-auth")
     ) {
       void loadSystemSettings();
     }
-  }, [adminSection, isAdminUser, location.pathname]);
+  }, [adminSection, isAdminUser, location.pathname, navigate]);
 
   const pageMode =
     location.pathname === "/onboarding"
@@ -1040,12 +1042,6 @@ function App() {
         Account
       </Link>
       <Link
-        className={`shell-nav-link ${adminSection === "account-access" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/admin/account-access"
-      >
-        Account access
-      </Link>
-      <Link
         className={`shell-nav-link ${adminSection === "settings" ? "shell-nav-link--active" : ""}`}
         to="/dashboard/admin/settings"
       >
@@ -1056,12 +1052,6 @@ function App() {
         to="/dashboard/admin/system-auth"
       >
         System auth
-      </Link>
-      <Link
-        className={`shell-nav-link ${adminSection === "approvals" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/admin/approvals"
-      >
-        Approvals
       </Link>
       <Link
         className={`shell-nav-link ${adminSection === "search" ? "shell-nav-link--active" : ""}`}

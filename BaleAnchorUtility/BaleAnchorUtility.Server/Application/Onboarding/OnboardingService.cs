@@ -152,11 +152,23 @@ public sealed class OnboardingService
             throw new InvalidOperationException("This account is not eligible for onboarding updates.");
         }
 
-        if (user.Status is UserAccountStatus.TermsPending
-            or UserAccountStatus.EmailUnverified
-            or UserAccountStatus.EmailVerified)
+        var activeTerms = await termsVersionRepository.GetActiveAsync(cancellationToken);
+        var termsAccepted = activeTerms is null
+            || await termsAcceptanceRepository.GetByUserAndVersionAsync(userId, activeTerms.Id, cancellationToken) is not null;
+
+        if (!termsAccepted)
         {
-            throw new InvalidOperationException("Accept terms and complete profile details before utility setup.");
+            throw new InvalidOperationException("Accept terms before utility setup.");
+        }
+
+        var profileComplete = !string.IsNullOrWhiteSpace(user.SurnameNormalized)
+            && !string.IsNullOrWhiteSpace(user.DateOfBirth)
+            && !string.IsNullOrWhiteSpace(user.FlatNumberNormalized)
+            && !string.IsNullOrWhiteSpace(user.MobileNumber);
+
+        if (!profileComplete)
+        {
+            throw new InvalidOperationException("Complete profile details before utility setup.");
         }
 
         if (!DateOnly.TryParseExact(request.MoveInDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var moveInDate))

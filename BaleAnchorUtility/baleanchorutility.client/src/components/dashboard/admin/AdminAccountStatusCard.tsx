@@ -29,6 +29,16 @@ type AccountStatusOption =
   | "MovedOut"
   | "Archived";
 
+type AccountActionOption =
+  | "move-to-onboarding"
+  | "reinstate-approved"
+  | "archive"
+  | "hard-delete";
+
+type AccountUpdateIntent =
+  | `status:${AccountStatusOption}`
+  | `action:${AccountActionOption}`;
+
 interface AdminAccountStatusCardProps {
   loading: boolean;
   isSuperAdmin: boolean;
@@ -54,7 +64,8 @@ interface AdminAccountStatusCardProps {
       | "suspend"
       | "move-to-onboarding"
       | "reinstate-approved"
-      | "archive";
+      | "archive"
+      | "hard-delete";
     roleTarget: "Resident" | "Admin" | "SuperAdmin";
     currentStatus?: string;
     currentRole?: string;
@@ -84,8 +95,8 @@ export function AdminAccountStatusCard({
   const [currentPage, setCurrentPage] = useState(1);
   const [changeModalTarget, setChangeModalTarget] =
     useState<AccountTableRow | null>(null);
-  const [changeModalStatusTarget, setChangeModalStatusTarget] =
-    useState<AccountStatusOption>("Active");
+  const [changeModalIntent, setChangeModalIntent] =
+    useState<AccountUpdateIntent>("status:Active");
   const [changeModalRole, setChangeModalRole] = useState<
     "Resident" | "Admin" | "SuperAdmin"
   >("Resident");
@@ -523,7 +534,7 @@ export function AdminAccountStatusCard({
                           : "Active";
 
     setChangeModalTarget(item);
-    setChangeModalStatusTarget(defaultStatusTarget);
+    setChangeModalIntent(`status:${defaultStatusTarget}`);
     setChangeModalRole(normalizeRole(item.role));
     setChangeModalReason(`Account status oversight update for ${item.userId}`);
     setChangeModalConfirmText(confirmationText);
@@ -594,9 +605,24 @@ export function AdminAccountStatusCard({
     }
 
     const currentStatus = changeModalTarget.status.trim().toLowerCase();
-    const targetStatus = changeModalStatusTarget;
+
+    if (changeModalIntent === "action:hard-delete" && !isSuperAdmin) {
+      setUpdateToast({
+        tone: "danger",
+        title: "Update blocked",
+        message: "Only SuperAdmin can hard delete an account.",
+      });
+      return;
+    }
 
     const resolveStatusAction = () => {
+      if (changeModalIntent.startsWith("action:")) {
+        const directAction = changeModalIntent.slice(7) as AccountActionOption;
+        return { action: directAction };
+      }
+
+      const targetStatus = changeModalIntent.slice(7) as AccountStatusOption;
+
       if (
         (currentStatus === "pendingapproval" || currentStatus === "pending") &&
         targetStatus === "Active"
@@ -1090,29 +1116,51 @@ export function AdminAccountStatusCard({
                     </div>
 
                     <div className="row g-3">
-                      <div className="col-12 col-md-6">
-                        <label className="form-label">Status target</label>
+                      <div className="col-12">
+                        <label className="form-label">
+                          Account update target
+                        </label>
                         <select
                           className="form-select"
-                          value={changeModalStatusTarget}
+                          value={changeModalIntent}
                           onChange={(event) =>
-                            setChangeModalStatusTarget(
-                              event.target.value as AccountStatusOption,
+                            setChangeModalIntent(
+                              event.target.value as AccountUpdateIntent,
                             )
                           }
                         >
-                          {allStatusOptions.map((statusOption) => (
-                            <option
-                              key={statusOption.value}
-                              value={statusOption.value}
-                              disabled={!statusOption.userSelectable}
-                            >
-                              {statusOption.label}
+                          <optgroup label="Status targets">
+                            {allStatusOptions.map((statusOption) => (
+                              <option
+                                key={statusOption.value}
+                                value={`status:${statusOption.value}`}
+                                disabled={!statusOption.userSelectable}
+                              >
+                                {statusOption.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Direct account actions">
+                            <option value="action:move-to-onboarding">
+                              Move to onboarding
                             </option>
-                          ))}
+                            <option value="action:reinstate-approved">
+                              Reinstate approved
+                            </option>
+                            <option value="action:archive">
+                              Archive account
+                            </option>
+                            <option value="action:hard-delete">
+                              Hard delete account
+                            </option>
+                          </optgroup>
                         </select>
+                        <div className="form-text">
+                          Choose either a target status or a direct account
+                          action from the same control.
+                        </div>
                       </div>
-                      <div className="col-12 col-md-6">
+                      <div className="col-12">
                         <label className="form-label">Role assignment</label>
                         <select
                           className="form-select"

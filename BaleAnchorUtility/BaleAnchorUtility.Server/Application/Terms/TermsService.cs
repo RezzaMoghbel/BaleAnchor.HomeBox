@@ -9,6 +9,7 @@ public sealed class TermsService
     private readonly ITermsVersionRepository termsVersionRepository;
     private readonly ITermsAcceptanceRepository termsAcceptanceRepository;
     private readonly IUserRepository userRepository;
+    private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly ISystemClock clock;
     private readonly ILogger<TermsService> logger;
 
@@ -16,12 +17,14 @@ public sealed class TermsService
         ITermsVersionRepository termsVersionRepository,
         ITermsAcceptanceRepository termsAcceptanceRepository,
         IUserRepository userRepository,
+        IUtilitySetupRepository utilitySetupRepository,
         ISystemClock clock,
         ILogger<TermsService> logger)
     {
         this.termsVersionRepository = termsVersionRepository;
         this.termsAcceptanceRepository = termsAcceptanceRepository;
         this.userRepository = userRepository;
+        this.utilitySetupRepository = utilitySetupRepository;
         this.clock = clock;
         this.logger = logger;
     }
@@ -63,6 +66,8 @@ public sealed class TermsService
         var existing = await termsAcceptanceRepository.GetByUserAndVersionAsync(userId, active.Id, cancellationToken);
         if (existing is not null)
         {
+            await AdvanceUserStatusAfterAcceptanceAsync(userId, cancellationToken);
+
             return new AcceptTermsResponse
             {
                 TermsVersionId = existing.TermsVersionId,
@@ -114,7 +119,31 @@ public sealed class TermsService
             return;
         }
 
-        user.Status = Domain.Users.UserAccountStatus.ProfileIncomplete;
+        var profileComplete = !string.IsNullOrWhiteSpace(user.SurnameNormalized)
+            && !string.IsNullOrWhiteSpace(user.DateOfBirth)
+            && !string.IsNullOrWhiteSpace(user.FlatNumberNormalized)
+            && !string.IsNullOrWhiteSpace(user.MobileNumber);
+
+        Domain.Users.UserAccountStatus targetStatus;
+
+        if (!profileComplete)
+        {
+            targetStatus = Domain.Users.UserAccountStatus.ProfileIncomplete;
+        }
+        else
+        {
+            var utilitySetup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
+            targetStatus = utilitySetup is null
+                ? Domain.Users.UserAccountStatus.UtilitySetupIncomplete
+                : Domain.Users.UserAccountStatus.PendingApproval;
+        }
+
+        if (user.Status == targetStatus)
+        {
+            return;
+        }
+
+        user.Status = targetStatus;
         user.UpdatedAtUtc = clock.UtcNow;
         user.Version += 1;
         await userRepository.UpsertAsync(user, cancellationToken);
