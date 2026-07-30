@@ -55,7 +55,15 @@ const utilitySetupSchema = z.object({
   openingHotWaterReading: decimalUpTo3Schema,
   openingElectricityReading: decimalUpTo3Schema,
   initialWaterTariffPerUnit: decimalUpTo6Schema,
+  initialWaterStandingChargePerDay: decimalUpTo6Schema,
+  initialWaterVatPercent: decimalUpTo2Schema,
   initialElectricityTariffPerUnit: decimalUpTo6Schema,
+  initialElectricityStandingChargePerDay: decimalUpTo6Schema,
+  initialElectricityVatPercent: decimalUpTo2Schema,
+  hotWaterTemperatureCelsius: decimalUpTo2Schema,
+  hotWaterHeatCapacity: decimalUpTo6Schema,
+  hotWaterDensity: decimalUpTo3Schema,
+  kiloJouleToKiloWattHourFactor: decimalUpTo6Schema,
   boilerKwhPerCubicMeter: decimalUpTo6Schema,
   boilerEfficiencyPercent: decimalUpTo2Schema,
 });
@@ -73,7 +81,15 @@ interface UtilitySetupValidationInput {
   openingHotWaterReading: string;
   openingElectricityReading: string;
   initialWaterTariffPerUnit: string;
+  initialWaterStandingChargePerDay: string;
+  initialWaterVatPercent: string;
   initialElectricityTariffPerUnit: string;
+  initialElectricityStandingChargePerDay: string;
+  initialElectricityVatPercent: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
   boilerKwhPerCubicMeter: string;
   boilerEfficiencyPercent: string;
 }
@@ -112,8 +128,18 @@ export function validateUtilitySetupInput(
     openingHotWaterReading: input.openingHotWaterReading.trim(),
     openingElectricityReading: input.openingElectricityReading.trim(),
     initialWaterTariffPerUnit: input.initialWaterTariffPerUnit.trim(),
+    initialWaterStandingChargePerDay:
+      input.initialWaterStandingChargePerDay.trim(),
+    initialWaterVatPercent: input.initialWaterVatPercent.trim(),
     initialElectricityTariffPerUnit:
       input.initialElectricityTariffPerUnit.trim(),
+    initialElectricityStandingChargePerDay:
+      input.initialElectricityStandingChargePerDay.trim(),
+    initialElectricityVatPercent: input.initialElectricityVatPercent.trim(),
+    hotWaterTemperatureCelsius: input.hotWaterTemperatureCelsius.trim(),
+    hotWaterHeatCapacity: input.hotWaterHeatCapacity.trim(),
+    hotWaterDensity: input.hotWaterDensity.trim(),
+    kiloJouleToKiloWattHourFactor: input.kiloJouleToKiloWattHourFactor.trim(),
     boilerKwhPerCubicMeter: input.boilerKwhPerCubicMeter.trim(),
     boilerEfficiencyPercent: input.boilerEfficiencyPercent.trim(),
   });

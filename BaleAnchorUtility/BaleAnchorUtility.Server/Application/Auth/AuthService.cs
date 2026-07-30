@@ -365,18 +365,20 @@ public sealed class AuthService
                     }
                 };
             }
-
-            user = new UserAccount
+            else
             {
-                Id = Guid.NewGuid().ToString("N"),
-                EmailDisplay = request.Email.Trim(),
-                EmailNormalized = normalizedEmail,
-                Role = UserRole.Resident,
-                Status = UserAccountStatus.TermsPending,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now,
-                Version = 1,
-            };
+                user = new UserAccount
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    EmailDisplay = request.Email.Trim(),
+                    EmailNormalized = normalizedEmail,
+                    Role = UserRole.Resident,
+                    Status = UserAccountStatus.TermsPending,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now,
+                    Version = 1,
+                };
+            }
         }
 
         if (user.Status is UserAccountStatus.EmailUnverified or UserAccountStatus.EmailVerified)

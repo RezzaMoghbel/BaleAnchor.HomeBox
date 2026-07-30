@@ -25,6 +25,7 @@ import type {
   LatestReadingsResponse,
   NotificationPreferencesResponse,
   OnboardingProgressResponse,
+  OnboardingStateResponse,
   PaymentHistoryResponse,
   PendingApprovalListResponse,
   PushPublicConfigResponse,
@@ -94,7 +95,15 @@ interface CompleteUtilitySetupRequest {
   openingHotWaterReading: string;
   openingElectricityReading: string;
   initialWaterTariffPerUnit: string;
+  initialWaterStandingChargePerDay: string;
+  initialWaterVatPercent: string;
   initialElectricityTariffPerUnit: string;
+  initialElectricityStandingChargePerDay: string;
+  initialElectricityVatPercent: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
   boilerKwhPerCubicMeter: string;
   boilerEfficiencyPercent: string;
 }
@@ -376,6 +385,13 @@ export const portalClient = {
         credentials: "include",
       },
     );
+  },
+
+  getOnboardingState() {
+    return requestJson<OnboardingStateResponse>("/api/v1/onboarding/state", {
+      method: "GET",
+      credentials: "include",
+    });
   },
 
   getPendingApprovals() {

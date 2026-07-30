@@ -87,6 +87,30 @@ export interface OnboardingProgressResponse {
   nextStep: string;
 }
 
+export interface OnboardingStateResponse {
+  userId: string;
+  surname: string;
+  dateOfBirth: string;
+  flatNumber: string;
+  mobileNumber: string;
+  moveInDate: string;
+  openingColdWaterReading: string;
+  openingHotWaterReading: string;
+  openingElectricityReading: string;
+  initialWaterTariffPerUnit: string;
+  initialWaterStandingChargePerDay: string;
+  initialWaterVatPercent: string;
+  initialElectricityTariffPerUnit: string;
+  initialElectricityStandingChargePerDay: string;
+  initialElectricityVatPercent: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+}
+
 export interface PendingApprovalUserItem {
   userId: string;
   emailMasked: string;

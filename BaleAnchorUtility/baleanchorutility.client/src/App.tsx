@@ -601,9 +601,15 @@ function App() {
     openingHotWaterReading,
     openingElectricityReading,
     initialWaterTariffPerUnit,
+    initialWaterStandingChargePerDay,
+    initialWaterVatPercent,
     initialElectricityTariffPerUnit,
-    boilerKwhPerCubicMeter,
-    boilerEfficiencyPercent,
+    initialElectricityStandingChargePerDay,
+    initialElectricityVatPercent,
+    hotWaterTemperatureCelsius,
+    hotWaterHeatCapacity,
+    hotWaterDensity,
+    kiloJouleToKiloWattHourFactor,
     utilitySetupMessage,
     utilityFieldErrors,
     onboardingProgress,
@@ -612,6 +618,7 @@ function App() {
     acceptTerms,
     submitProfile,
     submitUtilitySetup,
+    loadOnboardingState,
     loadOnboardingProgress,
     setSurname,
     setDateOfBirth,
@@ -622,13 +629,23 @@ function App() {
     setOpeningHotWaterReading,
     setOpeningElectricityReading,
     setInitialWaterTariffPerUnit,
+    setInitialWaterStandingChargePerDay,
+    setInitialWaterVatPercent,
     setInitialElectricityTariffPerUnit,
-    setBoilerKwhPerCubicMeter,
-    setBoilerEfficiencyPercent,
+    setInitialElectricityStandingChargePerDay,
+    setInitialElectricityVatPercent,
+    setHotWaterTemperatureCelsius,
+    setHotWaterHeatCapacity,
+    setHotWaterDensity,
+    setKiloJouleToKiloWattHourFactor,
   } = useOnboardingWorkflow({
     setLoading,
     setStatusMessage,
-    refreshSession: () => refreshSession(),
+    refreshSession,
+    enableOnboardingHeartbeat:
+      sessionChecked &&
+      session?.isAuthenticated === true &&
+      location.pathname === "/onboarding",
   });
 
   const userRole = session?.userRole?.trim().toLowerCase() ?? "";
@@ -821,9 +838,17 @@ function App() {
       openingHotWaterReading={openingHotWaterReading}
       openingElectricityReading={openingElectricityReading}
       initialWaterTariffPerUnit={initialWaterTariffPerUnit}
+      initialWaterStandingChargePerDay={initialWaterStandingChargePerDay}
+      initialWaterVatPercent={initialWaterVatPercent}
       initialElectricityTariffPerUnit={initialElectricityTariffPerUnit}
-      boilerKwhPerCubicMeter={boilerKwhPerCubicMeter}
-      boilerEfficiencyPercent={boilerEfficiencyPercent}
+      initialElectricityStandingChargePerDay={
+        initialElectricityStandingChargePerDay
+      }
+      initialElectricityVatPercent={initialElectricityVatPercent}
+      hotWaterTemperatureCelsius={hotWaterTemperatureCelsius}
+      hotWaterHeatCapacity={hotWaterHeatCapacity}
+      hotWaterDensity={hotWaterDensity}
+      kiloJouleToKiloWattHourFactor={kiloJouleToKiloWattHourFactor}
       profileFieldErrors={profileFieldErrors}
       utilityFieldErrors={utilityFieldErrors}
       getFieldErrors={getFieldErrors}
@@ -831,6 +856,7 @@ function App() {
       onAcceptTerms={acceptTerms}
       onSubmitProfile={submitProfile}
       onSubmitUtilitySetup={submitUtilitySetup}
+      onLoadOnboardingState={loadOnboardingState}
       onLoadOnboardingProgress={loadOnboardingProgress}
       onSurnameChange={setSurname}
       onDateOfBirthChange={setDateOfBirth}
@@ -841,11 +867,21 @@ function App() {
       onOpeningHotWaterReadingChange={setOpeningHotWaterReading}
       onOpeningElectricityReadingChange={setOpeningElectricityReading}
       onInitialWaterTariffPerUnitChange={setInitialWaterTariffPerUnit}
+      onInitialWaterStandingChargePerDayChange={
+        setInitialWaterStandingChargePerDay
+      }
+      onInitialWaterVatPercentChange={setInitialWaterVatPercent}
       onInitialElectricityTariffPerUnitChange={
         setInitialElectricityTariffPerUnit
       }
-      onBoilerKwhPerCubicMeterChange={setBoilerKwhPerCubicMeter}
-      onBoilerEfficiencyPercentChange={setBoilerEfficiencyPercent}
+      onInitialElectricityStandingChargePerDayChange={
+        setInitialElectricityStandingChargePerDay
+      }
+      onInitialElectricityVatPercentChange={setInitialElectricityVatPercent}
+      onHotWaterTemperatureCelsiusChange={setHotWaterTemperatureCelsius}
+      onHotWaterHeatCapacityChange={setHotWaterHeatCapacity}
+      onHotWaterDensityChange={setHotWaterDensity}
+      onKiloJouleToKiloWattHourFactorChange={setKiloJouleToKiloWattHourFactor}
     />
   );
 

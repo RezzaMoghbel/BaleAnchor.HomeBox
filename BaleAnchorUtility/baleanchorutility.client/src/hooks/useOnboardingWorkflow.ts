@@ -1,9 +1,10 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { PortalApiError, portalClient } from "../api/portalClient";
 import type {
   ActiveTermsResponse,
   FieldErrors,
   OnboardingProgressResponse,
+  OnboardingStateResponse,
 } from "../shared/contracts";
 import {
   validateProfileInput,
@@ -13,13 +14,15 @@ import {
 interface UseOnboardingWorkflowArgs {
   setLoading: Dispatch<SetStateAction<boolean>>;
   setStatusMessage: Dispatch<SetStateAction<string>>;
-  refreshSession: () => Promise<void>;
+  refreshSession: (silent?: boolean) => Promise<void>;
+  enableOnboardingHeartbeat: boolean;
 }
 
 export function useOnboardingWorkflow({
   setLoading,
   setStatusMessage,
   refreshSession,
+  enableOnboardingHeartbeat,
 }: UseOnboardingWorkflowArgs) {
   const [activeTerms, setActiveTerms] = useState<ActiveTermsResponse | null>(
     null,
@@ -42,10 +45,29 @@ export function useOnboardingWorkflow({
     useState("");
   const [initialWaterTariffPerUnit, setInitialWaterTariffPerUnit] =
     useState("");
+  const [
+    initialWaterStandingChargePerDay,
+    setInitialWaterStandingChargePerDay,
+  ] = useState("");
+  const [initialWaterVatPercent, setInitialWaterVatPercent] = useState("");
   const [initialElectricityTariffPerUnit, setInitialElectricityTariffPerUnit] =
     useState("");
-  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] = useState("");
-  const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] = useState("");
+  const [
+    initialElectricityStandingChargePerDay,
+    setInitialElectricityStandingChargePerDay,
+  ] = useState("");
+  const [initialElectricityVatPercent, setInitialElectricityVatPercent] =
+    useState("");
+  const [hotWaterTemperatureCelsius, setHotWaterTemperatureCelsius] =
+    useState("55");
+  const [hotWaterHeatCapacity, setHotWaterHeatCapacity] = useState("4.186");
+  const [hotWaterDensity, setHotWaterDensity] = useState("1000");
+  const [kiloJouleToKiloWattHourFactor, setKiloJouleToKiloWattHourFactor] =
+    useState("3600");
+  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] =
+    useState("10.500000");
+  const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] =
+    useState("85.00");
   const [utilitySetupMessage, setUtilitySetupMessage] = useState(
     "Utility setup not submitted.",
   );
@@ -56,6 +78,84 @@ export function useOnboardingWorkflow({
   const [progressMessage, setProgressMessage] = useState(
     "Onboarding progress not loaded.",
   );
+
+  const hydrateFromOnboardingState = (state: OnboardingStateResponse) => {
+    setSurname(state.surname);
+    setDateOfBirth(state.dateOfBirth);
+    setFlatNumber(state.flatNumber);
+    setMobileNumber(state.mobileNumber);
+
+    if (state.moveInDate) {
+      setMoveInDate(state.moveInDate);
+    }
+    if (state.openingColdWaterReading) {
+      setOpeningColdWaterReading(state.openingColdWaterReading);
+    }
+    if (state.openingHotWaterReading) {
+      setOpeningHotWaterReading(state.openingHotWaterReading);
+    }
+    if (state.openingElectricityReading) {
+      setOpeningElectricityReading(state.openingElectricityReading);
+    }
+    if (state.initialWaterTariffPerUnit) {
+      setInitialWaterTariffPerUnit(state.initialWaterTariffPerUnit);
+    }
+    if (state.initialWaterStandingChargePerDay) {
+      setInitialWaterStandingChargePerDay(
+        state.initialWaterStandingChargePerDay,
+      );
+    }
+    if (state.initialWaterVatPercent) {
+      setInitialWaterVatPercent(state.initialWaterVatPercent);
+    }
+    if (state.initialElectricityTariffPerUnit) {
+      setInitialElectricityTariffPerUnit(state.initialElectricityTariffPerUnit);
+    }
+    if (state.initialElectricityStandingChargePerDay) {
+      setInitialElectricityStandingChargePerDay(
+        state.initialElectricityStandingChargePerDay,
+      );
+    }
+    if (state.initialElectricityVatPercent) {
+      setInitialElectricityVatPercent(state.initialElectricityVatPercent);
+    }
+    if (state.hotWaterTemperatureCelsius) {
+      setHotWaterTemperatureCelsius(state.hotWaterTemperatureCelsius);
+    }
+    if (state.hotWaterHeatCapacity) {
+      setHotWaterHeatCapacity(state.hotWaterHeatCapacity);
+    }
+    if (state.hotWaterDensity) {
+      setHotWaterDensity(state.hotWaterDensity);
+    }
+    if (state.kiloJouleToKiloWattHourFactor) {
+      setKiloJouleToKiloWattHourFactor(state.kiloJouleToKiloWattHourFactor);
+    }
+
+    if (state.boilerKwhPerCubicMeter) {
+      setBoilerKwhPerCubicMeter(state.boilerKwhPerCubicMeter);
+    }
+    if (state.boilerEfficiencyPercent) {
+      setBoilerEfficiencyPercent(state.boilerEfficiencyPercent);
+    }
+  };
+
+  const loadOnboardingState = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const body = await portalClient.getOnboardingState();
+      hydrateFromOnboardingState(body);
+    } catch {
+      // Keep local defaults when persisted state is unavailable.
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
 
   const loadActiveTerms = async () => {
     setLoading(true);
@@ -87,6 +187,8 @@ export function useOnboardingWorkflow({
     try {
       const body = await portalClient.acceptTerms(activeTerms.versionId);
       setTermsMessage(`${body.message} Accepted at ${body.acceptedAtUtc}.`);
+      await refreshSession(true);
+      await loadOnboardingProgress(true);
     } catch (error) {
       if (error instanceof PortalApiError) {
         setTermsMessage(`Terms acceptance failed. ${error.message}`);
@@ -123,7 +225,8 @@ export function useOnboardingWorkflow({
       setProfileFieldErrors({});
       setProfileMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Profile details saved for user ${body.userId}.`);
-      await refreshSession();
+      await refreshSession(true);
+      await loadOnboardingProgress(true);
     } catch (error) {
       if (error instanceof PortalApiError) {
         setProfileFieldErrors(error.errors);
@@ -143,7 +246,15 @@ export function useOnboardingWorkflow({
       openingHotWaterReading,
       openingElectricityReading,
       initialWaterTariffPerUnit,
+      initialWaterStandingChargePerDay,
+      initialWaterVatPercent,
       initialElectricityTariffPerUnit,
+      initialElectricityStandingChargePerDay,
+      initialElectricityVatPercent,
+      hotWaterTemperatureCelsius,
+      hotWaterHeatCapacity,
+      hotWaterDensity,
+      kiloJouleToKiloWattHourFactor,
       boilerKwhPerCubicMeter,
       boilerEfficiencyPercent,
     });
@@ -164,14 +275,23 @@ export function useOnboardingWorkflow({
         openingHotWaterReading,
         openingElectricityReading,
         initialWaterTariffPerUnit,
+        initialWaterStandingChargePerDay,
+        initialWaterVatPercent,
         initialElectricityTariffPerUnit,
+        initialElectricityStandingChargePerDay,
+        initialElectricityVatPercent,
+        hotWaterTemperatureCelsius,
+        hotWaterHeatCapacity,
+        hotWaterDensity,
+        kiloJouleToKiloWattHourFactor,
         boilerKwhPerCubicMeter,
         boilerEfficiencyPercent,
       });
       setUtilityFieldErrors({});
       setUtilitySetupMessage(`${body.message} Status: ${body.status}.`);
       setStatusMessage(`Utility setup complete for user ${body.userId}.`);
-      await refreshSession();
+      await refreshSession(true);
+      await loadOnboardingProgress(true);
     } catch (error) {
       if (error instanceof PortalApiError) {
         setUtilityFieldErrors(error.errors);
@@ -184,8 +304,11 @@ export function useOnboardingWorkflow({
     }
   };
 
-  const loadOnboardingProgress = async () => {
-    setLoading(true);
+  const loadOnboardingProgress = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
     try {
       const body = await portalClient.getOnboardingProgress();
       setOnboardingProgress(body);
@@ -200,9 +323,30 @@ export function useOnboardingWorkflow({
         setProgressMessage("Failed to load onboarding progress.");
       }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    if (!enableOnboardingHeartbeat) {
+      return;
+    }
+
+    void loadOnboardingState(true);
+    void loadOnboardingProgress(true);
+
+    const heartbeat = window.setInterval(() => {
+      void refreshSession(true);
+      void loadOnboardingState(true);
+      void loadOnboardingProgress(true);
+    }, 15000);
+
+    return () => {
+      window.clearInterval(heartbeat);
+    };
+  }, [enableOnboardingHeartbeat]);
 
   return {
     activeTerms,
@@ -218,7 +362,15 @@ export function useOnboardingWorkflow({
     openingHotWaterReading,
     openingElectricityReading,
     initialWaterTariffPerUnit,
+    initialWaterStandingChargePerDay,
+    initialWaterVatPercent,
     initialElectricityTariffPerUnit,
+    initialElectricityStandingChargePerDay,
+    initialElectricityVatPercent,
+    hotWaterTemperatureCelsius,
+    hotWaterHeatCapacity,
+    hotWaterDensity,
+    kiloJouleToKiloWattHourFactor,
     boilerKwhPerCubicMeter,
     boilerEfficiencyPercent,
     utilitySetupMessage,
@@ -229,6 +381,7 @@ export function useOnboardingWorkflow({
     acceptTerms,
     submitProfile,
     submitUtilitySetup,
+    loadOnboardingState,
     loadOnboardingProgress,
     setSurname,
     setDateOfBirth,
@@ -239,7 +392,15 @@ export function useOnboardingWorkflow({
     setOpeningHotWaterReading,
     setOpeningElectricityReading,
     setInitialWaterTariffPerUnit,
+    setInitialWaterStandingChargePerDay,
+    setInitialWaterVatPercent,
     setInitialElectricityTariffPerUnit,
+    setInitialElectricityStandingChargePerDay,
+    setInitialElectricityVatPercent,
+    setHotWaterTemperatureCelsius,
+    setHotWaterHeatCapacity,
+    setHotWaterDensity,
+    setKiloJouleToKiloWattHourFactor,
     setBoilerKwhPerCubicMeter,
     setBoilerEfficiencyPercent,
   };

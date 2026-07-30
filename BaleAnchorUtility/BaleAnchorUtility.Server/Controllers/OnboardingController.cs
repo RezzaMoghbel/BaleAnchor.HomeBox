@@ -36,6 +36,23 @@ public sealed class OnboardingController : ControllerBase
         return Ok(progress);
     }
 
+    [HttpGet("state")]
+    [ProducesResponseType(typeof(OnboardingStateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<OnboardingStateResponse>> State(CancellationToken cancellationToken)
+    {
+        Request.Cookies.TryGetValue(authService.SessionCookieName, out var rawToken);
+        var sessionStatus = await authService.GetSessionStatusAsync(rawToken, cancellationToken);
+
+        if (!sessionStatus.IsAuthenticated || string.IsNullOrWhiteSpace(sessionStatus.UserId))
+        {
+            return Unauthorized();
+        }
+
+        var state = await onboardingService.GetStateAsync(sessionStatus.UserId, cancellationToken);
+        return Ok(state);
+    }
+
     [HttpPost("profile")]
     [ProducesResponseType(typeof(CompleteProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

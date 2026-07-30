@@ -26,7 +26,39 @@ public sealed class CompleteUtilitySetupRequest
 
     [Required]
     [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string InitialWaterStandingChargePerDay { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,2})?$")]
+    public string InitialWaterVatPercent { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
     public string InitialElectricityTariffPerUnit { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string InitialElectricityStandingChargePerDay { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,2})?$")]
+    public string InitialElectricityVatPercent { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,2})?$")]
+    public string HotWaterTemperatureCelsius { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string HotWaterHeatCapacity { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,3})?$")]
+    public string HotWaterDensity { get; init; } = string.Empty;
+
+    [Required]
+    [RegularExpression("^\\d+(\\.\\d{1,6})?$")]
+    public string KiloJouleToKiloWattHourFactor { get; init; } = string.Empty;
 
     [Required]
     [RegularExpression("^\\d+(\\.\\d{1,6})?$")]

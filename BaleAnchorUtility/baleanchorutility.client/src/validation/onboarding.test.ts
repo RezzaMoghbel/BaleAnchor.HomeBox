@@ -37,7 +37,15 @@ describe("onboarding validation", () => {
         openingHotWaterReading: "0.500",
         openingElectricityReading: "12.125",
         initialWaterTariffPerUnit: "1.123456",
+        initialWaterStandingChargePerDay: "0.250000",
+        initialWaterVatPercent: "5",
         initialElectricityTariffPerUnit: "0.654321",
+        initialElectricityStandingChargePerDay: "0.450000",
+        initialElectricityVatPercent: "20",
+        hotWaterTemperatureCelsius: "55",
+        hotWaterHeatCapacity: "4.186000",
+        hotWaterDensity: "1000",
+        kiloJouleToKiloWattHourFactor: "3600",
         boilerKwhPerCubicMeter: "10.250000",
         boilerEfficiencyPercent: "85.50",
       }),
@@ -52,7 +60,15 @@ describe("onboarding validation", () => {
         openingHotWaterReading: "abc",
         openingElectricityReading: "",
         initialWaterTariffPerUnit: "1.1234567",
+        initialWaterStandingChargePerDay: "0.1234567",
+        initialWaterVatPercent: "5.555",
         initialElectricityTariffPerUnit: "-1",
+        initialElectricityStandingChargePerDay: "abc",
+        initialElectricityVatPercent: "abc",
+        hotWaterTemperatureCelsius: "1.234",
+        hotWaterHeatCapacity: "1.1234567",
+        hotWaterDensity: "1.1234",
+        kiloJouleToKiloWattHourFactor: "x",
         boilerKwhPerCubicMeter: "x",
         boilerEfficiencyPercent: "85.555",
       }),
@@ -70,7 +86,29 @@ describe("onboarding validation", () => {
       initialWaterTariffPerUnit: [
         "Enter a valid number with up to 6 decimal places.",
       ],
+      initialWaterStandingChargePerDay: [
+        "Enter a valid number with up to 6 decimal places.",
+      ],
+      initialWaterVatPercent: [
+        "Enter a valid number with up to 2 decimal places.",
+      ],
       initialElectricityTariffPerUnit: [
+        "Enter a valid number with up to 6 decimal places.",
+      ],
+      initialElectricityStandingChargePerDay: [
+        "Enter a valid number with up to 6 decimal places.",
+      ],
+      initialElectricityVatPercent: [
+        "Enter a valid number with up to 2 decimal places.",
+      ],
+      hotWaterTemperatureCelsius: [
+        "Enter a valid number with up to 2 decimal places.",
+      ],
+      hotWaterHeatCapacity: [
+        "Enter a valid number with up to 6 decimal places.",
+      ],
+      hotWaterDensity: ["Enter a valid number with up to 3 decimal places."],
+      kiloJouleToKiloWattHourFactor: [
         "Enter a valid number with up to 6 decimal places.",
       ],
       boilerKwhPerCubicMeter: [

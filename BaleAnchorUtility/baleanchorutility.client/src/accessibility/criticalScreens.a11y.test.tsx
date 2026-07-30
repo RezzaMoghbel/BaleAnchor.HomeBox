@@ -49,9 +49,15 @@ describe("critical screen accessibility baselines", () => {
         openingHotWaterReading=""
         openingElectricityReading=""
         initialWaterTariffPerUnit=""
+        initialWaterStandingChargePerDay=""
+        initialWaterVatPercent=""
         initialElectricityTariffPerUnit=""
-        boilerKwhPerCubicMeter=""
-        boilerEfficiencyPercent=""
+        initialElectricityStandingChargePerDay=""
+        initialElectricityVatPercent=""
+        hotWaterTemperatureCelsius="55"
+        hotWaterHeatCapacity="4.186"
+        hotWaterDensity="1000"
+        kiloJouleToKiloWattHourFactor="3600"
         profileFieldErrors={{}}
         utilityFieldErrors={{}}
         getFieldErrors={() => []}
@@ -59,6 +65,7 @@ describe("critical screen accessibility baselines", () => {
         onAcceptTerms={async () => {}}
         onSubmitProfile={async () => {}}
         onSubmitUtilitySetup={async () => {}}
+        onLoadOnboardingState={async () => {}}
         onLoadOnboardingProgress={async () => {}}
         onSurnameChange={() => {}}
         onDateOfBirthChange={() => {}}
@@ -69,9 +76,15 @@ describe("critical screen accessibility baselines", () => {
         onOpeningHotWaterReadingChange={() => {}}
         onOpeningElectricityReadingChange={() => {}}
         onInitialWaterTariffPerUnitChange={() => {}}
+        onInitialWaterStandingChargePerDayChange={() => {}}
+        onInitialWaterVatPercentChange={() => {}}
         onInitialElectricityTariffPerUnitChange={() => {}}
-        onBoilerKwhPerCubicMeterChange={() => {}}
-        onBoilerEfficiencyPercentChange={() => {}}
+        onInitialElectricityStandingChargePerDayChange={() => {}}
+        onInitialElectricityVatPercentChange={() => {}}
+        onHotWaterTemperatureCelsiusChange={() => {}}
+        onHotWaterHeatCapacityChange={() => {}}
+        onHotWaterDensityChange={() => {}}
+        onKiloJouleToKiloWattHourFactorChange={() => {}}
       />,
     );
 

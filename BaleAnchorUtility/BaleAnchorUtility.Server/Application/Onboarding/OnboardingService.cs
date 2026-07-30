@@ -58,6 +58,43 @@ public sealed class OnboardingService
         };
     }
 
+    public async Task<OnboardingStateResponse> GetStateAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User record was not found for this session.");
+
+        var utilitySetup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
+
+        return new OnboardingStateResponse
+        {
+            UserId = user.Id,
+            Surname = user.SurnameNormalized ?? string.Empty,
+            DateOfBirth = user.DateOfBirth ?? string.Empty,
+            FlatNumber = user.FlatNumberNormalized ?? string.Empty,
+            MobileNumber = user.MobileNumber ?? string.Empty,
+
+            MoveInDate = utilitySetup?.MoveInDate ?? string.Empty,
+            OpeningColdWaterReading = utilitySetup?.OpeningColdWaterReading.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+            OpeningHotWaterReading = utilitySetup?.OpeningHotWaterReading.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+            OpeningElectricityReading = utilitySetup?.OpeningElectricityReading.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+
+            InitialWaterTariffPerUnit = utilitySetup?.InitialWaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            InitialWaterStandingChargePerDay = utilitySetup?.InitialWaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            InitialWaterVatPercent = utilitySetup?.InitialWaterVatPercent.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+            InitialElectricityTariffPerUnit = utilitySetup?.InitialElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            InitialElectricityStandingChargePerDay = utilitySetup?.InitialElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            InitialElectricityVatPercent = utilitySetup?.InitialElectricityVatPercent.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+
+            HotWaterTemperatureCelsius = utilitySetup?.HotWaterTemperatureCelsius.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+            HotWaterHeatCapacity = utilitySetup?.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            HotWaterDensity = utilitySetup?.HotWaterDensity.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+            KiloJouleToKiloWattHourFactor = utilitySetup?.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+
+            BoilerKwhPerCubicMeter = utilitySetup?.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty,
+            BoilerEfficiencyPercent = utilitySetup?.BoilerEfficiencyPercent.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty,
+        };
+    }
+
     public async Task<CompleteProfileResponse> CompleteProfileAsync(
         string userId,
         CompleteProfileRequest request,
@@ -131,9 +168,42 @@ public sealed class OnboardingService
         var hotWater = ParseDecimal(request.OpeningHotWaterReading, "Opening hot-water reading");
         var electricity = ParseDecimal(request.OpeningElectricityReading, "Opening electricity reading");
         var waterTariff = ParseDecimal(request.InitialWaterTariffPerUnit, "Initial water tariff");
+        var waterStanding = ParseDecimal(request.InitialWaterStandingChargePerDay, "Water standing charge");
+        var waterVatPercent = ParseDecimal(request.InitialWaterVatPercent, "Water VAT percent");
         var electricityTariff = ParseDecimal(request.InitialElectricityTariffPerUnit, "Initial electricity tariff");
+        var electricityStanding = ParseDecimal(request.InitialElectricityStandingChargePerDay, "Electricity standing charge");
+        var electricityVatPercent = ParseDecimal(request.InitialElectricityVatPercent, "Electricity VAT percent");
+        var hotWaterTemperature = ParseDecimal(request.HotWaterTemperatureCelsius, "Hot-water temperature");
+        var hotWaterHeatCapacity = ParseDecimal(request.HotWaterHeatCapacity, "Hot-water heat capacity");
+        var hotWaterDensity = ParseDecimal(request.HotWaterDensity, "Hot-water density");
+        var conversionFactor = ParseDecimal(request.KiloJouleToKiloWattHourFactor, "Hot-water conversion factor");
         var boilerKwh = ParseDecimal(request.BoilerKwhPerCubicMeter, "Boiler conversion (kWh per cubic meter)");
         var boilerEfficiency = ParseDecimal(request.BoilerEfficiencyPercent, "Boiler efficiency percent");
+
+        if (waterVatPercent > 100m || electricityVatPercent > 100m)
+        {
+            throw new InvalidOperationException("VAT percent values must be at most 100.");
+        }
+
+        if (hotWaterTemperature <= 0m)
+        {
+            throw new InvalidOperationException("Hot-water temperature must be greater than 0.");
+        }
+
+        if (hotWaterHeatCapacity <= 0m)
+        {
+            throw new InvalidOperationException("Hot-water heat capacity must be greater than 0.");
+        }
+
+        if (hotWaterDensity <= 0m)
+        {
+            throw new InvalidOperationException("Hot-water density must be greater than 0.");
+        }
+
+        if (conversionFactor <= 0m)
+        {
+            throw new InvalidOperationException("Hot-water conversion factor must be greater than 0.");
+        }
 
         if (boilerEfficiency is <= 0m or > 100m)
         {
@@ -155,7 +225,15 @@ public sealed class OnboardingService
         submission.OpeningHotWaterReading = hotWater;
         submission.OpeningElectricityReading = electricity;
         submission.InitialWaterTariffPerUnit = waterTariff;
+        submission.InitialWaterStandingChargePerDay = waterStanding;
+        submission.InitialWaterVatPercent = waterVatPercent;
         submission.InitialElectricityTariffPerUnit = electricityTariff;
+        submission.InitialElectricityStandingChargePerDay = electricityStanding;
+        submission.InitialElectricityVatPercent = electricityVatPercent;
+        submission.HotWaterTemperatureCelsius = hotWaterTemperature;
+        submission.HotWaterHeatCapacity = hotWaterHeatCapacity;
+        submission.HotWaterDensity = hotWaterDensity;
+        submission.KiloJouleToKiloWattHourFactor = conversionFactor;
         submission.BoilerKwhPerCubicMeter = boilerKwh;
         submission.BoilerEfficiencyPercent = boilerEfficiency;
         submission.CreatedAtUtc = existing?.CreatedAtUtc ?? now;

@@ -8,6 +8,8 @@ public sealed class JsonCollectionStore
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> CollectionLocks = new();
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> CollectionIndexes = new();
     private static readonly TimeSpan TempFileGracePeriod = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(20);
+    private const int ReadRetryCount = 5;
 
     private readonly JsonSerializerOptions serializerOptions;
     private readonly string rootPath;
@@ -41,7 +43,7 @@ public sealed class JsonCollectionStore
         {
             try
             {
-                await using var stream = File.OpenRead(file);
+                await using var stream = await OpenReadSharedWithRetryAsync(file, cancellationToken);
                 var document = await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken);
                 if (document is not null)
                 {
@@ -52,6 +54,14 @@ public sealed class JsonCollectionStore
             catch (JsonException)
             {
                 QuarantineCorruptFile(file);
+            }
+            catch (IOException)
+            {
+                // Ignore files that remain locked after retries; read is best-effort.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore inaccessible files; they can be read in a subsequent request.
             }
         }
 
@@ -224,13 +234,50 @@ public sealed class JsonCollectionStore
     {
         try
         {
-            using var stream = File.OpenRead(filePath);
+            using var stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
             _ = JsonDocument.Parse(stream);
             return false;
         }
         catch (JsonException)
         {
             return true;
+        }
+        catch (IOException)
+        {
+            // Transient file lock; do not classify as corrupt.
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Inaccessible file; do not classify as corrupt.
+            return false;
+        }
+    }
+
+    private static async Task<FileStream> OpenReadSharedWithRetryAsync(string path, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return new FileStream(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+            }
+            catch (IOException) when (attempt < ReadRetryCount)
+            {
+                await Task.Delay(ReadRetryDelay, cancellationToken);
+            }
+            catch (UnauthorizedAccessException) when (attempt < ReadRetryCount)
+            {
+                await Task.Delay(ReadRetryDelay, cancellationToken);
+            }
         }
     }
 
