@@ -457,6 +457,8 @@ public sealed class AuthService
 
     public string SessionCookieName => options.SessionCookieName;
 
+    public string DelegatedReturnCookieName => $"{options.SessionCookieName}.return-admin";
+
     public async Task<SessionStatusResponse> GetSessionStatusAsync(string? rawToken, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(rawToken))

@@ -157,7 +157,10 @@ interface AdminDashboardViewProps {
   onSaveAuthAccessSettings: () => Promise<void>;
   onSaveEmailTransportSettings: () => Promise<void>;
   onSendEmailTransportTest: () => Promise<void>;
-  onSearchAdminUsers: () => Promise<void>;
+  onSearchAdminUsers: (
+    queryOverride?: string,
+    statusOverride?: string,
+  ) => Promise<void>;
   onLoadAdminBillingContext: (targetUserIdOverride?: string) => Promise<void>;
   onOpenAccountFromSearch: (
     targetUserId: string,
@@ -406,11 +409,13 @@ export function AdminDashboardView({
           {showAccount && (
             <AdminAccountStatusCard
               loading={loading}
+              isSuperAdmin={isSuperAdmin}
               pendingApprovals={pendingApprovals}
               adminUsers={adminUsers}
+              formatDisplayDateTime={formatDisplayDateTime}
               onLoadPendingApprovals={onLoadPendingApprovals}
-              onAdminSearchStatusChange={onAdminSearchStatusChange}
               onSearchAdminUsers={onSearchAdminUsers}
+              onOpenAccountFromSearch={onOpenAccountFromSearch}
             />
           )}
 

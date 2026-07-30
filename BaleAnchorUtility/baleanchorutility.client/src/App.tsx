@@ -31,6 +31,9 @@ import { useNotificationsWorkflow } from "./hooks/useNotificationsWorkflow";
 import { useOnboardingWorkflow } from "./hooks/useOnboardingWorkflow";
 import { useStatementsWorkflow } from "./hooks/useStatementsWorkflow";
 import "./App.css";
+
+const ADMIN_RETURN_PATH_KEY = "bau.admin.returnPath";
+
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -575,7 +578,27 @@ function App() {
     setLoading(true);
     try {
       await portalClient.logout();
+
+      let nextSession: SessionStatusResponse | null = null;
+      try {
+        nextSession = await portalClient.getSession();
+      } catch {
+        nextSession = null;
+      }
+
+      if (nextSession?.isAuthenticated) {
+        setSession(nextSession);
+        const returnPath =
+          sessionStorage.getItem(ADMIN_RETURN_PATH_KEY) ||
+          "/dashboard/admin/account";
+        sessionStorage.removeItem(ADMIN_RETURN_PATH_KEY);
+        setStatusMessage("Returned to admin session.");
+        navigate(returnPath, { replace: true });
+        return;
+      }
+
       setSession(null);
+      sessionStorage.removeItem(ADMIN_RETURN_PATH_KEY);
       setStatusMessage("");
       setCode("");
       setLoginFieldErrors({});
@@ -1058,9 +1081,12 @@ function App() {
     <>
       {isDelegatedSession && (
         <div className="alert alert-warning border mb-3" role="status">
-          Admin delegated access is active.
+          You are viewing this account as delegated admin support.
           {session?.delegatedByUserId
             ? ` Started by ${session.delegatedByUserId}.`
+            : ""}
+          {session?.delegationReason
+            ? ` Reason: ${session.delegationReason}.`
             : ""}
         </div>
       )}
@@ -1084,6 +1110,10 @@ function App() {
     });
 
     if (started) {
+      sessionStorage.setItem(
+        ADMIN_RETURN_PATH_KEY,
+        `${location.pathname}${location.search}${location.hash}`,
+      );
       window.location.assign("/dashboard");
     }
   };

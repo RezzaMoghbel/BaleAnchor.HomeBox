@@ -169,6 +169,7 @@ public sealed class AdminApprovalsController : ControllerBase
         [FromBody] StartDelegatedSupportSessionRequest request,
         CancellationToken cancellationToken)
     {
+        Request.Cookies.TryGetValue(authService.SessionCookieName, out var currentRawToken);
         var actor = await ResolveAuthorizedActorAsync(cancellationToken);
         if (actor is null || actor.Role != UserRole.SuperAdmin)
         {
@@ -182,6 +183,25 @@ public sealed class AdminApprovalsController : ControllerBase
                 request,
                 GetDeviceSummary(),
                 cancellationToken);
+
+            var actorSessionStatus = await authService.GetSessionStatusAsync(currentRawToken, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(currentRawToken)
+                && actorSessionStatus.IsAuthenticated
+                && DateTimeOffset.TryParse(actorSessionStatus.ExpiresAtUtc, out var actorSessionExpiresAtUtc))
+            {
+                Response.Cookies.Append(
+                    authService.DelegatedReturnCookieName,
+                    currentRawToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Expires = actorSessionExpiresAtUtc,
+                        IsEssential = true,
+                        Path = "/",
+                    });
+            }
 
             Response.Cookies.Append(
                 authService.SessionCookieName,

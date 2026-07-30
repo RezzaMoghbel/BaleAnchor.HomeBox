@@ -122,10 +122,47 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         Request.Cookies.TryGetValue(authService.SessionCookieName, out var rawToken);
+        Request.Cookies.TryGetValue(authService.DelegatedReturnCookieName, out var delegatedReturnRawToken);
+
+        var currentSession = await authService.GetSessionStatusAsync(rawToken, cancellationToken);
         await authService.LogoutAsync(rawToken, cancellationToken);
 
         Response.Cookies.Delete(
             authService.SessionCookieName,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+            });
+
+        if (currentSession.IsAuthenticated
+            && currentSession.IsDelegatedSession
+            && !string.IsNullOrWhiteSpace(delegatedReturnRawToken))
+        {
+            var returnSession = await authService.GetSessionStatusAsync(delegatedReturnRawToken, cancellationToken);
+            if (returnSession.IsAuthenticated
+                && string.Equals(returnSession.UserRole, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                && DateTimeOffset.TryParse(returnSession.ExpiresAtUtc, out var returnSessionExpiresAtUtc))
+            {
+                Response.Cookies.Append(
+                    authService.SessionCookieName,
+                    delegatedReturnRawToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Expires = returnSessionExpiresAtUtc,
+                        IsEssential = true,
+                        Path = "/",
+                    });
+            }
+        }
+
+        Response.Cookies.Delete(
+            authService.DelegatedReturnCookieName,
             new CookieOptions
             {
                 HttpOnly = true,

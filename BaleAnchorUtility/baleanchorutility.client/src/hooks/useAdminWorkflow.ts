@@ -252,13 +252,24 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     }
   };
 
-  const searchAdminUsers = async () => {
+  const searchAdminUsers = async (
+    queryOverride?: string,
+    statusOverride?: string,
+  ) => {
+    const queryToUse = queryOverride ?? adminSearchQuery;
+    const statusToUse = statusOverride ?? adminSearchStatus;
+
+    if (queryOverride !== undefined) {
+      setAdminSearchQuery(queryOverride);
+    }
+
+    if (statusOverride !== undefined) {
+      setAdminSearchStatus(statusOverride);
+    }
+
     setLoading(true);
     try {
-      const body = await portalClient.searchAdminUsers(
-        adminSearchQuery,
-        adminSearchStatus,
-      );
+      const body = await portalClient.searchAdminUsers(queryToUse, statusToUse);
       setAdminUsers(body.items);
       setAdminMessage(`Loaded ${body.count} user record(s).`);
     } catch (error) {

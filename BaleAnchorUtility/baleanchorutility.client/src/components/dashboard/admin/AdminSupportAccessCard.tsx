@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { AdminUserSummaryItem } from "../../../shared/contracts";
 
+const ADMIN_RETURN_PATH_KEY = "bau.admin.returnPath";
+
 interface AdminSupportAccessCardProps {
   loading: boolean;
   isSuperAdmin: boolean;
@@ -10,7 +12,10 @@ interface AdminSupportAccessCardProps {
   onAdminTargetUserIdChange: (value: string) => void;
   onAdminSearchQueryChange: (value: string) => void;
   onAdminSearchStatusChange: (value: string) => void;
-  onSearchAdminUsers: () => Promise<void>;
+  onSearchAdminUsers: (
+    queryOverride?: string,
+    statusOverride?: string,
+  ) => Promise<void>;
   onStartDelegatedSupportSession: (request: {
     targetUserId: string;
     reason: string;
@@ -40,7 +45,7 @@ export function AdminSupportAccessCard({
     const query = assistedEmail.trim() || assistedFlatNumber.trim();
     onAdminSearchQueryChange(query);
     onAdminSearchStatusChange("");
-    await onSearchAdminUsers();
+    await onSearchAdminUsers(query, "");
   };
 
   const startDelegatedLogin = async () => {
@@ -53,6 +58,10 @@ export function AdminSupportAccessCard({
     });
 
     if (started) {
+      sessionStorage.setItem(
+        ADMIN_RETURN_PATH_KEY,
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
       window.location.assign("/dashboard");
     }
   };

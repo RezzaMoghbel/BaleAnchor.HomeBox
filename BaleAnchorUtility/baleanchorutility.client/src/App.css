@@ -234,3 +234,13 @@
 .onboarding-accordion__body {
   padding: 1rem 1.25rem 1.25rem;
 }
+
+.account-user-id {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Roboto Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+}
