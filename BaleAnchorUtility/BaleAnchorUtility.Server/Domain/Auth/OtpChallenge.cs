@@ -12,6 +12,8 @@ public sealed class OtpChallenge
     public DateTimeOffset CooldownUntilUtc { get; set; }
     public int AttemptCount { get; set; }
     public int MaxAttempts { get; set; }
+    public string? SignupPasswordSalt { get; set; }
+    public string? SignupPasswordHash { get; set; }
     public DateTimeOffset? ConsumedAtUtc { get; set; }
     public DateTimeOffset? RevokedAtUtc { get; set; }
     public int Version { get; set; }

@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using BaleAnchorUtility.Server.Application.Abstractions;
+using BaleAnchorUtility.Server.Application.Auth;
 using BaleAnchorUtility.Server.Application.Admin.Dtos;
 using BaleAnchorUtility.Server.Domain.Audit;
 using BaleAnchorUtility.Server.Domain.System;
@@ -11,22 +12,31 @@ public sealed class AdminSystemSettingsService
 {
     private readonly IEmailTransportRuntimeSettingsRepository settingsRepository;
     private readonly IAuthAccessRuntimeSettingsRepository authAccessSettingsRepository;
+    private readonly IEmailTransportSettingsProvider emailTransportSettingsProvider;
+    private readonly IEmailSender emailSender;
     private readonly ISecretProtector secretProtector;
     private readonly IAuditLogRepository auditLogRepository;
     private readonly ISystemClock clock;
+    private readonly ILogger<AdminSystemSettingsService> logger;
 
     public AdminSystemSettingsService(
         IEmailTransportRuntimeSettingsRepository settingsRepository,
         IAuthAccessRuntimeSettingsRepository authAccessSettingsRepository,
+        IEmailTransportSettingsProvider emailTransportSettingsProvider,
+        IEmailSender emailSender,
         ISecretProtector secretProtector,
         IAuditLogRepository auditLogRepository,
-        ISystemClock clock)
+        ISystemClock clock,
+        ILogger<AdminSystemSettingsService> logger)
     {
         this.settingsRepository = settingsRepository;
         this.authAccessSettingsRepository = authAccessSettingsRepository;
+        this.emailTransportSettingsProvider = emailTransportSettingsProvider;
+        this.emailSender = emailSender;
         this.secretProtector = secretProtector;
         this.auditLogRepository = auditLogRepository;
         this.clock = clock;
+        this.logger = logger;
     }
 
     public async Task<AdminEmailTransportSettingsResponse> GetEmailTransportAsync(CancellationToken cancellationToken)
@@ -225,6 +235,58 @@ public sealed class AdminSystemSettingsService
             LocalFixedOtpDomains = document.LocalFixedOtpDomains,
             UpdatedByUserId = document.UpdatedByUserId,
             UpdatedAtUtc = document.UpdatedAtUtc.ToString("O"),
+        };
+    }
+
+    public async Task<AdminEmailTransportTestResponse> SendEmailTransportTestAsync(
+        UserAccount actor,
+        SendAdminEmailTransportTestRequest request,
+        CancellationToken cancellationToken)
+    {
+        var reason = RequireLength(request.Reason, 3, 240, nameof(request.Reason), "A reason is required and must be between 3 and 240 characters.");
+        var testEmail = ValidateEmail(request.Email, nameof(request.Email), "A valid target email address is required.");
+        var effective = await emailTransportSettingsProvider.GetEffectiveAsync(cancellationToken);
+
+        if (!string.Equals(effective.Mode, "smtp", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Email mode must be smtp before sending a transport test email.");
+        }
+
+        var now = clock.UtcNow;
+        try
+        {
+            await emailSender.SendReadingReminderAsync(
+                testEmail,
+                now.ToString("yyyy-MM-dd"),
+                "Europe/London",
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SMTP transport test failed for {Email}.", testEmail);
+            throw new OtpDeliveryException("SMTP test email could not be delivered. Check sender mailbox, recipient mailbox, and SMTP credentials.", ex);
+        }
+
+        await auditLogRepository.AddAsync(
+            new AuditLogEntry
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ActorUserId = actor.Id,
+                TargetUserId = actor.Id,
+                Category = "ADMIN_SYSTEM_SETTINGS",
+                Action = "SEND_EMAIL_TRANSPORT_TEST",
+                Reason = reason,
+                Metadata = $"mode:{effective.Mode};email:{testEmail}",
+                CreatedAtUtc = now,
+                Version = 1,
+            },
+            cancellationToken);
+
+        return new AdminEmailTransportTestResponse
+        {
+            Email = testEmail,
+            Mode = effective.Mode,
+            Message = "SMTP test email sent.",
         };
     }
 

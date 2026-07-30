@@ -41,6 +41,23 @@ describe("getTargetRoute", () => {
     expect(getTargetRoute("/dashboard", session)).toBeNull();
   });
 
+  it("routes suspended users to suspended page", () => {
+    const session = createSession({ userStatus: "Suspended" });
+
+    expect(getTargetRoute("/dashboard", session)).toBe("/suspended");
+    expect(getTargetRoute("/onboarding", session)).toBe("/suspended");
+    expect(getTargetRoute("/suspended", session)).toBeNull();
+  });
+
+  it("routes rejected users to rejected page", () => {
+    const session = createSession({ userStatus: "Rejected" });
+
+    expect(getTargetRoute("/dashboard", session)).toBe("/rejected");
+    expect(getTargetRoute("/onboarding", session)).toBe("/rejected");
+    expect(getTargetRoute("/suspended", session)).toBe("/rejected");
+    expect(getTargetRoute("/rejected", session)).toBeNull();
+  });
+
   it("prevents non-admin users from opening admin routes", () => {
     const session = createSession({ userRole: "Resident" });
 

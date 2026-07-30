@@ -4,6 +4,7 @@ import type {
   ActiveTermsResponse,
   AdminAuthAccessSettingsResponse,
   AdminEmailTransportSettingsResponse,
+  AdminEmailTransportTestResponse,
   AdminActionResultResponse,
   AdminBillingContextResponse,
   AdminDecisionResponse,
@@ -46,6 +47,7 @@ import type {
   PublishTermsVersionResponse,
   UpdateAdminAuthAccessSettingsRequest,
   UpdateAdminEmailTransportSettingsRequest,
+  SendAdminEmailTransportTestRequest,
   UpdateNotificationPreferencesRequest,
   UpdatePaymentResponse,
   UpsertPushSubscriptionRequest,
@@ -468,6 +470,20 @@ export const portalClient = {
     );
   },
 
+  sendAdminEmailTransportTest(request: SendAdminEmailTransportTestRequest) {
+    return requestJson<AdminEmailTransportTestResponse>(
+      "/api/v1/admin/system-settings/email-transport/test",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   searchAdminUsers(query?: string, status?: string) {
     const params = new URLSearchParams();
     if (query && query.trim().length > 0) {
@@ -716,14 +732,16 @@ export const portalClient = {
     });
   },
 
-  getLatestReadings() {
-    return requestJson<LatestReadingsResponse>(
+  async getLatestReadings() {
+    const response = await requestJson<LatestReadingsResponse | undefined>(
       "/api/v1/billing/readings/latest",
       {
         method: "GET",
         credentials: "include",
       },
     );
+
+    return response ?? null;
   },
 
   submitTariffVersion(request: UpsertTariffRequest) {

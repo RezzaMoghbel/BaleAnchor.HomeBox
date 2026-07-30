@@ -7,6 +7,7 @@ public sealed class JsonCollectionStore
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> CollectionLocks = new();
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> CollectionIndexes = new();
+    private static readonly TimeSpan TempFileGracePeriod = TimeSpan.FromMinutes(2);
 
     private readonly JsonSerializerOptions serializerOptions;
     private readonly string rootPath;
@@ -103,7 +104,7 @@ public sealed class JsonCollectionStore
         {
             if (File.Exists(tempPath))
             {
-                File.Delete(tempPath);
+                TryDeleteFile(tempPath);
             }
 
             gate.Release();
@@ -174,9 +175,48 @@ public sealed class JsonCollectionStore
 
     private static void CleanupTemporaryFiles(string collectionPath)
     {
+        if (!Directory.Exists(collectionPath))
+        {
+            return;
+        }
+
+        var cutoffUtc = DateTime.UtcNow - TempFileGracePeriod;
         foreach (var temp in Directory.GetFiles(collectionPath, "*.tmp", SearchOption.TopDirectoryOnly))
         {
-            File.Delete(temp);
+            try
+            {
+                var fileInfo = new FileInfo(temp);
+                if (fileInfo.LastWriteTimeUtc > cutoffUtc)
+                {
+                    continue;
+                }
+
+                TryDeleteFile(temp);
+            }
+            catch (IOException)
+            {
+                // Ignore temporary files currently used by active writers.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore inaccessible temp files; they can be retried later.
+            }
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+            // Ignore when the file is locked by another operation/process.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Ignore inaccessible files; cleanup is best-effort.
         }
     }
 

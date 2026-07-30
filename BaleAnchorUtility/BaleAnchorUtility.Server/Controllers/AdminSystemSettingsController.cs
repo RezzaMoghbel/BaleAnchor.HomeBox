@@ -73,6 +73,42 @@ public sealed class AdminSystemSettingsController : ControllerBase
         }
     }
 
+    [HttpPost("email-transport/test")]
+    [ProducesResponseType(typeof(AdminEmailTransportTestResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<AdminEmailTransportTestResponse>> SendEmailTransportTest(
+        [FromBody] SendAdminEmailTransportTestRequest request,
+        CancellationToken cancellationToken)
+    {
+        var actor = await ResolveAuthorizedActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return ForbiddenProblem("Admin permission is required to modify system settings.", "ADMIN_ACCESS_DENIED");
+        }
+
+        try
+        {
+            var response = await adminSystemSettingsService.SendEmailTransportTestAsync(actor, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, ex.ParamName ?? "request", "ADMIN_SYSTEM_SETTINGS_VALIDATION");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "ADMIN_SYSTEM_SETTINGS_CONFLICT");
+        }
+        catch (OtpDeliveryException ex)
+        {
+            return ServiceUnavailableProblem(ex.Message, "EMAIL_DELIVERY_UNAVAILABLE");
+        }
+    }
+
     [HttpGet("auth-access")]
     [ProducesResponseType(typeof(AdminAuthAccessSettingsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -176,6 +212,40 @@ public sealed class AdminSystemSettingsController : ControllerBase
 
         return new BadRequestObjectResult(problem)
         {
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ConflictProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status409Conflict,
+            "Conflict",
+            detail,
+            errorCode,
+            "https://api.baleanchor.local/errors/conflict");
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult ServiceUnavailableProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status503ServiceUnavailable,
+            "Email delivery unavailable",
+            detail,
+            errorCode,
+            "https://api.baleanchor.local/errors/email-delivery-unavailable");
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status503ServiceUnavailable,
             ContentTypes = { "application/problem+json" },
         };
     }

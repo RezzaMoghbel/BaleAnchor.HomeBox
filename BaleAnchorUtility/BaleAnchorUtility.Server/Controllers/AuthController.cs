@@ -30,6 +30,10 @@ public sealed class AuthController : ControllerBase
 
             return Ok(response);
         }
+        catch (OtpDeliveryException ex)
+        {
+            return CreateServiceUnavailableProblem(ex.Message, "OTP_DELIVERY_FAILED");
+        }
         catch (InvalidOperationException ex)
         {
             return CreateConflictProblem(ex.Message, "SIGNUP_CONFLICT");
@@ -40,12 +44,19 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(typeof(RequestCodeResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<RequestCodeResponse>> RequestCode([FromBody] RequestCodeRequest request, CancellationToken cancellationToken)
     {
-        var response = await authService.RequestCodeAsync(
-            request,
-            GetIpAddress(),
-            cancellationToken);
+        try
+        {
+            var response = await authService.RequestCodeAsync(
+                request,
+                GetIpAddress(),
+                cancellationToken);
 
-        return Ok(response);
+            return Ok(response);
+        }
+        catch (OtpDeliveryException ex)
+        {
+            return CreateServiceUnavailableProblem(ex.Message, "OTP_DELIVERY_FAILED");
+        }
     }
 
     [HttpPost("verify-code")]
@@ -161,11 +172,29 @@ public sealed class AuthController : ControllerBase
             StatusCodes.Status409Conflict,
             "Conflict",
             detail,
-            errorCode);
+            errorCode,
+            "https://api.baleanchor.local/errors/conflict");
 
         return new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status409Conflict,
+            ContentTypes = { "application/problem+json" },
+        };
+    }
+
+    private ObjectResult CreateServiceUnavailableProblem(string detail, string errorCode)
+    {
+        var problem = ApiProblemDetailsFactory.Create(
+            HttpContext,
+            StatusCodes.Status503ServiceUnavailable,
+            "Email delivery unavailable",
+            detail,
+            errorCode,
+            "https://api.baleanchor.local/errors/email-delivery-unavailable");
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = StatusCodes.Status503ServiceUnavailable,
             ContentTypes = { "application/problem+json" },
         };
     }

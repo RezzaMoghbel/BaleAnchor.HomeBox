@@ -107,6 +107,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
   const [emailSmtpUseSsl, setEmailSmtpUseSsl] = useState(true);
   const [emailSmtpUsername, setEmailSmtpUsername] = useState("");
   const [emailSmtpPassword, setEmailSmtpPassword] = useState("");
+  const [emailTestRecipient, setEmailTestRecipient] = useState("");
   const [adminMessage, setAdminMessage] = useState(
     "Admin approvals not loaded.",
   );
@@ -132,6 +133,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
       setEmailSmtpUseSsl(email.smtpUseSsl);
       setEmailSmtpUsername(email.smtpUsername);
       setEmailSmtpPassword("");
+      setEmailTestRecipient(email.fromAddress);
 
       setAdminMessage("Loaded system auth and SMTP settings.");
     } catch (error) {
@@ -208,6 +210,38 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
         setAdminMessage(`Email settings update failed. ${error.message}`);
       } else {
         setAdminMessage("Email settings update failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendEmailTransportTest = async () => {
+    if (!adminReason) {
+      setAdminMessage("Reason is required for email transport test.");
+      return;
+    }
+
+    if (!emailTestRecipient.trim()) {
+      setAdminMessage("A target email is required for email transport test.");
+      return;
+    }
+
+    setAdminMessage("Sending SMTP test email...");
+    setLoading(true);
+    try {
+      const body = await portalClient.sendAdminEmailTransportTest({
+        email: emailTestRecipient.trim(),
+        reason: adminReason,
+      });
+
+      await loadAuditLogs();
+      setAdminMessage(`${body.message} Target: ${body.email}.`);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setAdminMessage(`Email transport test failed. ${error.message}`);
+      } else {
+        setAdminMessage("Email transport test failed.");
       }
     } finally {
       setLoading(false);
@@ -777,6 +811,7 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     emailSmtpUseSsl,
     emailSmtpUsername,
     emailSmtpPassword,
+    emailTestRecipient,
     adminMessage,
     setAdminSearchQuery,
     setAdminSearchStatus,
@@ -834,10 +869,12 @@ export function useAdminWorkflow({ setLoading }: UseAdminWorkflowArgs) {
     setEmailSmtpUseSsl,
     setEmailSmtpUsername,
     setEmailSmtpPassword,
+    setEmailTestRecipient,
     loadPendingApprovals,
     loadSystemSettings,
     saveAuthAccessSettings,
     saveEmailTransportSettings,
+    sendEmailTransportTest,
     searchAdminUsers,
     loadAdminBillingContext,
     deleteAdminLatestReading,

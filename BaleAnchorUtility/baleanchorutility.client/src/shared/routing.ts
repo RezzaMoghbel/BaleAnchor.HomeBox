@@ -10,6 +10,8 @@ export function getTargetRoute(
     path === "/signin" ||
     path === "/signup" ||
     path === "/otp";
+  const isRejectedPath = path === "/rejected";
+  const isSuspendedPath = path === "/suspended";
   const isOnboardingPath = path === "/onboarding";
   const isDashboardPath = path.startsWith("/dashboard");
   const isAdminPath = path.startsWith("/dashboard/admin");
@@ -18,11 +20,22 @@ export function getTargetRoute(
   const isAuthenticated = currentSession?.isAuthenticated === true;
   const status = currentSession?.userStatus?.trim().toLowerCase();
   const role = currentSession?.userRole?.trim().toLowerCase();
-  const needsOnboarding = isAuthenticated && status !== "active";
+  const isRejected = isAuthenticated && status === "rejected";
+  const isSuspended = isAuthenticated && status === "suspended";
+  const needsOnboarding =
+    isAuthenticated && !isRejected && !isSuspended && status !== "active";
   const isAdminUser = role === "admin" || role === "superadmin";
 
   if (!isAuthenticated) {
     return isLoginPath ? null : "/signin";
+  }
+
+  if (isRejected) {
+    return isRejectedPath ? null : "/rejected";
+  }
+
+  if (isSuspended) {
+    return isSuspendedPath ? null : "/suspended";
   }
 
   if (needsOnboarding) {

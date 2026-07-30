@@ -95,27 +95,27 @@ public sealed class AuthService
 
         ValidateSignupPassword(request.Password);
 
-        var now = clock.UtcNow;
-        var passwordSalt = GenerateRandomBase64(16);
-        var provisionalUser = new UserAccount
-        {
-            Id = Guid.NewGuid().ToString("N"),
-            EmailDisplay = request.Email.Trim(),
-            EmailNormalized = normalizedEmail,
-            PasswordSalt = passwordSalt,
-            PasswordHash = ComputePasswordHash(request.Password.Trim(), passwordSalt),
-            PasswordUpdatedAtUtc = now,
-            Role = UserRole.Resident,
-            Status = authSettings.OtpEnabled ? UserAccountStatus.EmailUnverified : UserAccountStatus.TermsPending,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now,
-            Version = 1,
-        };
-
-        await userRepository.UpsertAsync(provisionalUser, cancellationToken);
-
         if (!authSettings.OtpEnabled)
         {
+            var now = clock.UtcNow;
+            var passwordSalt = GenerateRandomBase64(16);
+            var user = new UserAccount
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                EmailDisplay = request.Email.Trim(),
+                EmailNormalized = normalizedEmail,
+                PasswordSalt = passwordSalt,
+                PasswordHash = ComputePasswordHash(request.Password.Trim(), passwordSalt),
+                PasswordUpdatedAtUtc = now,
+                Role = UserRole.Resident,
+                Status = UserAccountStatus.TermsPending,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+                Version = 1,
+            };
+
+            await userRepository.UpsertAsync(user, cancellationToken);
+
             return new RequestCodeResponse
             {
                 Message = "Signup completed. You can now sign in with email and password.",
@@ -124,10 +124,20 @@ public sealed class AuthService
             };
         }
 
-        return await RequestCodeCoreAsync(request.Email, ipAddress, SignupPurpose, cancellationToken);
+        return await RequestCodeCoreAsync(
+            request.Email,
+            ipAddress,
+            SignupPurpose,
+            cancellationToken,
+            request.Password);
     }
 
-    private async Task<RequestCodeResponse> RequestCodeCoreAsync(string emailInput, string ipAddress, string purpose, CancellationToken cancellationToken)
+    private async Task<RequestCodeResponse> RequestCodeCoreAsync(
+        string emailInput,
+        string ipAddress,
+        string purpose,
+        CancellationToken cancellationToken,
+        string? signupPassword = null)
     {
         var now = clock.UtcNow;
         var normalizedEmail = NormalizeEmail(emailInput);
@@ -176,11 +186,48 @@ public sealed class AuthService
             CooldownUntilUtc = now.AddSeconds(options.ResendCooldownSeconds),
             AttemptCount = 0,
             MaxAttempts = options.MaxVerificationAttempts,
+            SignupPasswordSalt = null,
+            SignupPasswordHash = null,
             Version = 1,
         };
 
+        if (string.Equals(purpose, SignupPurpose, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(signupPassword))
+            {
+                throw new InvalidOperationException("Signup password is required for signup OTP challenge.");
+            }
+
+            var passwordSalt = GenerateRandomBase64(16);
+            challenge.SignupPasswordSalt = passwordSalt;
+            challenge.SignupPasswordHash = ComputePasswordHash(signupPassword.Trim(), passwordSalt);
+        }
+
         await otpChallengeRepository.AddAsync(challenge, cancellationToken);
-        await emailSender.SendOtpCodeAsync(emailInput.Trim(), code, challenge.ExpiresAtUtc, cancellationToken);
+
+        try
+        {
+            await emailSender.SendOtpCodeAsync(emailInput.Trim(), code, challenge.ExpiresAtUtc, cancellationToken);
+        }
+        catch (Exception ex) when (developmentCode is not null)
+        {
+            logger.LogWarning(
+                ex,
+                "SMTP delivery failed for email hash {EmailHash}, using development fixed OTP fallback.",
+                Sha256Hex(normalizedEmail));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "OTP delivery failed for email hash {EmailHash} from IP {IP}.",
+                Sha256Hex(normalizedEmail),
+                ipAddress);
+
+            throw new OtpDeliveryException(
+                "We could not deliver the verification code right now. Please try again shortly.",
+                ex);
+        }
 
         logger.LogInformation("OTP challenge issued for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
 
@@ -275,19 +322,37 @@ public sealed class AuthService
         {
             if (purpose == SignupPurpose)
             {
-                logger.LogWarning("Signup OTP verify failed due to missing provisional account for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
-                return new VerificationResult
+                if (string.IsNullOrWhiteSpace(challenge.SignupPasswordSalt)
+                    || string.IsNullOrWhiteSpace(challenge.SignupPasswordHash))
                 {
-                    Response = new VerifyCodeResponse
+                    logger.LogWarning("Signup OTP verify failed due to missing signup password material for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+                    return new VerificationResult
                     {
-                        Authenticated = false,
-                        UserStatus = UserAccountStatus.EmailUnverified.ToString(),
-                        Message = "The code is invalid or has expired.",
-                    }
+                        Response = new VerifyCodeResponse
+                        {
+                            Authenticated = false,
+                            UserStatus = UserAccountStatus.EmailUnverified.ToString(),
+                            Message = "The code is invalid or has expired.",
+                        }
+                    };
+                }
+
+                user = new UserAccount
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    EmailDisplay = request.Email.Trim(),
+                    EmailNormalized = normalizedEmail,
+                    PasswordSalt = challenge.SignupPasswordSalt,
+                    PasswordHash = challenge.SignupPasswordHash,
+                    PasswordUpdatedAtUtc = now,
+                    Role = UserRole.Resident,
+                    Status = UserAccountStatus.TermsPending,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now,
+                    Version = 1,
                 };
             }
-
-            if (!ShouldBypassWithLocalFixedOtp(normalizedEmail, authSettings))
+            else if (!ShouldBypassWithLocalFixedOtp(normalizedEmail, authSettings))
             {
                 logger.LogWarning("Login OTP verify failed due to missing account for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
                 return new VerificationResult

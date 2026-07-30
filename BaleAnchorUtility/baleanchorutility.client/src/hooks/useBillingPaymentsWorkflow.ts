@@ -96,6 +96,12 @@ export function useBillingPaymentsWorkflow({
     setLoading(true);
     try {
       const body = await portalClient.getLatestReadings();
+      if (!body) {
+        setLatestReadings(null);
+        setBillingMessage("No readings submitted yet.");
+        return;
+      }
+
       setLatestReadings(body);
       setBillingMessage(`Loaded latest readings for ${body.readingDate}.`);
     } catch (error) {

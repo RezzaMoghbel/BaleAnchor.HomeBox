@@ -54,8 +54,8 @@ public sealed class BillingController : ControllerBase
 
     [HttpGet("readings/latest")]
     [ProducesResponseType(typeof(LatestReadingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<LatestReadingsResponse>> GetLatestReadings(CancellationToken cancellationToken)
     {
         var userId = await ResolveUserIdAsync(cancellationToken);
@@ -71,6 +71,11 @@ public sealed class BillingController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
+            if (string.Equals(ex.Message, "No readings have been submitted yet.", StringComparison.Ordinal))
+            {
+                return NoContent();
+            }
+
             return ConflictProblem(ex.Message, "BILLING_READING_NOT_AVAILABLE");
         }
     }

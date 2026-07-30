@@ -159,6 +159,7 @@ function App() {
     emailSmtpUseSsl,
     emailSmtpUsername,
     emailSmtpPassword,
+    emailTestRecipient,
     adminMessage,
     setAdminSearchQuery,
     setAdminSearchStatus,
@@ -216,10 +217,12 @@ function App() {
     setEmailSmtpUseSsl,
     setEmailSmtpUsername,
     setEmailSmtpPassword,
+    setEmailTestRecipient,
     loadPendingApprovals,
     loadSystemSettings,
     saveAuthAccessSettings,
     saveEmailTransportSettings,
+    sendEmailTransportTest,
     searchAdminUsers,
     loadAdminBillingContext,
     deleteAdminLatestReading,
@@ -564,6 +567,26 @@ function App() {
     }
   };
 
+  const logout = async () => {
+    setLoading(true);
+    try {
+      await portalClient.logout();
+      setSession(null);
+      setStatusMessage("");
+      setCode("");
+      setLoginFieldErrors({});
+      navigate("/signin", { replace: true });
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatusMessage(`Failed to sign out. ${error.message}`);
+      } else {
+        setStatusMessage("Failed to sign out.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const {
     activeTerms,
     termsMessage,
@@ -608,6 +631,15 @@ function App() {
     refreshSession: () => refreshSession(),
   });
 
+  const userRole = session?.userRole?.trim().toLowerCase() ?? "";
+  const userStatus = session?.userStatus?.trim().toLowerCase() ?? "";
+  const isAuthenticated = session?.isAuthenticated === true;
+  const isRejected = isAuthenticated && userStatus === "rejected";
+  const isSuspended = isAuthenticated && userStatus === "suspended";
+  const needsOnboarding =
+    isAuthenticated && !isRejected && !isSuspended && userStatus !== "active";
+  const isAdminUser = userRole === "admin" || userRole === "superadmin";
+
   useEffect(() => {
     void refreshSession(true);
     void refreshAuthMode();
@@ -629,11 +661,15 @@ function App() {
       ? "onboarding"
       : location.pathname.startsWith("/dashboard")
         ? "dashboard"
-        : location.pathname === "/otp"
-          ? "otp"
-          : location.pathname === "/signup"
-            ? "signup"
-            : "signin";
+        : location.pathname === "/rejected"
+          ? "rejected"
+          : location.pathname === "/suspended"
+            ? "suspended"
+            : location.pathname === "/otp"
+              ? "otp"
+              : location.pathname === "/signup"
+                ? "signup"
+                : "signin";
 
   const dashboardSection = location.pathname.startsWith("/dashboard/payments")
     ? "payments"
@@ -646,9 +682,6 @@ function App() {
           : location.pathname.startsWith("/dashboard/readings")
             ? "readings"
             : "overview";
-
-  const userRole = session?.userRole?.trim().toLowerCase() ?? "";
-  const isAdminUser = userRole === "admin" || userRole === "superadmin";
 
   const shellLinkClass = (path: string) =>
     `shell-nav-link${pageMode === path ? " shell-nav-link--active" : ""}`;
@@ -663,21 +696,39 @@ function App() {
           </div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-          <Link className={shellLinkClass("signin")} to="/signin">
-            Sign In
-          </Link>
-          <Link className={shellLinkClass("signup")} to="/signup">
-            Sign Up
-          </Link>
-          {session?.isAuthenticated && (
+          {sessionChecked && !isAuthenticated && (
             <>
-              <Link className={shellLinkClass("onboarding")} to="/onboarding">
-                Onboarding
+              <Link className={shellLinkClass("signin")} to="/signin">
+                Sign In
               </Link>
+              <Link className={shellLinkClass("signup")} to="/signup">
+                Sign Up
+              </Link>
+            </>
+          )}
+          {sessionChecked && isAuthenticated && needsOnboarding && (
+            <Link className={shellLinkClass("onboarding")} to="/onboarding">
+              Onboarding
+            </Link>
+          )}
+          {sessionChecked &&
+            isAuthenticated &&
+            !needsOnboarding &&
+            !isRejected &&
+            !isSuspended && (
               <Link className={shellLinkClass("dashboard")} to="/dashboard">
                 Dashboard
               </Link>
-            </>
+            )}
+          {sessionChecked && isAuthenticated && (
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              onClick={() => void logout()}
+              disabled={loading}
+            >
+              Sign out
+            </button>
           )}
         </div>
       </nav>
@@ -798,6 +849,44 @@ function App() {
     />
   );
 
+  const renderSuspendedView = () => (
+    <div className="wrapper">
+      {renderShellHeader()}
+      <main className="page-content p-4">
+        <div className="container-fluid">
+          <div className="card radius-10 border-0 shadow-sm">
+            <div className="card-body py-5 text-center">
+              <h1 className="mb-3">Your account has been suspended</h1>
+              <p className="text-secondary mb-0">
+                Please contact the administrator for further details.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+
+  const renderRejectedView = () => (
+    <div className="wrapper">
+      {renderShellHeader()}
+      <main className="page-content p-4">
+        <div className="container-fluid">
+          <div className="card radius-10 border-0 shadow-sm">
+            <div className="card-body py-5 text-center">
+              <h1 className="mb-3">Your account has been rejected</h1>
+              <p className="text-secondary mb-1">
+                If you believe this decision is incorrect, you can appeal by
+                emailing the administrator.
+              </p>
+              <a href="mailto:info@moghbel.co.uk">reza@moghbel.co.uk</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+
   const renderDashboardRouteTabs = () => (
     <div className="d-flex flex-wrap gap-2 mb-4">
       <Link
@@ -914,6 +1003,7 @@ function App() {
       emailSmtpUseSsl={emailSmtpUseSsl}
       emailSmtpUsername={emailSmtpUsername}
       emailSmtpPassword={emailSmtpPassword}
+      emailTestRecipient={emailTestRecipient}
       onAdminSearchQueryChange={setAdminSearchQuery}
       onAdminSearchStatusChange={setAdminSearchStatus}
       onAdminTargetUserIdChange={setAdminTargetUserId}
@@ -972,10 +1062,12 @@ function App() {
       onEmailSmtpUseSslChange={setEmailSmtpUseSsl}
       onEmailSmtpUsernameChange={setEmailSmtpUsername}
       onEmailSmtpPasswordChange={setEmailSmtpPassword}
+      onEmailTestRecipientChange={setEmailTestRecipient}
       onLoadPendingApprovals={loadPendingApprovals}
       onLoadSystemSettings={loadSystemSettings}
       onSaveAuthAccessSettings={saveAuthAccessSettings}
       onSaveEmailTransportSettings={saveEmailTransportSettings}
+      onSendEmailTransportTest={sendEmailTransportTest}
       onSearchAdminUsers={searchAdminUsers}
       onLoadAdminBillingContext={loadAdminBillingContext}
       onDeleteAdminLatestReading={deleteAdminLatestReading}
@@ -1141,6 +1233,14 @@ function App() {
 
   if (pageMode === "onboarding") {
     return renderOnboardingView();
+  }
+
+  if (pageMode === "suspended") {
+    return renderSuspendedView();
+  }
+
+  if (pageMode === "rejected") {
+    return renderRejectedView();
   }
 
   if (dashboardSection === "readings") {

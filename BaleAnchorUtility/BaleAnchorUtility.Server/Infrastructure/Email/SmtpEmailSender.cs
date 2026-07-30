@@ -51,7 +51,7 @@ public sealed class SmtpEmailSender
         using var message = new MailMessage
         {
             From = new MailAddress(cfg.FromAddress, cfg.FromName),
-            Subject = "BaleAnchor reading reminder",
+            Subject = "Utility reading reminder",
             Body = BuildReadingReminderBody(recommendedReadingDate, timeZoneId),
             IsBodyHtml = false,
         };

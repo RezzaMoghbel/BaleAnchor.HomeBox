@@ -20,6 +20,16 @@ namespace BaleAnchorUtility.Server.Tests;
 public sealed class BillingControllerTests
 {
     [Fact]
+    public async Task GetLatestReadings_Returns204_WhenReadingsNotAvailable()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true);
+
+        var action = await controller.GetLatestReadings(CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(action.Result);
+    }
+
+    [Fact]
     public async Task CalculateLatestPeriod_Returns401_WhenUnauthenticated()
     {
         var controller = CreateController(withSessionCookie: false, seedUser: false);

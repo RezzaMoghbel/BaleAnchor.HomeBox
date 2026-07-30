@@ -178,6 +178,17 @@ export interface UpdateAdminEmailTransportSettingsRequest {
   reason: string;
 }
 
+export interface SendAdminEmailTransportTestRequest {
+  email: string;
+  reason: string;
+}
+
+export interface AdminEmailTransportTestResponse {
+  email: string;
+  message: string;
+  mode: string;
+}
+
 export interface AdminAuthAccessSettingsResponse {
   otpEnabled: boolean;
   allowLocalDomainFixedOtp: boolean;

@@ -81,6 +81,7 @@ interface AdminDashboardViewProps {
   emailSmtpUseSsl: boolean;
   emailSmtpUsername: string;
   emailSmtpPassword: string;
+  emailTestRecipient: string;
   onAdminSearchQueryChange: (value: string) => void;
   onAdminSearchStatusChange: (value: string) => void;
   onAdminTargetUserIdChange: (value: string) => void;
@@ -137,10 +138,12 @@ interface AdminDashboardViewProps {
   onEmailSmtpUseSslChange: (value: boolean) => void;
   onEmailSmtpUsernameChange: (value: string) => void;
   onEmailSmtpPasswordChange: (value: string) => void;
+  onEmailTestRecipientChange: (value: string) => void;
   onLoadPendingApprovals: () => Promise<void>;
   onLoadSystemSettings: () => Promise<void>;
   onSaveAuthAccessSettings: () => Promise<void>;
   onSaveEmailTransportSettings: () => Promise<void>;
+  onSendEmailTransportTest: () => Promise<void>;
   onSearchAdminUsers: () => Promise<void>;
   onLoadAdminBillingContext: () => Promise<void>;
   onDeleteAdminLatestReading: () => Promise<void>;
@@ -235,6 +238,7 @@ export function AdminDashboardView({
   emailSmtpUseSsl,
   emailSmtpUsername,
   emailSmtpPassword,
+  emailTestRecipient,
   onAdminSearchQueryChange,
   onAdminSearchStatusChange,
   onAdminTargetUserIdChange,
@@ -291,10 +295,12 @@ export function AdminDashboardView({
   onEmailSmtpUseSslChange,
   onEmailSmtpUsernameChange,
   onEmailSmtpPasswordChange,
+  onEmailTestRecipientChange,
   onLoadPendingApprovals,
   onLoadSystemSettings,
   onSaveAuthAccessSettings,
   onSaveEmailTransportSettings,
+  onSendEmailTransportTest,
   onSearchAdminUsers,
   onLoadAdminBillingContext,
   onDeleteAdminLatestReading,
@@ -340,7 +346,9 @@ export function AdminDashboardView({
               <h5 className="mb-3">System auth and SMTP settings</h5>
               <p className="text-secondary mb-3">
                 SuperAdmin controls for OTP mode, local fixed OTP behavior, and
-                SMTP runtime transport.
+                SMTP runtime transport. Saved values are runtime settings and
+                are persisted in the SystemSettings collection, not in
+                appsettings.json.
               </p>
 
               <div className="d-flex flex-wrap gap-2 mb-3">
@@ -352,6 +360,24 @@ export function AdminDashboardView({
                 >
                   Load system settings
                 </button>
+              </div>
+
+              <div className="row g-3 align-items-end mb-3">
+                <div className="col-12 col-lg-8">
+                  <label htmlFor="adminSystemReason" className="form-label">
+                    Audit reason for system settings changes
+                  </label>
+                  <input
+                    id="adminSystemReason"
+                    type="text"
+                    className="form-control"
+                    placeholder="for example: update SMTP mailbox credentials"
+                    value={adminReason}
+                    onChange={(event) =>
+                      onAdminReasonChange(event.target.value)
+                    }
+                  />
+                </div>
               </div>
 
               <div className="row g-3 align-items-end">
@@ -526,6 +552,36 @@ export function AdminDashboardView({
                 >
                   Save email settings
                 </button>
+              </div>
+
+              <div className="row g-3 align-items-end mt-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label">SMTP test recipient</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={emailTestRecipient}
+                    onChange={(event) =>
+                      onEmailTestRecipientChange(event.target.value)
+                    }
+                    placeholder="recipient@example.com"
+                  />
+                </div>
+                <div className="col-12 col-md-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => void onSendEmailTransportTest()}
+                    disabled={loading}
+                  >
+                    Send SMTP test email
+                  </button>
+                </div>
+              </div>
+
+              <div className="alert alert-light border mt-3 mb-0" role="status">
+                <div className="fw-semibold mb-1">System settings status</div>
+                <div>{adminMessage}</div>
               </div>
             </div>
           </div>
