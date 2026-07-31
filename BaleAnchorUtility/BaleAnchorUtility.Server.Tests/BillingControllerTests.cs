@@ -87,6 +87,7 @@ public sealed class BillingControllerTests
         var billing = new BillingInputService(
             users,
             new InMemoryReadingSubmissionRepository(),
+            new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
             new InMemoryPaymentRepository(),
             CreateReminderDispatchService(users),
@@ -220,6 +221,7 @@ public sealed class BillingControllerTests
         var billing = new BillingInputService(
             users,
             readings,
+            new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
@@ -313,6 +315,7 @@ public sealed class BillingControllerTests
         var billing = new BillingInputService(
             users,
             new InMemoryReadingSubmissionRepository(),
+            new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
@@ -404,6 +407,7 @@ public sealed class BillingControllerTests
         var billing = new BillingInputService(
             users,
             new InMemoryReadingSubmissionRepository(),
+            new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
@@ -464,6 +468,7 @@ public sealed class BillingControllerTests
         var billing = new BillingInputService(
             users,
             new InMemoryReadingSubmissionRepository(),
+            new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
             new InMemoryPaymentRepository(),
             CreateReminderDispatchService(users),

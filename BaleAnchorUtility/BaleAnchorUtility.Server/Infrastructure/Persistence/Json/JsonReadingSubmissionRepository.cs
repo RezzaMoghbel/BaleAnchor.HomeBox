@@ -19,6 +19,11 @@ public sealed class JsonReadingSubmissionRepository : IReadingSubmissionReposito
         return store.UpsertAsync(Collection, submission.Id, submission, cancellationToken);
     }
 
+    public Task UpsertAsync(ReadingSubmission submission, CancellationToken cancellationToken)
+    {
+        return store.UpsertAsync(Collection, submission.Id, submission, cancellationToken);
+    }
+
     public async Task<ReadingSubmission?> GetLatestByUserIdAsync(string userId, CancellationToken cancellationToken)
     {
         var all = await store.GetAllAsync<ReadingSubmission>(Collection, cancellationToken);

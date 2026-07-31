@@ -9,8 +9,11 @@ namespace BaleAnchorUtility.Server.Application.Billing;
 
 public sealed class BillingInputService
 {
+    private const string MaxIsoDate = "9999-12-31";
+
     private readonly IUserRepository userRepository;
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
+    private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
     private readonly IPaymentRepository paymentRepository;
     private readonly ReminderDispatchService reminderDispatchService;
@@ -20,6 +23,7 @@ public sealed class BillingInputService
     public BillingInputService(
         IUserRepository userRepository,
         IReadingSubmissionRepository readingSubmissionRepository,
+        IUtilitySetupRepository utilitySetupRepository,
         ITariffVersionRepository tariffVersionRepository,
         IPaymentRepository paymentRepository,
         ReminderDispatchService reminderDispatchService,
@@ -28,6 +32,7 @@ public sealed class BillingInputService
     {
         this.userRepository = userRepository;
         this.readingSubmissionRepository = readingSubmissionRepository;
+        this.utilitySetupRepository = utilitySetupRepository;
         this.tariffVersionRepository = tariffVersionRepository;
         this.paymentRepository = paymentRepository;
         this.reminderDispatchService = reminderDispatchService;
@@ -42,10 +47,19 @@ public sealed class BillingInputService
     {
         var user = await GetEligibleUserAsync(userId, cancellationToken);
         var readingDate = ParseIsoDate(request.ReadingDate, "Reading date must use yyyy-MM-dd format.");
+        var readingDateIso = readingDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         var coldWater = ParseDecimal(request.ColdWaterReading, "Cold-water reading is invalid.");
         var hotWater = ParseDecimal(request.HotWaterReading, "Hot-water reading is invalid.");
         var electricity = ParseDecimal(request.ElectricityReading, "Electricity reading is invalid.");
+
+        DateOnly? requestedTariffEffectiveFromDate = null;
+        if (!string.IsNullOrWhiteSpace(request.TariffEffectiveFromDate))
+        {
+            requestedTariffEffectiveFromDate = ParseIsoDate(
+                request.TariffEffectiveFromDate,
+                "Tariff effective-from date must use yyyy-MM-dd format.");
+        }
 
         if (readingDate > DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
         {
@@ -67,12 +81,51 @@ public sealed class BillingInputService
             }
         }
 
+        var availableTariffs = await GetAvailableTariffsOrSeedFromUtilitySetupAsync(
+            user.Id,
+            readingDateIso,
+            cancellationToken);
+
+        if (availableTariffs.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No tariff was found for the reading date. Add a tariff version before submitting readings.");
+        }
+
+        var orderedTariffs = availableTariffs
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+
+        var latestApplicableTariff = orderedTariffs[0];
+        if (requestedTariffEffectiveFromDate is not null)
+        {
+            var requestedIso = requestedTariffEffectiveFromDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var selectedTariff = orderedTariffs.FirstOrDefault(x =>
+                string.Equals(x.EffectiveFromDate, requestedIso, StringComparison.Ordinal));
+
+            if (selectedTariff is null)
+            {
+                throw new InvalidOperationException(
+                    "Selected tariff is not available for the requested reading date.");
+            }
+
+            if (!string.Equals(
+                    selectedTariff.EffectiveFromDate,
+                    latestApplicableTariff.EffectiveFromDate,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Select tariff dated {latestApplicableTariff.EffectiveFromDate} because it is the latest available for this reading date.");
+            }
+        }
+
         var now = clock.UtcNow;
         var submission = new ReadingSubmission
         {
             Id = Guid.NewGuid().ToString("N"),
             UserId = user.Id,
-            ReadingDate = readingDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ReadingDate = readingDateIso,
             ColdWaterReading = coldWater,
             HotWaterReading = hotWater,
             ElectricityReading = electricity,
@@ -90,7 +143,127 @@ public sealed class BillingInputService
         {
             UserId = user.Id,
             ReadingDate = submission.ReadingDate,
+            AppliedTariffEffectiveFromDate = latestApplicableTariff.EffectiveFromDate,
             Message = "Readings submitted successfully.",
+        };
+    }
+
+    public async Task<SubmitReadingsResponse> UpdateLatestReadingsAsync(
+        string userId,
+        SubmitReadingsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var readingDate = ParseIsoDate(request.ReadingDate, "Reading date must use yyyy-MM-dd format.");
+
+        var coldWater = ParseDecimal(request.ColdWaterReading, "Cold-water reading is invalid.");
+        var hotWater = ParseDecimal(request.HotWaterReading, "Hot-water reading is invalid.");
+        var electricity = ParseDecimal(request.ElectricityReading, "Electricity reading is invalid.");
+
+        if (readingDate > DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
+        {
+            throw new InvalidOperationException("Reading date cannot be in the future.");
+        }
+
+        var readings = (await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken))
+            .OrderBy(x => x.ReadingDate, StringComparer.Ordinal)
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+
+        if (readings.Count == 0)
+        {
+            throw new InvalidOperationException("No readings have been submitted yet.");
+        }
+
+        var latest = readings[^1];
+        if (readings.Count >= 2)
+        {
+            var previous = readings[^2];
+            var previousDate = ParseIsoDate(previous.ReadingDate, "Stored previous reading date is invalid.");
+
+            if (readingDate <= previousDate)
+            {
+                throw new InvalidOperationException("Reading date must be after the previous submitted reading date.");
+            }
+
+            if (coldWater < previous.ColdWaterReading || hotWater < previous.HotWaterReading || electricity < previous.ElectricityReading)
+            {
+                throw new InvalidOperationException("Readings cannot roll back below the previous submitted values.");
+            }
+
+            var payment = await paymentRepository.GetByUserAndPeriodAsync(
+                user.Id,
+                previous.ReadingDate,
+                latest.ReadingDate,
+                cancellationToken);
+
+            if (payment is not null)
+            {
+                throw new InvalidOperationException("The latest reading closes a paid period. Delete the linked payment first.");
+            }
+        }
+
+        latest.ReadingDate = readingDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        latest.ColdWaterReading = coldWater;
+        latest.HotWaterReading = hotWater;
+        latest.ElectricityReading = electricity;
+        latest.UpdatedAtUtc = clock.UtcNow;
+        latest.Version += 1;
+
+        await readingSubmissionRepository.UpsertAsync(latest, cancellationToken);
+
+        logger.LogInformation(
+            "Latest readings updated for user {UserId} on {ReadingDate}.",
+            user.Id,
+            latest.ReadingDate);
+
+        return new SubmitReadingsResponse
+        {
+            UserId = user.Id,
+            ReadingDate = latest.ReadingDate,
+            Message = "Latest readings updated successfully.",
+        };
+    }
+
+    public async Task<TariffOptionsResponse> GetTariffOptionsAsync(string userId, string? onDate, CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var lookupDate = string.IsNullOrWhiteSpace(onDate)
+            ? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)
+            : ParseIsoDate(onDate, "onDate must use yyyy-MM-dd format.");
+        var lookupDateIso = lookupDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var availableTariffs = await GetAvailableTariffsOrSeedFromUtilitySetupAsync(user.Id, lookupDateIso, cancellationToken);
+        if (availableTariffs.Count == 0)
+        {
+            throw new InvalidOperationException("No tariff was found for the requested date.");
+        }
+
+        var ordered = availableTariffs
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+        var latestEffectiveFromDate = ordered[0].EffectiveFromDate;
+
+        return new TariffOptionsResponse
+        {
+            UserId = user.Id,
+            OnDate = lookupDateIso,
+            RecommendedEffectiveFromDate = latestEffectiveFromDate,
+            Count = ordered.Count,
+            Items = ordered
+                .Select(x => new TariffOptionItemResponse
+                {
+                    EffectiveFromDate = x.EffectiveFromDate,
+                    WaterTariffPerUnit = x.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+                    WaterStandingChargePerDay = x.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+                    WaterVatPercent = x.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                    ElectricityTariffPerUnit = x.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+                    ElectricityStandingChargePerDay = x.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+                    ElectricityVatPercent = x.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                    IsLatestApplicable = string.Equals(x.EffectiveFromDate, latestEffectiveFromDate, StringComparison.Ordinal),
+                })
+                .ToList(),
         };
     }
 
@@ -241,6 +414,63 @@ public sealed class BillingInputService
             DeletedReadingDate = latest.ReadingDate,
             Message = "The latest reading was deleted successfully.",
         };
+    }
+
+    private async Task<IReadOnlyList<TariffVersion>> GetAvailableTariffsOrSeedFromUtilitySetupAsync(
+        string userId,
+        string onDate,
+        CancellationToken cancellationToken)
+    {
+        var availableTariffs = await tariffVersionRepository.GetByUserUpToDateAsync(userId, onDate, cancellationToken);
+        if (availableTariffs.Count > 0)
+        {
+            return availableTariffs;
+        }
+
+        var anyExistingTariffs = await tariffVersionRepository.GetByUserUpToDateAsync(userId, MaxIsoDate, cancellationToken);
+        if (anyExistingTariffs.Count > 0)
+        {
+            return availableTariffs;
+        }
+
+        var utilitySetup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (utilitySetup is null)
+        {
+            return availableTariffs;
+        }
+
+        var moveInDate = ParseIsoDate(utilitySetup.MoveInDate, "Stored move-in date is invalid.");
+        var lookupDate = ParseIsoDate(onDate, "onDate must use yyyy-MM-dd format.");
+        if (moveInDate > lookupDate)
+        {
+            return availableTariffs;
+        }
+
+        var now = clock.UtcNow;
+        var seededVersion = new TariffVersion
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            UserId = userId,
+            EffectiveFromDate = moveInDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            WaterTariffPerUnit = utilitySetup.InitialWaterTariffPerUnit,
+            WaterStandingChargePerDay = utilitySetup.InitialWaterStandingChargePerDay,
+            WaterVatPercent = utilitySetup.InitialWaterVatPercent,
+            ElectricityTariffPerUnit = utilitySetup.InitialElectricityTariffPerUnit,
+            ElectricityStandingChargePerDay = utilitySetup.InitialElectricityStandingChargePerDay,
+            ElectricityVatPercent = utilitySetup.InitialElectricityVatPercent,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            Version = 1,
+        };
+
+        await tariffVersionRepository.AddAsync(seededVersion, cancellationToken);
+
+        logger.LogInformation(
+            "Bootstrapped missing tariff version from utility setup for user {UserId} effective from {EffectiveFromDate}.",
+            userId,
+            seededVersion.EffectiveFromDate);
+
+        return [seededVersion];
     }
 
     private async Task<UserAccount> GetEligibleUserAsync(string userId, CancellationToken cancellationToken)

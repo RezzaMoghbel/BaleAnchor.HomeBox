@@ -43,6 +43,7 @@ import type {
   StatementExportHistoryResponse,
   StatementPeriodListResponse,
   StatementSummaryResponse,
+  TariffOptionsResponse,
   SignupRequestCodeRequest,
   SubmitReadingsResponse,
   TenancyListResponse,
@@ -183,6 +184,7 @@ interface SubmitReadingsRequest {
   coldWaterReading: string;
   hotWaterReading: string;
   electricityReading: string;
+  tariffEffectiveFromDate?: string;
 }
 
 interface UpsertTariffRequest {
@@ -803,6 +805,20 @@ export const portalClient = {
     });
   },
 
+  updateLatestReadings(request: SubmitReadingsRequest) {
+    return requestJson<SubmitReadingsResponse>(
+      "/api/v1/billing/readings/latest",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   async getLatestReadings() {
     const response = await requestJson<LatestReadingsResponse | undefined>(
       "/api/v1/billing/readings/latest",
@@ -831,6 +847,22 @@ export const portalClient = {
       method: "GET",
       credentials: "include",
     });
+  },
+
+  getTariffOptions(onDate?: string) {
+    const params = new URLSearchParams();
+    if (onDate && onDate.trim().length > 0) {
+      params.set("onDate", onDate.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<TariffOptionsResponse>(
+      `/api/v1/billing/tariffs/options${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
   },
 
   runLatestCalculation() {

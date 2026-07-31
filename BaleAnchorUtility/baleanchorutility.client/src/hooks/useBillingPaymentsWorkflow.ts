@@ -116,17 +116,21 @@ export function useBillingPaymentsWorkflow({
     }
   };
 
-  const submitReadings = async () => {
+  const submitReadings = async (
+    tariffEffectiveFromDate?: string,
+  ): Promise<boolean> => {
     const validationErrors = validateReadingsInput({
       readingDate,
       coldWaterReading,
       hotWaterReading,
       electricityReading,
+      tariffEffectiveFromDate,
+      requireTariffSelection: true,
     });
     if (Object.keys(validationErrors).length > 0) {
       setReadingsFieldErrors(validationErrors);
       setBillingMessage("Review highlighted reading fields and try again.");
-      return;
+      return false;
     }
 
     setReadingsFieldErrors({});
@@ -137,9 +141,16 @@ export function useBillingPaymentsWorkflow({
         coldWaterReading,
         hotWaterReading,
         electricityReading,
+        tariffEffectiveFromDate,
       });
-      setBillingMessage(`${body.message} Date: ${body.readingDate}.`);
+      const tariffSuffix = body.appliedTariffEffectiveFromDate
+        ? ` Tariff: ${body.appliedTariffEffectiveFromDate}.`
+        : "";
+      setBillingMessage(
+        `${body.message} Date: ${body.readingDate}.${tariffSuffix}`,
+      );
       await loadLatestReadings();
+      return true;
     } catch (error) {
       if (error instanceof PortalApiError) {
         setReadingsFieldErrors(error.errors);
@@ -147,6 +158,45 @@ export function useBillingPaymentsWorkflow({
       } else {
         setBillingMessage("Reading submission failed.");
       }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateLatestReadings = async (): Promise<boolean> => {
+    const validationErrors = validateReadingsInput({
+      readingDate,
+      coldWaterReading,
+      hotWaterReading,
+      electricityReading,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setReadingsFieldErrors(validationErrors);
+      setBillingMessage("Review highlighted reading fields and try again.");
+      return false;
+    }
+
+    setReadingsFieldErrors({});
+    setLoading(true);
+    try {
+      const body = await portalClient.updateLatestReadings({
+        readingDate,
+        coldWaterReading,
+        hotWaterReading,
+        electricityReading,
+      });
+      setBillingMessage(`${body.message} Date: ${body.readingDate}.`);
+      await loadLatestReadings();
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setReadingsFieldErrors(error.errors);
+        setBillingMessage(`Reading update failed. ${error.message}`);
+      } else {
+        setBillingMessage("Reading update failed.");
+      }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -450,6 +500,7 @@ export function useBillingPaymentsWorkflow({
     balanceSummary,
     editingPaymentId,
     submitReadings,
+    updateLatestReadings,
     loadLatestReadings,
     submitTariffVersion,
     loadActiveTariff,

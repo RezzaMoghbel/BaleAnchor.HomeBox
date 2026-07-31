@@ -19,4 +19,7 @@ public sealed class SubmitReadingsRequest
     [Required]
     [RegularExpression("^\\d+(\\.\\d{1,3})?$")]
     public string ElectricityReading { get; init; } = string.Empty;
+
+    [RegularExpression("^\\d{4}-\\d{2}-\\d{2}$")]
+    public string? TariffEffectiveFromDate { get; init; }
 }

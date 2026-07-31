@@ -52,6 +52,29 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPut("readings/latest")]
+    [ProducesResponseType(typeof(SubmitReadingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SubmitReadingsResponse>> UpdateLatestReadings([FromBody] SubmitReadingsRequest request, CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.UpdateLatestReadingsAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_READING_UPDATE_CONFLICT");
+        }
+    }
+
     [HttpGet("readings/latest")]
     [ProducesResponseType(typeof(LatestReadingsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -141,6 +164,29 @@ public sealed class BillingController : ControllerBase
         try
         {
             var response = await billingInputService.GetActiveTariffAsync(userId, onDate, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_TARIFF_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpGet("tariffs/options")]
+    [ProducesResponseType(typeof(TariffOptionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TariffOptionsResponse>> GetTariffOptions([FromQuery] string? onDate, CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.GetTariffOptionsAsync(userId, onDate, cancellationToken);
             return Ok(response);
         }
         catch (InvalidOperationException ex)

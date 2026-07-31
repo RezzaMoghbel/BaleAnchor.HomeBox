@@ -234,6 +234,28 @@ public sealed class StatementSummaryServiceTests
         Assert.Empty(response.Items);
     }
 
+    [Fact]
+    public async Task GetStatementPeriodsAsync_ReturnsLatestSnapshotPerPeriod_WhenDuplicatesExist()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s-old", "u-active", "2026-07-01", "2026-08-01", 80m), CancellationToken.None);
+
+        var newerSnapshot = CreateSnapshot("s-newer", "u-active", "2026-07-01", "2026-08-01", 82m);
+        newerSnapshot.CreatedAtUtc = DateTimeOffset.Parse("2026-08-05T00:00:00Z");
+        await snapshots.AddAsync(newerSnapshot, CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, new InMemoryPaymentRepository());
+
+        var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
+
+        Assert.Single(response.Items);
+        Assert.Equal("s-newer", response.Items[0].SnapshotId);
+        Assert.Equal("82.00", response.Items[0].PeriodTotal);
+    }
+
     private static UserAccount CreateActiveUser(string id)
     {
         return new UserAccount

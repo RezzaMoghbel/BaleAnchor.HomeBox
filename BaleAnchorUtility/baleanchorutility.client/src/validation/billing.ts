@@ -72,6 +72,8 @@ interface ReadingsValidationInput {
   coldWaterReading: string;
   hotWaterReading: string;
   electricityReading: string;
+  tariffEffectiveFromDate?: string;
+  requireTariffSelection?: boolean;
 }
 
 interface TariffValidationInput {
@@ -114,7 +116,21 @@ export function validateReadingsInput(
     electricityReading: input.electricityReading.trim(),
   });
 
-  return result.success ? {} : toFieldErrors(result.error);
+  if (!result.success) {
+    return toFieldErrors(result.error);
+  }
+
+  if (
+    input.requireTariffSelection &&
+    (!input.tariffEffectiveFromDate ||
+      input.tariffEffectiveFromDate.trim().length === 0)
+  ) {
+    return {
+      tariffEffectiveFromDate: ["Select the latest available tariff."],
+    };
+  }
+
+  return {};
 }
 
 export function validateTariffInput(input: TariffValidationInput): FieldErrors {

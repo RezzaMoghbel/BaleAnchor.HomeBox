@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { AdminAccountStatusCard } from "./admin/AdminAccountStatusCard";
 import { AdminAuditViewerCard } from "./admin/AdminAuditViewerCard";
 import type {
-  AdminBillingContextResponse,
   AdminUserSummaryItem,
   AuditLogSummaryItem,
   FlatSummaryItem,
@@ -22,28 +21,12 @@ interface AdminDashboardViewProps {
     | "audit"
     | "settings"
     | "system-auth"
-    | "search"
     | "flat-register";
   loading: boolean;
   currentUserRole: string;
-  adminTargetUserId: string;
   adminReason: string;
-  adminRoleTarget: string;
   adminMessage: string;
   adminUsers: AdminUserSummaryItem[];
-  adminSearchQuery: string;
-  adminSearchStatus: string;
-  adminBillingOnDate: string;
-  adminBillingContext: AdminBillingContextResponse | null;
-  adminTariffEffectiveFromDate: string;
-  adminWaterTariffPerUnit: string;
-  adminWaterStandingChargePerDay: string;
-  adminWaterVatPercent: string;
-  adminElectricityTariffPerUnit: string;
-  adminElectricityStandingChargePerDay: string;
-  adminElectricityVatPercent: string;
-  adminBoilerKwhPerCubicMeter: string;
-  adminBoilerEfficiencyPercent: string;
   termsVersionLabel: string;
   termsVersionTitle: string;
   termsContentMarkdown: string;
@@ -93,21 +76,7 @@ interface AdminDashboardViewProps {
   emailSmtpUsername: string;
   emailSmtpPassword: string;
   emailTestRecipient: string;
-  onAdminSearchQueryChange: (value: string) => void;
-  onAdminSearchStatusChange: (value: string) => void;
-  onAdminTargetUserIdChange: (value: string) => void;
   onAdminReasonChange: (value: string) => void;
-  onAdminRoleTargetChange: (value: string) => void;
-  onAdminBillingOnDateChange: (value: string) => void;
-  onAdminTariffEffectiveFromDateChange: (value: string) => void;
-  onAdminWaterTariffPerUnitChange: (value: string) => void;
-  onAdminWaterStandingChargePerDayChange: (value: string) => void;
-  onAdminWaterVatPercentChange: (value: string) => void;
-  onAdminElectricityTariffPerUnitChange: (value: string) => void;
-  onAdminElectricityStandingChargePerDayChange: (value: string) => void;
-  onAdminElectricityVatPercentChange: (value: string) => void;
-  onAdminBoilerKwhPerCubicMeterChange: (value: string) => void;
-  onAdminBoilerEfficiencyPercentChange: (value: string) => void;
   onTermsVersionLabelChange: (value: string) => void;
   onTermsVersionTitleChange: (value: string) => void;
   onTermsContentMarkdownChange: (value: string) => void;
@@ -159,14 +128,10 @@ interface AdminDashboardViewProps {
     queryOverride?: string,
     statusOverride?: string,
   ) => Promise<void>;
-  onLoadAdminBillingContext: (targetUserIdOverride?: string) => Promise<void>;
   onOpenAccountFromSearch: (
     targetUserId: string,
     expectedEmail?: string,
   ) => Promise<void>;
-  onDeleteAdminLatestReading: () => Promise<void>;
-  onUpsertAdminTariff: () => Promise<void>;
-  onUpdateAdminBoilerAssumptions: () => Promise<void>;
   onLoadTermsVersions: () => Promise<void>;
   onPublishTermsVersion: () => Promise<void>;
   onLoadTermsAcceptances: () => Promise<void>;
@@ -183,11 +148,6 @@ interface AdminDashboardViewProps {
   onUpsertTenantGap: () => Promise<void>;
   onBeginTenantGapEdit: (item: TenantGapAllocationSummaryItem) => void;
   onClearTenantGapForm: () => void;
-  onSubmitAdminDecision: (action: "approve" | "reject") => Promise<void>;
-  onSubmitRoleChange: () => Promise<void>;
-  onSubmitAdminLifecycleAction: (
-    action: "suspend" | "move-to-onboarding" | "reinstate-approved" | "archive",
-  ) => Promise<void>;
   onApplyAccountStatusRoleChange: (request: {
     targetUserId: string;
     reason: string;
@@ -209,14 +169,6 @@ interface AdminDashboardViewProps {
     newStatus?: string;
     newRole?: string;
   }>;
-  onHardDeleteAdminUser: () => Promise<void>;
-  onStartDelegatedSupportSession: (request: {
-    targetUserId: string;
-    reason: string;
-    expectedEmail?: string;
-    expectedFlatNumber?: string;
-    expectedDateOfBirth?: string;
-  }) => Promise<boolean>;
   formatDisplayDateTime: (value?: string) => string;
 }
 
@@ -230,19 +182,6 @@ export function AdminDashboardView({
   adminReason,
   adminMessage,
   adminUsers,
-  adminSearchQuery,
-  adminSearchStatus,
-  adminBillingOnDate,
-  adminBillingContext,
-  adminTariffEffectiveFromDate,
-  adminWaterTariffPerUnit,
-  adminWaterStandingChargePerDay,
-  adminWaterVatPercent,
-  adminElectricityTariffPerUnit,
-  adminElectricityStandingChargePerDay,
-  adminElectricityVatPercent,
-  adminBoilerKwhPerCubicMeter,
-  adminBoilerEfficiencyPercent,
   termsVersionLabel,
   termsVersionTitle,
   termsContentMarkdown,
@@ -293,18 +232,6 @@ export function AdminDashboardView({
   emailSmtpPassword,
   emailTestRecipient,
   onAdminReasonChange,
-  onAdminSearchQueryChange,
-  onAdminSearchStatusChange,
-  onAdminBillingOnDateChange,
-  onAdminTariffEffectiveFromDateChange,
-  onAdminWaterTariffPerUnitChange,
-  onAdminWaterStandingChargePerDayChange,
-  onAdminWaterVatPercentChange,
-  onAdminElectricityTariffPerUnitChange,
-  onAdminElectricityStandingChargePerDayChange,
-  onAdminElectricityVatPercentChange,
-  onAdminBoilerKwhPerCubicMeterChange,
-  onAdminBoilerEfficiencyPercentChange,
   onTermsVersionLabelChange,
   onTermsVersionTitleChange,
   onTermsContentMarkdownChange,
@@ -353,11 +280,7 @@ export function AdminDashboardView({
   onSaveEmailTransportSettings,
   onSendEmailTransportTest,
   onSearchAdminUsers,
-  onLoadAdminBillingContext,
   onOpenAccountFromSearch,
-  onDeleteAdminLatestReading,
-  onUpsertAdminTariff,
-  onUpdateAdminBoilerAssumptions,
   onLoadTermsVersions,
   onPublishTermsVersion,
   onLoadTermsAcceptances,
@@ -385,7 +308,6 @@ export function AdminDashboardView({
   const showAudit = adminSection === "audit";
   const showSettings = adminSection === "settings";
   const showSystemAuth = adminSection === "system-auth";
-  const showSearch = adminSection === "search";
   const showFlatRegister = adminSection === "flat-register";
   const publishTermsValidationMessages: string[] = [];
 
@@ -704,304 +626,6 @@ export function AdminDashboardView({
                 >
                   <div className="fw-semibold mb-1">System settings status</div>
                   <div>{adminMessage}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showSearch && (
-            <div className="card radius-10 border-0 shadow-sm mt-4">
-              <div className="card-body">
-                <h5 className="mb-3">
-                  Search users and target account context
-                </h5>
-                <div className="row g-3 align-items-end">
-                  <div className="col-12 col-lg-5">
-                    <label htmlFor="adminSearchQuery" className="form-label">
-                      Search query
-                    </label>
-                    <input
-                      id="adminSearchQuery"
-                      type="text"
-                      className="form-control"
-                      placeholder="email, user id, flat"
-                      value={adminSearchQuery}
-                      onChange={(event) =>
-                        onAdminSearchQueryChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <label htmlFor="adminSearchStatus" className="form-label">
-                      Status filter
-                    </label>
-                    <input
-                      id="adminSearchStatus"
-                      type="text"
-                      className="form-control"
-                      placeholder="Active"
-                      value={adminSearchStatus}
-                      onChange={(event) =>
-                        onAdminSearchStatusChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-4">
-                    <button
-                      type="button"
-                      className="btn btn-outline-dark"
-                      onClick={() => void onSearchAdminUsers()}
-                      disabled={loading}
-                    >
-                      Search users
-                    </button>
-                  </div>
-                </div>
-
-                {adminUsers.length > 0 && (
-                  <div className="table-responsive mt-3">
-                    <table className="table align-middle mb-0">
-                      <thead>
-                        <tr>
-                          <th>User ID</th>
-                          <th>Email</th>
-                          <th>Role</th>
-                          <th>Status</th>
-                          <th>Flat</th>
-                          <th>Updated</th>
-                          <th className="text-end">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {adminUsers.slice(0, 20).map((item) => (
-                          <tr key={item.userId}>
-                            <td>{item.userId}</td>
-                            <td>{item.email}</td>
-                            <td>{item.role}</td>
-                            <td>{item.status}</td>
-                            <td>{item.flatNumber ?? "-"}</td>
-                            <td>{formatDisplayDateTime(item.updatedAtUtc)}</td>
-                            <td className="text-end">
-                              <div className="d-inline-flex gap-2">
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-primary btn-sm"
-                                  onClick={() =>
-                                    void onLoadAdminBillingContext(item.userId)
-                                  }
-                                  disabled={loading}
-                                >
-                                  Select
-                                </button>
-                                {isSuperAdmin && (
-                                  <button
-                                    type="button"
-                                    className="btn btn-outline-dark btn-sm"
-                                    onClick={() =>
-                                      void onOpenAccountFromSearch(
-                                        item.userId,
-                                        item.email,
-                                      )
-                                    }
-                                    disabled={loading}
-                                  >
-                                    Open account
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <div className="row g-3 align-items-end mt-2">
-                  <div className="col-12 col-lg-3">
-                    <label htmlFor="adminBillingOnDate" className="form-label">
-                      Billing context date
-                    </label>
-                    <input
-                      id="adminBillingOnDate"
-                      type="date"
-                      className="form-control"
-                      value={adminBillingOnDate}
-                      onChange={(event) =>
-                        onAdminBillingOnDateChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void onLoadAdminBillingContext()}
-                      disabled={loading}
-                    >
-                      Load billing context
-                    </button>
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger"
-                      onClick={() => void onDeleteAdminLatestReading()}
-                      disabled={loading}
-                    >
-                      Delete latest reading
-                    </button>
-                  </div>
-                </div>
-
-                {adminBillingContext && (
-                  <div
-                    className="alert alert-light border mt-3 mb-0"
-                    role="status"
-                  >
-                    <div className="fw-semibold mb-1">
-                      Target billing context
-                    </div>
-                    <div className="small text-secondary">
-                      Latest reading:{" "}
-                      {adminBillingContext.latestReadingDate ?? "N/A"}
-                      {` | Latest payment: ${adminBillingContext.latestPaymentAmount ?? "N/A"}`}
-                      {` | Tariff from: ${adminBillingContext.activeTariffEffectiveFromDate ?? "N/A"}`}
-                      {` | Boiler efficiency: ${adminBillingContext.boilerEfficiencyPercent ?? "N/A"}`}
-                    </div>
-                  </div>
-                )}
-
-                <h6 className="mt-4">Target tariff management</h6>
-                <div className="row g-3 align-items-end">
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={adminTariffEffectiveFromDate}
-                      onChange={(event) =>
-                        onAdminTariffEffectiveFromDateChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Water unit"
-                      value={adminWaterTariffPerUnit}
-                      onChange={(event) =>
-                        onAdminWaterTariffPerUnitChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Water standing"
-                      value={adminWaterStandingChargePerDay}
-                      onChange={(event) =>
-                        onAdminWaterStandingChargePerDayChange(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Water VAT"
-                      value={adminWaterVatPercent}
-                      onChange={(event) =>
-                        onAdminWaterVatPercentChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Elec unit"
-                      value={adminElectricityTariffPerUnit}
-                      onChange={(event) =>
-                        onAdminElectricityTariffPerUnitChange(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Elec standing"
-                      value={adminElectricityStandingChargePerDay}
-                      onChange={(event) =>
-                        onAdminElectricityStandingChargePerDayChange(
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Elec VAT"
-                      value={adminElectricityVatPercent}
-                      onChange={(event) =>
-                        onAdminElectricityVatPercentChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void onUpsertAdminTariff()}
-                      disabled={loading}
-                    >
-                      Save target tariff
-                    </button>
-                  </div>
-                </div>
-
-                <h6 className="mt-4">Boiler assumptions management</h6>
-                <div className="row g-3 align-items-end">
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="kWh per m3"
-                      value={adminBoilerKwhPerCubicMeter}
-                      onChange={(event) =>
-                        onAdminBoilerKwhPerCubicMeterChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Efficiency %"
-                      value={adminBoilerEfficiencyPercent}
-                      onChange={(event) =>
-                        onAdminBoilerEfficiencyPercentChange(event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="col-12 col-lg-3">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void onUpdateAdminBoilerAssumptions()}
-                      disabled={loading}
-                    >
-                      Update boiler assumptions
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

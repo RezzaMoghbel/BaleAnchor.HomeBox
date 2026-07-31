@@ -4,6 +4,7 @@ import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
 import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardView";
 import { PaymentsDashboardView } from "./components/dashboard/PaymentsDashboardView";
 import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardView";
+import { TariffsDashboardView } from "./components/dashboard/TariffsDashboardView";
 import { NotificationsDashboardView } from "./components/dashboard/NotificationsDashboardView";
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
 import { LoginView } from "./components/auth/LoginView";
@@ -99,21 +100,7 @@ function App() {
   const {
     pendingApprovals,
     adminUsers,
-    adminTargetUserId,
     adminReason,
-    adminSearchQuery,
-    adminSearchStatus,
-    adminBillingOnDate,
-    adminBillingContext,
-    adminTariffEffectiveFromDate,
-    adminWaterTariffPerUnit,
-    adminWaterStandingChargePerDay,
-    adminWaterVatPercent,
-    adminElectricityTariffPerUnit,
-    adminElectricityStandingChargePerDay,
-    adminElectricityVatPercent,
-    adminBoilerKwhPerCubicMeter,
-    adminBoilerEfficiencyPercent,
     termsVersionLabel,
     termsVersionTitle,
     termsContentMarkdown,
@@ -149,7 +136,6 @@ function App() {
     gapAmountInput,
     gapStatusInput,
     gapFilterFlatNumber,
-    adminRoleTarget,
     authOtpEnabled,
     authAllowLocalFixedOtp,
     authFixedOtpCode,
@@ -164,20 +150,7 @@ function App() {
     emailSmtpPassword,
     emailTestRecipient,
     adminMessage,
-    setAdminSearchQuery,
-    setAdminSearchStatus,
-    setAdminTargetUserId,
     setAdminReason,
-    setAdminBillingOnDate,
-    setAdminTariffEffectiveFromDate,
-    setAdminWaterTariffPerUnit,
-    setAdminWaterStandingChargePerDay,
-    setAdminWaterVatPercent,
-    setAdminElectricityTariffPerUnit,
-    setAdminElectricityStandingChargePerDay,
-    setAdminElectricityVatPercent,
-    setAdminBoilerKwhPerCubicMeter,
-    setAdminBoilerEfficiencyPercent,
     setTermsVersionLabel,
     setTermsVersionTitle,
     setTermsContentMarkdown,
@@ -207,7 +180,6 @@ function App() {
     setGapAmountInput,
     setGapStatusInput,
     setGapFilterFlatNumber,
-    setAdminRoleTarget,
     setAuthOtpEnabled,
     setAuthAllowLocalFixedOtp,
     setAuthFixedOtpCode,
@@ -227,10 +199,6 @@ function App() {
     saveEmailTransportSettings,
     sendEmailTransportTest,
     searchAdminUsers,
-    loadAdminBillingContext,
-    deleteAdminLatestReading,
-    upsertAdminTariff,
-    updateAdminBoilerAssumptions,
     loadTermsVersions,
     publishTermsVersion,
     loadTermsAcceptances,
@@ -247,12 +215,8 @@ function App() {
     upsertTenantGap,
     beginTenantGapEdit,
     clearTenantGapForm,
-    submitAdminDecision,
-    submitRoleChange,
-    submitAdminLifecycleAction,
     applyAccountStatusRoleChange,
     startDelegatedSupportSession,
-    hardDeleteAdminUser,
   } = useAdminWorkflow({ setLoading });
 
   const {
@@ -266,6 +230,7 @@ function App() {
     balanceSummary,
     editingPaymentId,
     submitReadings,
+    updateLatestReadings,
     loadLatestReadings,
     submitTariffVersion,
     loadActiveTariff,
@@ -694,11 +659,9 @@ function App() {
       ? "audit"
       : location.pathname.startsWith("/dashboard/admin/system-auth")
         ? "system-auth"
-        : location.pathname.startsWith("/dashboard/admin/search")
-          ? "search"
-          : location.pathname.startsWith("/dashboard/admin/flat-register")
-            ? "flat-register"
-            : "account";
+        : location.pathname.startsWith("/dashboard/admin/flat-register")
+          ? "flat-register"
+          : "account";
 
   useEffect(() => {
     void refreshSession(true);
@@ -723,7 +686,8 @@ function App() {
 
     if (
       location.pathname.startsWith("/dashboard/admin/account-access") ||
-      location.pathname.startsWith("/dashboard/admin/approvals")
+      location.pathname.startsWith("/dashboard/admin/approvals") ||
+      location.pathname.startsWith("/dashboard/admin/search")
     ) {
       navigate("/dashboard/admin/account", { replace: true });
       return;
@@ -761,13 +725,15 @@ function App() {
     ? "payments"
     : location.pathname.startsWith("/dashboard/statements")
       ? "statements"
-      : location.pathname.startsWith("/dashboard/notifications")
-        ? "notifications"
-        : location.pathname.startsWith("/dashboard/admin")
-          ? "admin"
-          : location.pathname.startsWith("/dashboard/readings")
-            ? "readings"
-            : "overview";
+      : location.pathname.startsWith("/dashboard/tariffs")
+        ? "tariffs"
+        : location.pathname.startsWith("/dashboard/notifications")
+          ? "notifications"
+          : location.pathname.startsWith("/dashboard/admin")
+            ? "admin"
+            : location.pathname.startsWith("/dashboard/readings")
+              ? "readings"
+              : "overview";
 
   const shellLinkClass = (path: string) =>
     `shell-nav-link${pageMode === path ? " shell-nav-link--active" : ""}`;
@@ -1005,7 +971,15 @@ function App() {
           className={`shell-nav-link ${dashboardSection === "readings" ? "shell-nav-link--active" : ""}`}
           to="/dashboard/readings"
         >
-          Readings & Tariffs
+          Readings
+        </Link>
+      )}
+      {!isSuperAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "tariffs" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/tariffs"
+        >
+          Tariffs
         </Link>
       )}
       {!isAdminUser && (
@@ -1068,12 +1042,6 @@ function App() {
         System auth
       </Link>
       <Link
-        className={`shell-nav-link ${adminSection === "search" ? "shell-nav-link--active" : ""}`}
-        to="/dashboard/admin/search"
-      >
-        Search users and target account context
-      </Link>
-      <Link
         className={`shell-nav-link ${adminSection === "flat-register" ? "shell-nav-link--active" : ""}`}
         to="/dashboard/admin/flat-register"
       >
@@ -1130,27 +1098,10 @@ function App() {
       adminRouteTabs={renderAdminRouteTabs()}
       adminSection={adminSection}
       loading={loading}
-      adminTargetUserId={adminTargetUserId}
       adminReason={adminReason}
-      adminRoleTarget={adminRoleTarget}
       adminMessage={adminMessage}
       currentUserRole={userRole}
       adminUsers={adminUsers}
-      adminSearchQuery={adminSearchQuery}
-      adminSearchStatus={adminSearchStatus}
-      adminBillingOnDate={adminBillingOnDate}
-      adminBillingContext={adminBillingContext}
-      adminTariffEffectiveFromDate={adminTariffEffectiveFromDate}
-      adminWaterTariffPerUnit={adminWaterTariffPerUnit}
-      adminWaterStandingChargePerDay={adminWaterStandingChargePerDay}
-      adminWaterVatPercent={adminWaterVatPercent}
-      adminElectricityTariffPerUnit={adminElectricityTariffPerUnit}
-      adminElectricityStandingChargePerDay={
-        adminElectricityStandingChargePerDay
-      }
-      adminElectricityVatPercent={adminElectricityVatPercent}
-      adminBoilerKwhPerCubicMeter={adminBoilerKwhPerCubicMeter}
-      adminBoilerEfficiencyPercent={adminBoilerEfficiencyPercent}
       termsVersionLabel={termsVersionLabel}
       termsVersionTitle={termsVersionTitle}
       termsContentMarkdown={termsContentMarkdown}
@@ -1200,23 +1151,7 @@ function App() {
       emailSmtpUsername={emailSmtpUsername}
       emailSmtpPassword={emailSmtpPassword}
       emailTestRecipient={emailTestRecipient}
-      onAdminSearchQueryChange={setAdminSearchQuery}
-      onAdminSearchStatusChange={setAdminSearchStatus}
-      onAdminTargetUserIdChange={setAdminTargetUserId}
       onAdminReasonChange={setAdminReason}
-      onAdminRoleTargetChange={setAdminRoleTarget}
-      onAdminBillingOnDateChange={setAdminBillingOnDate}
-      onAdminTariffEffectiveFromDateChange={setAdminTariffEffectiveFromDate}
-      onAdminWaterTariffPerUnitChange={setAdminWaterTariffPerUnit}
-      onAdminWaterStandingChargePerDayChange={setAdminWaterStandingChargePerDay}
-      onAdminWaterVatPercentChange={setAdminWaterVatPercent}
-      onAdminElectricityTariffPerUnitChange={setAdminElectricityTariffPerUnit}
-      onAdminElectricityStandingChargePerDayChange={
-        setAdminElectricityStandingChargePerDay
-      }
-      onAdminElectricityVatPercentChange={setAdminElectricityVatPercent}
-      onAdminBoilerKwhPerCubicMeterChange={setAdminBoilerKwhPerCubicMeter}
-      onAdminBoilerEfficiencyPercentChange={setAdminBoilerEfficiencyPercent}
       onTermsVersionLabelChange={setTermsVersionLabel}
       onTermsVersionTitleChange={setTermsVersionTitle}
       onTermsContentMarkdownChange={setTermsContentMarkdown}
@@ -1265,11 +1200,7 @@ function App() {
       onSaveEmailTransportSettings={saveEmailTransportSettings}
       onSendEmailTransportTest={sendEmailTransportTest}
       onSearchAdminUsers={searchAdminUsers}
-      onLoadAdminBillingContext={loadAdminBillingContext}
       onOpenAccountFromSearch={openAccountFromAdminSearch}
-      onDeleteAdminLatestReading={deleteAdminLatestReading}
-      onUpsertAdminTariff={upsertAdminTariff}
-      onUpdateAdminBoilerAssumptions={updateAdminBoilerAssumptions}
       onLoadTermsVersions={loadTermsVersions}
       onPublishTermsVersion={publishTermsVersion}
       onLoadTermsAcceptances={loadTermsAcceptances}
@@ -1286,12 +1217,7 @@ function App() {
       onUpsertTenantGap={upsertTenantGap}
       onBeginTenantGapEdit={beginTenantGapEdit}
       onClearTenantGapForm={clearTenantGapForm}
-      onSubmitAdminDecision={submitAdminDecision}
-      onSubmitRoleChange={submitRoleChange}
-      onSubmitAdminLifecycleAction={submitAdminLifecycleAction}
       onApplyAccountStatusRoleChange={applyAccountStatusRoleChange}
-      onStartDelegatedSupportSession={startDelegatedSupportSession}
-      onHardDeleteAdminUser={hardDeleteAdminUser}
       formatDisplayDateTime={formatDisplayDateTime}
     />
   );
@@ -1305,6 +1231,26 @@ function App() {
       coldWaterReading={coldWaterReading}
       hotWaterReading={hotWaterReading}
       electricityReading={electricityReading}
+      readingsFieldErrors={readingsFieldErrors}
+      billingMessage={billingMessage}
+      latestReadings={latestReadings}
+      getFieldErrors={getFieldErrors}
+      onReadingDateChange={handleReadingDateChange}
+      onColdWaterReadingChange={handleColdWaterReadingChange}
+      onHotWaterReadingChange={handleHotWaterReadingChange}
+      onElectricityReadingChange={handleElectricityReadingChange}
+      onSubmitReadings={submitReadings}
+      onUpdateLatestReadings={updateLatestReadings}
+      onLoadLatestReadings={loadLatestReadings}
+      onRunLatestCalculation={runLatestCalculation}
+    />
+  );
+
+  const renderTariffsView = () => (
+    <TariffsDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
+      loading={loading}
       tariffEffectiveFromDate={tariffEffectiveFromDate}
       waterTariffPerUnit={waterTariffPerUnit}
       waterStandingChargePerDay={waterStandingChargePerDay}
@@ -1312,17 +1258,11 @@ function App() {
       electricityTariffPerUnit={electricityTariffPerUnit}
       electricityStandingChargePerDay={electricityStandingChargePerDay}
       electricityVatPercent={electricityVatPercent}
-      readingsFieldErrors={readingsFieldErrors}
       tariffFieldErrors={tariffFieldErrors}
       billingMessage={billingMessage}
-      latestReadings={latestReadings}
       activeTariff={activeTariff}
       latestCalculation={latestCalculation}
       getFieldErrors={getFieldErrors}
-      onReadingDateChange={handleReadingDateChange}
-      onColdWaterReadingChange={handleColdWaterReadingChange}
-      onHotWaterReadingChange={handleHotWaterReadingChange}
-      onElectricityReadingChange={handleElectricityReadingChange}
       onTariffEffectiveFromDateChange={handleTariffEffectiveFromDateChange}
       onWaterTariffPerUnitChange={handleWaterTariffPerUnitChange}
       onWaterStandingChargePerDayChange={handleWaterStandingChargePerDayChange}
@@ -1332,8 +1272,6 @@ function App() {
         handleElectricityStandingChargePerDayChange
       }
       onElectricityVatPercentChange={handleElectricityVatPercentChange}
-      onSubmitReadings={submitReadings}
-      onLoadLatestReadings={loadLatestReadings}
       onSubmitTariffVersion={submitTariffVersion}
       onLoadActiveTariff={loadActiveTariff}
       onRunLatestCalculation={runLatestCalculation}
@@ -1452,6 +1390,14 @@ function App() {
     }
 
     return renderReadingsView();
+  }
+
+  if (dashboardSection === "tariffs") {
+    if (isSuperAdminUser) {
+      return renderAdminView();
+    }
+
+    return renderTariffsView();
   }
 
   if (dashboardSection === "payments") {

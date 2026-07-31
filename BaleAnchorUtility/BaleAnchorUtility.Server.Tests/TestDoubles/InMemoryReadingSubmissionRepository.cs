@@ -14,6 +14,21 @@ internal sealed class InMemoryReadingSubmissionRepository : IReadingSubmissionRe
         return Task.CompletedTask;
     }
 
+    public Task UpsertAsync(ReadingSubmission submission, CancellationToken cancellationToken)
+    {
+        var index = submissions.FindIndex(x => string.Equals(x.Id, submission.Id, StringComparison.Ordinal));
+        if (index >= 0)
+        {
+            submissions[index] = submission;
+        }
+        else
+        {
+            submissions.Add(submission);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<ReadingSubmission?> GetLatestByUserIdAsync(string userId, CancellationToken cancellationToken)
     {
         var latest = submissions

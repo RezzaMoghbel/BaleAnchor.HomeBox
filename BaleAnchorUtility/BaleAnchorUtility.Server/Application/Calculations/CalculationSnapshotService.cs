@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using BaleAnchorUtility.Server.Application.Abstractions;
 using BaleAnchorUtility.Server.Application.Calculations.Dtos;
+using BaleAnchorUtility.Server.Domain.Billing;
 using BaleAnchorUtility.Server.Domain.Calculations;
 using BaleAnchorUtility.Server.Domain.Users;
 
@@ -51,9 +52,9 @@ public sealed class CalculationSnapshotService
         }
 
         var allReadings = await readingSubmissionRepository.GetByUserIdAsync(userId, cancellationToken);
-        if (allReadings.Count < 2)
+        if (allReadings.Count == 0)
         {
-            throw new InvalidOperationException("At least two readings are required to calculate a period.");
+            throw new InvalidOperationException("At least one reading is required to calculate a period.");
         }
 
         var orderedReadings = allReadings
@@ -61,8 +62,32 @@ public sealed class CalculationSnapshotService
             .ThenBy(x => x.UpdatedAtUtc)
             .ToList();
 
-        var start = orderedReadings[^2];
-        var end = orderedReadings[^1];
+        var setup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("Utility setup is required before calculating charges.");
+
+        ReadingSubmission start;
+        ReadingSubmission end;
+        if (orderedReadings.Count >= 2)
+        {
+            start = orderedReadings[^2];
+            end = orderedReadings[^1];
+        }
+        else
+        {
+            end = orderedReadings[^1];
+            start = new ReadingSubmission
+            {
+                Id = "utility-setup-opening",
+                UserId = userId,
+                ReadingDate = setup.MoveInDate,
+                ColdWaterReading = setup.OpeningColdWaterReading,
+                HotWaterReading = setup.OpeningHotWaterReading,
+                ElectricityReading = setup.OpeningElectricityReading,
+                CreatedAtUtc = setup.CreatedAtUtc,
+                UpdatedAtUtc = setup.UpdatedAtUtc,
+                Version = 1,
+            };
+        }
 
         var startDate = ParseDate(start.ReadingDate, "Stored start reading date is invalid.");
         var endDate = ParseDate(end.ReadingDate, "Stored end reading date is invalid.");
@@ -82,9 +107,6 @@ public sealed class CalculationSnapshotService
         {
             throw new InvalidOperationException("Calculation inputs are invalid because meter values rolled back.");
         }
-
-        var setup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken)
-            ?? throw new InvalidOperationException("Utility setup is required before calculating charges.");
 
         if (setup.BoilerKwhPerCubicMeter <= 0m || setup.BoilerEfficiencyPercent <= 0m)
         {

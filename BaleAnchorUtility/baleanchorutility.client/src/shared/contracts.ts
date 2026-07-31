@@ -356,7 +356,27 @@ export interface TenantGapAllocationListResponse {
 export interface SubmitReadingsResponse {
   userId: string;
   readingDate: string;
+  appliedTariffEffectiveFromDate?: string;
   message: string;
+}
+
+export interface TariffOptionItemResponse {
+  effectiveFromDate: string;
+  waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
+  electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
+  isLatestApplicable: boolean;
+}
+
+export interface TariffOptionsResponse {
+  userId: string;
+  onDate: string;
+  recommendedEffectiveFromDate: string;
+  count: number;
+  items: TariffOptionItemResponse[];
 }
 
 export interface LatestReadingsResponse {

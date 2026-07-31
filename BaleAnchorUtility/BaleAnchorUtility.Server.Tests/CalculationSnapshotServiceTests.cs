@@ -308,6 +308,83 @@ public sealed class CalculationSnapshotServiceTests
         Assert.Equal("41.60", result.PeriodTotal);
     }
 
+    [Fact]
+    public async Task CalculateLatestPeriodAsync_UsesUtilitySetupOpeningBaseline_WhenOnlyOneReadingExists()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateUser("u-active", UserAccountStatus.Active));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r1",
+            UserId = "u-active",
+            ReadingDate = "2025-09-01",
+            ColdWaterReading = 22.049m,
+            HotWaterReading = 14.261m,
+            ElectricityReading = 3190.25m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var tariffs = new InMemoryTariffVersionRepository();
+        await tariffs.AddAsync(new TariffVersion
+        {
+            Id = "t1",
+            UserId = "u-active",
+            EffectiveFromDate = "2025-03-22",
+            WaterTariffPerUnit = 3.0682m,
+            WaterStandingChargePerDay = 0.019m,
+            WaterVatPercent = 0m,
+            ElectricityTariffPerUnit = 0.24796m,
+            ElectricityStandingChargePerDay = 0.72626m,
+            ElectricityVatPercent = 5m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var setups = new InMemoryUtilitySetupRepository();
+        setups.Seed(new UtilitySetupSubmission
+        {
+            Id = "setup-1",
+            UserId = "u-active",
+            MoveInDate = "2025-03-22",
+            OpeningColdWaterReading = 1.09m,
+            OpeningHotWaterReading = 0.52m,
+            OpeningElectricityReading = 2362.50m,
+            InitialWaterTariffPerUnit = 3.0682m,
+            InitialWaterStandingChargePerDay = 0.019m,
+            InitialWaterVatPercent = 0m,
+            InitialElectricityTariffPerUnit = 0.24796m,
+            InitialElectricityStandingChargePerDay = 0.72626m,
+            InitialElectricityVatPercent = 5m,
+            BoilerKwhPerCubicMeter = 10.5m,
+            BoilerEfficiencyPercent = 85m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        });
+
+        var service = new CalculationSnapshotService(
+            users,
+            readings,
+            tariffs,
+            setups,
+            new InMemoryCalculationSnapshotRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-31T00:00:00Z") },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var result = await service.CalculateLatestPeriodAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("2025-03-22", result.PeriodStartDate);
+        Assert.Equal("2025-09-01", result.PeriodEndDateExclusive);
+        Assert.Equal("20.959", result.ColdWaterUsed);
+        Assert.Equal("13.741", result.HotWaterUsed);
+        Assert.Equal("827.75", result.ApartmentElectricityUsed);
+    }
+
     private static UserAccount CreateUser(string id, UserAccountStatus status)
     {
         return new UserAccount

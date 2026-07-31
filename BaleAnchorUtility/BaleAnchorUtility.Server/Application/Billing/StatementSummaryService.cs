@@ -101,7 +101,12 @@ public sealed class StatementSummaryService
                 x => x.Key,
                 x => x.OrderByDescending(p => p.UpdatedAtUtc).First());
 
-        var items = snapshots
+        var latestSnapshotByPeriod = snapshots
+            .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
+            .Select(x => x.OrderByDescending(s => s.CreatedAtUtc).First())
+            .ToList();
+
+        var items = latestSnapshotByPeriod
             .OrderByDescending(x => x.PeriodEndDateExclusive, StringComparer.Ordinal)
             .ThenByDescending(x => x.CreatedAtUtc)
             .Select(snapshot =>
