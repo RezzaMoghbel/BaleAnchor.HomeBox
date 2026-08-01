@@ -631,6 +631,7 @@ export interface StatementPeriodItemResponse {
   periodEndDateExclusive: string;
   periodTotal: string;
   hasPayment: boolean;
+  paymentId?: string;
   paymentAmount?: string;
   paymentDate?: string;
   periodDifference: string;

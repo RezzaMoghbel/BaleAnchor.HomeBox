@@ -7,6 +7,7 @@ public sealed class StatementPeriodItemResponse
     public string PeriodEndDateExclusive { get; init; } = string.Empty;
     public string PeriodTotal { get; init; } = string.Empty;
     public bool HasPayment { get; init; }
+    public string? PaymentId { get; init; }
     public string? PaymentAmount { get; init; }
     public string? PaymentDate { get; init; }
     public string PeriodDifference { get; init; } = string.Empty;

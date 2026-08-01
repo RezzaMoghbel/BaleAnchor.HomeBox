@@ -124,6 +124,7 @@ public sealed class StatementSummaryService
                     PeriodEndDateExclusive = snapshot.PeriodEndDateExclusive,
                     PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
                     HasPayment = payment is not null,
+                    PaymentId = payment?.Id,
                     PaymentAmount = payment?.Amount.ToString("0.00", CultureInfo.InvariantCulture),
                     PaymentDate = payment?.PaymentDate,
                     PeriodDifference = difference.ToString("0.00", CultureInfo.InvariantCulture),

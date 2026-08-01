@@ -354,6 +354,44 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPost("payments/period")]
+    [ProducesResponseType(typeof(RecordLatestPeriodPaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordLatestPeriodPaymentResponse>> RecordPeriodPayment(
+        [FromBody] RecordPeriodPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.RecordPeriodPaymentAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = string.Equals(ex.ParamName, nameof(RecordPeriodPaymentRequest.Method), StringComparison.Ordinal)
+                ? "method"
+                : string.Equals(ex.ParamName, nameof(RecordPeriodPaymentRequest.Reference), StringComparison.Ordinal)
+                    ? "reference"
+                    : string.Equals(ex.ParamName, nameof(RecordPeriodPaymentRequest.Notes), StringComparison.Ordinal)
+                        ? "notes"
+                        : "request";
+
+            return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
     [HttpGet("calculations/latest/payment")]
     [ProducesResponseType(typeof(LatestPeriodPaymentSummaryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

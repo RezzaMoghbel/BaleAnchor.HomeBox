@@ -89,7 +89,36 @@ public sealed class PaymentServiceTests
     }
 
     [Fact]
-    public async Task DeletePaymentAsync_RejectsWhenPaymentIsNotLatest()
+    public async Task RecordPeriodPaymentAsync_CreatesPaymentForSelectedPeriod()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s1", "u-active", "2026-06-01", "2026-07-01", 80m), CancellationToken.None);
+        await snapshots.AddAsync(CreateSnapshot("s2", "u-active", "2026-07-01", "2026-08-01", 90m), CancellationToken.None);
+
+        var service = CreateService(users, snapshots, new InMemoryPaymentRepository());
+
+        var response = await service.RecordPeriodPaymentAsync(
+            "u-active",
+            new RecordPeriodPaymentRequest
+            {
+                PeriodStartDate = "2026-06-01",
+                PeriodEndDateExclusive = "2026-07-01",
+                Amount = "80.00",
+                PaymentDate = "2026-07-02",
+                Method = "Card",
+            },
+            CancellationToken.None);
+
+        Assert.Equal("2026-06-01", response.PeriodStartDate);
+        Assert.Equal("2026-07-01", response.PeriodEndDateExclusive);
+        Assert.Equal("80.00", response.Amount);
+    }
+
+    [Fact]
+    public async Task DeletePaymentAsync_DeletesSelectedPeriodPayment()
     {
         var users = new InMemoryUserRepository();
         users.Seed(CreateActiveUser("u-active"));
@@ -133,8 +162,11 @@ public sealed class PaymentServiceTests
 
         var service = CreateService(users, new InMemoryCalculationSnapshotRepository(), payments);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DeletePaymentAsync("u-active", "p-old", CancellationToken.None));
+        var response = await service.DeletePaymentAsync("u-active", "p-old", CancellationToken.None);
+
+        Assert.Equal("p-old", response.PaymentId);
+        var deleted = await payments.GetByIdAsync("p-old", CancellationToken.None);
+        Assert.Null(deleted);
     }
 
     [Fact]

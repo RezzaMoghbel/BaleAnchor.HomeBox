@@ -1,0 +1,11 @@
+{
+  "id": "13ffdf05c68348bab745c766f0bc2704",
+  "actorUserId": "952677d227f74558acf5a3dcc9b33896",
+  "targetUserId": "952677d227f74558acf5a3dcc9b33896",
+  "category": "NOTIFICATIONS",
+  "action": "UPDATE_REMINDER_PREFERENCES",
+  "reason": "Resident notification preference update",
+  "metadata": "email:True;push:True;reading:True;timeZone:Europe/London",
+  "createdAtUtc": "2026-08-01T17:47:25.5321324+00:00",
+  "version": 1
+}

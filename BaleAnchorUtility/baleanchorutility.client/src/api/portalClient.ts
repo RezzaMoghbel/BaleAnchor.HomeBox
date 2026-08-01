@@ -219,6 +219,16 @@ interface RecordLatestPeriodPaymentRequest {
   notes?: string;
 }
 
+interface RecordPeriodPaymentRequest {
+  periodStartDate: string;
+  periodEndDateExclusive: string;
+  amount: string;
+  paymentDate: string;
+  method: string;
+  reference?: string;
+  notes?: string;
+}
+
 interface UpdatePaymentRequest {
   amount: string;
   paymentDate: string;
@@ -948,6 +958,20 @@ export const portalClient = {
   recordLatestPeriodPayment(request: RecordLatestPeriodPaymentRequest) {
     return requestJson<RecordLatestPeriodPaymentResponse>(
       "/api/v1/billing/calculations/latest/payment",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  recordPeriodPayment(request: RecordPeriodPaymentRequest) {
+    return requestJson<RecordLatestPeriodPaymentResponse>(
+      "/api/v1/billing/payments/period",
       {
         method: "POST",
         headers: {

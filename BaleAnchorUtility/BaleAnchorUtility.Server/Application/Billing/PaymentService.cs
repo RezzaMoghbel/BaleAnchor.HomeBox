@@ -41,23 +41,94 @@ public sealed class PaymentService
         var latestSnapshot = await calculationSnapshotRepository.GetLatestByUserIdAsync(user.Id, cancellationToken)
             ?? throw new InvalidOperationException("A calculation snapshot is required before recording payment.");
 
-        var amount = ParseAmount(request.Amount);
-        var paymentDate = ParseDate(request.PaymentDate, "Payment date must use yyyy-MM-dd format.");
+        return await RecordPaymentForPeriodInternalAsync(
+            user,
+            latestSnapshot.PeriodStartDate,
+            latestSnapshot.PeriodEndDateExclusive,
+            request.Amount,
+            request.PaymentDate,
+            request.Method,
+            request.Reference,
+            request.Notes,
+            nameof(RecordLatestPeriodPaymentRequest.Method),
+            nameof(RecordLatestPeriodPaymentRequest.Reference),
+            nameof(RecordLatestPeriodPaymentRequest.Notes),
+            cancellationToken);
+    }
+
+    public async Task<RecordLatestPeriodPaymentResponse> RecordPeriodPaymentAsync(
+        string userId,
+        RecordPeriodPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+
+        var periodStartDate = ParseDate(request.PeriodStartDate, "Period start date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var periodEndDateExclusive = ParseDate(request.PeriodEndDateExclusive, "Period end date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        if (string.CompareOrdinal(periodStartDate, periodEndDateExclusive) >= 0)
+        {
+            throw new InvalidOperationException("Period end date must be later than period start date.");
+        }
+
+        var snapshots = await calculationSnapshotRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var snapshotExists = snapshots.Any(x =>
+            string.Equals(x.PeriodStartDate, periodStartDate, StringComparison.Ordinal)
+            && string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal));
+
+        if (!snapshotExists)
+        {
+            throw new InvalidOperationException("A calculation snapshot is required for the selected period before recording payment.");
+        }
+
+        return await RecordPaymentForPeriodInternalAsync(
+            user,
+            periodStartDate,
+            periodEndDateExclusive,
+            request.Amount,
+            request.PaymentDate,
+            request.Method,
+            request.Reference,
+            request.Notes,
+            nameof(RecordPeriodPaymentRequest.Method),
+            nameof(RecordPeriodPaymentRequest.Reference),
+            nameof(RecordPeriodPaymentRequest.Notes),
+            cancellationToken);
+    }
+
+    private async Task<RecordLatestPeriodPaymentResponse> RecordPaymentForPeriodInternalAsync(
+        UserAccount user,
+        string periodStartDate,
+        string periodEndDateExclusive,
+        string amountRaw,
+        string paymentDateRaw,
+        string methodRaw,
+        string? reference,
+        string? notes,
+        string methodParamName,
+        string referenceParamName,
+        string notesParamName,
+        CancellationToken cancellationToken)
+    {
+        var amount = ParseAmount(amountRaw);
+        var paymentDate = ParseDate(paymentDateRaw, "Payment date must use yyyy-MM-dd format.");
         if (paymentDate > DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
         {
             throw new InvalidOperationException("Payment date cannot be in the future.");
         }
 
-        var method = request.Method.Trim();
+        var method = methodRaw.Trim();
         if (method.Length < 2 || method.Length > 40)
         {
-            throw new ArgumentException("Payment method must be between 2 and 40 characters.", nameof(request.Method));
+            throw new ArgumentException("Payment method must be between 2 and 40 characters.", methodParamName);
         }
 
         var existing = await paymentRepository.GetByUserAndPeriodAsync(
             user.Id,
-            latestSnapshot.PeriodStartDate,
-            latestSnapshot.PeriodEndDateExclusive,
+            periodStartDate,
+            periodEndDateExclusive,
             cancellationToken);
 
         if (existing is not null)
@@ -70,13 +141,13 @@ public sealed class PaymentService
         {
             Id = Guid.NewGuid().ToString("N"),
             UserId = user.Id,
-            PeriodStartDate = latestSnapshot.PeriodStartDate,
-            PeriodEndDateExclusive = latestSnapshot.PeriodEndDateExclusive,
+            PeriodStartDate = periodStartDate,
+            PeriodEndDateExclusive = periodEndDateExclusive,
             Amount = amount,
             PaymentDate = paymentDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             Method = method,
-            Reference = NormalizeOptional(request.Reference, 100, nameof(request.Reference)),
-            Notes = NormalizeOptional(request.Notes, 300, nameof(request.Notes)),
+            Reference = NormalizeOptional(reference, 100, referenceParamName),
+            Notes = NormalizeOptional(notes, 300, notesParamName),
             Source = "Resident",
             VerificationStatus = "Unverified",
             CreatedAtUtc = now,
@@ -219,14 +290,6 @@ public sealed class PaymentService
             throw new KeyNotFoundException("The requested payment was not found.");
         }
 
-        var latest = await paymentRepository.GetLatestByUserIdAsync(user.Id, cancellationToken)
-            ?? throw new InvalidOperationException("No payment exists to delete.");
-
-        if (!string.Equals(latest.Id, payment.Id, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Only the latest payment can be deleted.");
-        }
-
         await paymentRepository.DeleteAsync(payment.Id, cancellationToken);
 
         var now = clock.UtcNow;
@@ -238,7 +301,7 @@ public sealed class PaymentService
                 TargetUserId = user.Id,
                 Category = "PAYMENT",
                 Action = "DELETE_PAYMENT",
-                Reason = "Latest payment deleted by resident",
+                Reason = "Payment unlinked by resident",
                 Metadata = $"paymentId:{payment.Id};period:{payment.PeriodStartDate}_{payment.PeriodEndDateExclusive};amount:{payment.Amount.ToString("0.00", CultureInfo.InvariantCulture)}",
                 CreatedAtUtc = now,
                 Version = 1,
@@ -251,7 +314,7 @@ public sealed class PaymentService
         {
             PaymentId = payment.Id,
             UserId = user.Id,
-            Message = "The latest payment was deleted successfully.",
+            Message = "Payment unlinked from period successfully.",
         };
     }
 

@@ -82,7 +82,28 @@ export function ReadingsDashboardView({
     useState("");
   const [selectedBoilerEffectiveFromDate, setSelectedBoilerEffectiveFromDate] =
     useState("");
+  const [isLinkPaymentModalOpen, setIsLinkPaymentModalOpen] = useState(false);
+  const [isUnlinkPaymentModalOpen, setIsUnlinkPaymentModalOpen] =
+    useState(false);
+  const [targetPeriodForPayment, setTargetPeriodForPayment] =
+    useState<StatementPeriodItemResponse | null>(null);
+  const [linkPaymentAmount, setLinkPaymentAmount] = useState("");
+  const [linkPaymentDate, setLinkPaymentDate] = useState("");
+  const [linkPaymentMethod, setLinkPaymentMethod] = useState("Direct Debit");
+  const [linkPaymentReference, setLinkPaymentReference] = useState("");
+  const [linkPaymentNotes, setLinkPaymentNotes] = useState("");
+  const [linkPaymentFieldErrors, setLinkPaymentFieldErrors] =
+    useState<FieldErrors>({});
+  const [unlinkPaymentFieldErrors, setUnlinkPaymentFieldErrors] =
+    useState<FieldErrors>({});
+  const [linkPaymentConfirmed, setLinkPaymentConfirmed] = useState(false);
+  const [unlinkPaymentConfirmed, setUnlinkPaymentConfirmed] = useState(false);
   const pageSize = 12;
+
+  const todayIsoDate = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
 
   const loadReadingPeriods = async () => {
     setCardsLoading(true);
@@ -401,8 +422,7 @@ export function ReadingsDashboardView({
   ) => summary.componentLines.find((item) => item.component === componentName);
 
   const openAddModal = () => {
-    const today = new Date();
-    const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const localToday = todayIsoDate();
 
     setModalMode("add");
     onReadingDateChange(localToday);
@@ -444,9 +464,37 @@ export function ReadingsDashboardView({
     setIsDetailsModalOpen(true);
   };
 
+  const openLinkPaymentModal = (period: StatementPeriodItemResponse) => {
+    setTargetPeriodForPayment(period);
+    setLinkPaymentAmount(period.periodTotal);
+    setLinkPaymentDate(todayIsoDate());
+    setLinkPaymentMethod("Direct Debit");
+    setLinkPaymentReference("");
+    setLinkPaymentNotes("");
+    setLinkPaymentFieldErrors({});
+    setLinkPaymentConfirmed(false);
+    setIsLinkPaymentModalOpen(true);
+  };
+
+  const openUnlinkPaymentModal = (period: StatementPeriodItemResponse) => {
+    setTargetPeriodForPayment(period);
+    setUnlinkPaymentFieldErrors({});
+    setUnlinkPaymentConfirmed(false);
+    setIsUnlinkPaymentModalOpen(true);
+  };
+
   const closeDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setDetailsSnapshotId(null);
+  };
+
+  const refreshCardData = async (snapshotId: string) => {
+    const summary = await portalClient.getStatementSummary(snapshotId);
+    setSummariesBySnapshotId((current) => ({
+      ...current,
+      [snapshotId]: summary,
+    }));
+    await loadReadingPeriods();
   };
 
   const handleModalSubmit = async () => {
@@ -466,6 +514,80 @@ export function ReadingsDashboardView({
     await onLoadLatestReadings();
     await loadReadingPeriods();
     setIsModalOpen(false);
+  };
+
+  const handleLinkPaymentSubmit = async () => {
+    if (!targetPeriodForPayment) {
+      return;
+    }
+
+    setLinkPaymentFieldErrors({});
+
+    if (!linkPaymentConfirmed) {
+      setLinkPaymentFieldErrors({
+        confirm: ["Confirm payment linking before continuing."],
+      });
+      return;
+    }
+
+    try {
+      const body = await portalClient.recordPeriodPayment({
+        periodStartDate: targetPeriodForPayment.periodStartDate,
+        periodEndDateExclusive: targetPeriodForPayment.periodEndDateExclusive,
+        amount: linkPaymentAmount,
+        paymentDate: linkPaymentDate,
+        method: linkPaymentMethod,
+        reference: linkPaymentReference,
+        notes: linkPaymentNotes,
+      });
+
+      await refreshCardData(targetPeriodForPayment.snapshotId);
+      setDashboardMessage(
+        `${body.message} Linked to ${targetPeriodForPayment.periodStartDate} to ${targetPeriodForPayment.periodEndDateExclusive}.`,
+      );
+      setIsLinkPaymentModalOpen(false);
+      setTargetPeriodForPayment(null);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setLinkPaymentFieldErrors(error.errors);
+        setDashboardMessage(`Unable to link payment. ${error.message}`);
+      } else {
+        setDashboardMessage("Unable to link payment.");
+      }
+    }
+  };
+
+  const handleUnlinkPaymentSubmit = async () => {
+    if (!targetPeriodForPayment?.paymentId) {
+      setUnlinkPaymentFieldErrors({
+        paymentId: ["No linked payment was found for this period."],
+      });
+      return;
+    }
+
+    if (!unlinkPaymentConfirmed) {
+      setUnlinkPaymentFieldErrors({
+        confirm: ["Confirm payment unlink before continuing."],
+      });
+      return;
+    }
+
+    try {
+      const body = await portalClient.deletePayment(targetPeriodForPayment.paymentId);
+      await refreshCardData(targetPeriodForPayment.snapshotId);
+      setDashboardMessage(
+        `${body.message} Unlinked from ${targetPeriodForPayment.periodStartDate} to ${targetPeriodForPayment.periodEndDateExclusive}.`,
+      );
+      setIsUnlinkPaymentModalOpen(false);
+      setTargetPeriodForPayment(null);
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setUnlinkPaymentFieldErrors(error.errors);
+        setDashboardMessage(`Unable to unlink payment. ${error.message}`);
+      } else {
+        setDashboardMessage("Unable to unlink payment.");
+      }
+    }
   };
 
   const loadTariffOptions = async (onDate: string) => {
@@ -826,6 +948,28 @@ export function ReadingsDashboardView({
                                           period.periodDifference,
                                         )}
                                       </span>
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2 mt-3">
+                                      {!period.hasPayment && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-success btn-sm"
+                                          onClick={() => openLinkPaymentModal(period)}
+                                          disabled={loading || cardsLoading}
+                                        >
+                                          Link payment
+                                        </button>
+                                      )}
+                                      {period.hasPayment && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-danger btn-sm"
+                                          onClick={() => openUnlinkPaymentModal(period)}
+                                          disabled={loading || cardsLoading}
+                                        >
+                                          Unlink payment
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 </>
@@ -1413,6 +1557,187 @@ export function ReadingsDashboardView({
                         {modalMode === "add"
                           ? "Save reading"
                           : "Update latest reading"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show"></div>
+            </>
+          )}
+
+          {isLinkPaymentModalOpen && targetPeriodForPayment && (
+            <>
+              <div className="modal fade show d-block" tabIndex={-1} role="dialog">
+                <div className="modal-dialog modal-dialog-centered" role="document">
+                  <div className="modal-content border-0 shadow-lg">
+                    <div className="modal-header">
+                      <h5 className="modal-title">Link payment to period</h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Close"
+                        onClick={() => setIsLinkPaymentModalOpen(false)}
+                        disabled={loading || cardsLoading}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="alert alert-info border" role="status">
+                        Period: {formatRange(targetPeriodForPayment.periodStartDate, targetPeriodForPayment.periodEndDateExclusive)}
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-12">
+                          <label htmlFor="linkPaymentAmount" className="form-label">Amount</label>
+                          <input
+                            id="linkPaymentAmount"
+                            type="text"
+                            className={`form-control ${linkPaymentFieldErrors.amount ? "is-invalid" : ""}`}
+                            value={linkPaymentAmount}
+                            onChange={(event) => setLinkPaymentAmount(event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <label htmlFor="linkPaymentDate" className="form-label">Payment date</label>
+                          <input
+                            id="linkPaymentDate"
+                            type="date"
+                            className={`form-control ${linkPaymentFieldErrors.paymentDate ? "is-invalid" : ""}`}
+                            value={linkPaymentDate}
+                            onChange={(event) => setLinkPaymentDate(event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <label htmlFor="linkPaymentMethod" className="form-label">Method</label>
+                          <input
+                            id="linkPaymentMethod"
+                            type="text"
+                            className={`form-control ${linkPaymentFieldErrors.method ? "is-invalid" : ""}`}
+                            value={linkPaymentMethod}
+                            onChange={(event) => setLinkPaymentMethod(event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <label htmlFor="linkPaymentReference" className="form-label">Reference (optional)</label>
+                          <input
+                            id="linkPaymentReference"
+                            type="text"
+                            className={`form-control ${linkPaymentFieldErrors.reference ? "is-invalid" : ""}`}
+                            value={linkPaymentReference}
+                            onChange={(event) => setLinkPaymentReference(event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <label htmlFor="linkPaymentNotes" className="form-label">Notes (optional)</label>
+                          <input
+                            id="linkPaymentNotes"
+                            type="text"
+                            className={`form-control ${linkPaymentFieldErrors.notes ? "is-invalid" : ""}`}
+                            value={linkPaymentNotes}
+                            onChange={(event) => setLinkPaymentNotes(event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12">
+                          <div className="form-check">
+                            <input
+                              id="linkPaymentConfirm"
+                              className="form-check-input"
+                              type="checkbox"
+                              checked={linkPaymentConfirmed}
+                              onChange={(event) => setLinkPaymentConfirmed(event.target.checked)}
+                            />
+                            <label className="form-check-label" htmlFor="linkPaymentConfirm">
+                              I confirm this payment should be linked to this period.
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      {Object.values(linkPaymentFieldErrors).flat().length > 0 && (
+                        <div className="alert alert-danger border mt-3 mb-0" role="alert">
+                          {Object.values(linkPaymentFieldErrors).flat().join(" ")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setIsLinkPaymentModalOpen(false)}
+                        disabled={loading || cardsLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={() => void handleLinkPaymentSubmit()}
+                        disabled={loading || cardsLoading}
+                      >
+                        Confirm and link payment
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show"></div>
+            </>
+          )}
+
+          {isUnlinkPaymentModalOpen && targetPeriodForPayment && (
+            <>
+              <div className="modal fade show d-block" tabIndex={-1} role="dialog">
+                <div className="modal-dialog modal-dialog-centered" role="document">
+                  <div className="modal-content border-0 shadow-lg">
+                    <div className="modal-header">
+                      <h5 className="modal-title">Unlink payment</h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Close"
+                        onClick={() => setIsUnlinkPaymentModalOpen(false)}
+                        disabled={loading || cardsLoading}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="alert alert-warning border" role="status">
+                        You are unlinking the payment from {formatRange(targetPeriodForPayment.periodStartDate, targetPeriodForPayment.periodEndDateExclusive)}.
+                      </div>
+                      <div className="form-check">
+                        <input
+                          id="unlinkPaymentConfirm"
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={unlinkPaymentConfirmed}
+                          onChange={(event) => setUnlinkPaymentConfirmed(event.target.checked)}
+                        />
+                        <label className="form-check-label" htmlFor="unlinkPaymentConfirm">
+                          I confirm this payment should be unlinked from this period.
+                        </label>
+                      </div>
+
+                      {Object.values(unlinkPaymentFieldErrors).flat().length > 0 && (
+                        <div className="alert alert-danger border mt-3 mb-0" role="alert">
+                          {Object.values(unlinkPaymentFieldErrors).flat().join(" ")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setIsUnlinkPaymentModalOpen(false)}
+                        disabled={loading || cardsLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => void handleUnlinkPaymentSubmit()}
+                        disabled={loading || cardsLoading}
+                      >
+                        Confirm unlink
                       </button>
                     </div>
                   </div>

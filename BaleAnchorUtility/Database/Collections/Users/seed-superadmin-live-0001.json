@@ -8,10 +8,10 @@
   "mobileNumber": null,
   "passwordSalt": "IKX2MSFOc9tydrj888uoQQ==",
   "passwordHash": "QtkNSDKqLyC2PrfH5vfuFEIN9z9kpIukfSwJSbPXdwA=",
-  "passwordUpdatedAtUtc": "2026-07-29T19:27:52.3740354+00:00",
+  "passwordUpdatedAtUtc": "2026-08-01T18:09:19.234128+00:00",
   "role": 2,
   "status": 6,
   "createdAtUtc": "2026-07-29T15:29:22.7683885+00:00",
-  "updatedAtUtc": "2026-07-29T19:27:52.3740354+00:00",
-  "version": 3
+  "updatedAtUtc": "2026-08-01T18:09:19.234128+00:00",
+  "version": 4
 }
