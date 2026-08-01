@@ -1,0 +1,11 @@
+{
+  "id": "5d7bed9b0f364958a6d2c90edbcc98e6",
+  "actorUserId": "seed-superadmin-0001",
+  "targetUserId": "952677d227f74558acf5a3dcc9b33896",
+  "category": "ADMIN_APPROVAL",
+  "action": "APPROVE",
+  "reason": "Account status oversight update for 952677d227f74558acf5a3dcc9b33896",
+  "metadata": "status:Active",
+  "createdAtUtc": "2026-08-01T14:40:24.1021584+00:00",
+  "version": 1
+}

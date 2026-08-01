@@ -6,10 +6,10 @@
   "deviceSummary": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   "createdAtUtc": "2026-08-01T14:27:57.6302281+00:00",
   "expiresAtUtc": "2026-08-02T14:27:57.6302281+00:00",
-  "lastUsedAtUtc": "2026-08-01T14:38:00.7885237+00:00",
-  "revokedAtUtc": null,
+  "lastUsedAtUtc": "2026-08-01T14:38:54.4923365+00:00",
+  "revokedAtUtc": "2026-08-01T14:38:54.6275436+00:00",
   "isDelegatedSession": false,
   "delegatedByUserId": null,
   "delegationReason": null,
-  "version": 49
+  "version": 54
 }

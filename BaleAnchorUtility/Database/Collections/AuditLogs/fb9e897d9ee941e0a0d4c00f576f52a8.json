@@ -1,0 +1,11 @@
+{
+  "id": "fb9e897d9ee941e0a0d4c00f576f52a8",
+  "actorUserId": "seed-superadmin-0001",
+  "targetUserId": "seed-superadmin-0001",
+  "category": "ADMIN_SYSTEM_SETTINGS",
+  "action": "UPDATE_EMAIL_TRANSPORT",
+  "reason": "System settings update: initial email transport setup, mode set to smtp, from address updated, smtp host updated, smtp port updated, smtp ssl flag updated, smtp username updated, smtp password rotated.",
+  "metadata": "mode:smtp;host:smtp.ionos.co.uk;port:587;ssl:True;username:info@moghbel.co.uk;passwordUpdated:True",
+  "createdAtUtc": "2026-08-01T14:25:31.3778274+00:00",
+  "version": 1
+}
