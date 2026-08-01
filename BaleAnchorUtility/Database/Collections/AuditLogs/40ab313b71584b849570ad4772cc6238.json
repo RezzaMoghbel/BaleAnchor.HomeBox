@@ -1,0 +1,11 @@
+{
+  "id": "40ab313b71584b849570ad4772cc6238",
+  "actorUserId": "952677d227f74558acf5a3dcc9b33896",
+  "targetUserId": "952677d227f74558acf5a3dcc9b33896",
+  "category": "PAYMENT",
+  "action": "CREATE_PAYMENT",
+  "reason": "Payment recorded by resident",
+  "metadata": "period:2026-03-01_2026-04-01;amount:82.34",
+  "createdAtUtc": "2026-08-01T20:58:53.2101578+00:00",
+  "version": 1
+}

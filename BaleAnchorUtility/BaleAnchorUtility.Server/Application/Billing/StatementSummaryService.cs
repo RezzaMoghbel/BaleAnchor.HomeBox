@@ -10,15 +10,18 @@ public sealed class StatementSummaryService
 {
     private readonly IUserRepository userRepository;
     private readonly ICalculationSnapshotRepository calculationSnapshotRepository;
+    private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly IPaymentRepository paymentRepository;
 
     public StatementSummaryService(
         IUserRepository userRepository,
         ICalculationSnapshotRepository calculationSnapshotRepository,
+        IReadingSubmissionRepository readingSubmissionRepository,
         IPaymentRepository paymentRepository)
     {
         this.userRepository = userRepository;
         this.calculationSnapshotRepository = calculationSnapshotRepository;
+        this.readingSubmissionRepository = readingSubmissionRepository;
         this.paymentRepository = paymentRepository;
     }
 
@@ -92,7 +95,18 @@ public sealed class StatementSummaryService
     {
         var user = await GetEligibleUserAsync(userId, cancellationToken);
 
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var validPeriodEndDates = readings
+            .Select(x => x.ReadingDate)
+            .ToHashSet(StringComparer.Ordinal);
+
         var snapshots = await calculationSnapshotRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        if (validPeriodEndDates.Count > 0)
+        {
+            snapshots = snapshots
+                .Where(x => validPeriodEndDates.Contains(x.PeriodEndDateExclusive))
+                .ToList();
+        }
         var payments = await paymentRepository.GetByUserIdAsync(user.Id, cancellationToken);
 
         var paymentByPeriod = payments
@@ -153,7 +167,17 @@ public sealed class StatementSummaryService
             snapshot.PeriodEndDateExclusive,
             cancellationToken);
 
+        var validPeriodEndDates = (await readingSubmissionRepository.GetByUserIdAsync(userId, cancellationToken))
+            .Select(x => x.ReadingDate)
+            .ToHashSet(StringComparer.Ordinal);
+
         var allSnapshots = await calculationSnapshotRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (validPeriodEndDates.Count > 0)
+        {
+            allSnapshots = allSnapshots
+                .Where(x => validPeriodEndDates.Contains(x.PeriodEndDateExclusive))
+                .ToList();
+        }
         var allPayments = await paymentRepository.GetByUserIdAsync(userId, cancellationToken);
 
         var totalCalculatedCharges = allSnapshots.Sum(x => x.PeriodTotal);

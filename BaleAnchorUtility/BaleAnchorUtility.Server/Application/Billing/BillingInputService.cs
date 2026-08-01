@@ -16,6 +16,7 @@ public sealed class BillingInputService
     private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
     private readonly IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository;
+    private readonly ICalculationSnapshotRepository calculationSnapshotRepository;
     private readonly IPaymentRepository paymentRepository;
     private readonly ReminderDispatchService reminderDispatchService;
     private readonly ISystemClock clock;
@@ -27,6 +28,7 @@ public sealed class BillingInputService
         IUtilitySetupRepository utilitySetupRepository,
         ITariffVersionRepository tariffVersionRepository,
         IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository,
+        ICalculationSnapshotRepository calculationSnapshotRepository,
         IPaymentRepository paymentRepository,
         ReminderDispatchService reminderDispatchService,
         ISystemClock clock,
@@ -37,6 +39,7 @@ public sealed class BillingInputService
         this.utilitySetupRepository = utilitySetupRepository;
         this.tariffVersionRepository = tariffVersionRepository;
         this.boilerAssumptionVersionRepository = boilerAssumptionVersionRepository;
+        this.calculationSnapshotRepository = calculationSnapshotRepository;
         this.paymentRepository = paymentRepository;
         this.reminderDispatchService = reminderDispatchService;
         this.clock = clock;
@@ -228,6 +231,7 @@ public sealed class BillingInputService
         }
 
         var latest = readings[^1];
+        var previousLatestReadingDate = latest.ReadingDate;
         if (readings.Count >= 2)
         {
             var previous = readings[^2];
@@ -263,6 +267,10 @@ public sealed class BillingInputService
         latest.Version += 1;
 
         await readingSubmissionRepository.UpsertAsync(latest, cancellationToken);
+        await calculationSnapshotRepository.DeleteByUserAndPeriodEndDateAsync(
+            user.Id,
+            previousLatestReadingDate,
+            cancellationToken);
 
         logger.LogInformation(
             "Latest readings updated for user {UserId} on {ReadingDate}.",

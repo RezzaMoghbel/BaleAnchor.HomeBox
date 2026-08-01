@@ -1,0 +1,14 @@
+{
+  "id": "cb709941f5c0438a8186a4cb63adf68e",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "snapshotId": "5704a600f4d047ab8d43d6f6101c82df",
+  "periodStartDate": "2025-03-22",
+  "periodEndDateExclusive": "2025-09-01",
+  "fileName": "statement-2025-03-22-to-2025-09-01.pdf",
+  "contentType": "application/pdf",
+  "contentSha256": "FDC4117CE94E7518BADF11EFB621ABC8B71BB6C3B58CA198EE0E21E70049DA20",
+  "templateVersion": "statement-template-v3",
+  "rendererVersion": "questpdf-statement-v1",
+  "createdAtUtc": "2026-08-01T18:16:00.4858361+00:00",
+  "version": 1
+}

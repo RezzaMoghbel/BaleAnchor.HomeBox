@@ -244,3 +244,82 @@
   font-family: "Roboto Mono", "Consolas", monospace;
   font-size: 0.82rem;
 }
+
+.guestimate-card {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.75rem;
+}
+
+.guestimate-card--low {
+  background: linear-gradient(180deg, #f2fbff 0%, #e2f4ff 100%);
+  border-color: #9ad9ff;
+}
+
+.guestimate-card--expected {
+  background: linear-gradient(180deg, #f2f6ff 0%, #e8efff 100%);
+  border-color: #b8ccff;
+}
+
+.guestimate-card--high {
+  background: linear-gradient(180deg, #fffaf0 0%, #fff2d9 100%);
+  border-color: #ffd287;
+}
+
+.guestimate-title {
+  color: #0f172a;
+}
+
+.guestimate-title--low {
+  color: #0b4f73;
+}
+
+.guestimate-title--expected {
+  color: #1e3a8a;
+}
+
+.guestimate-title--high {
+  color: #8a4b00;
+}
+
+.guestimate-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+}
+
+.guestimate-badge--low {
+  color: #0b4f73;
+  background-color: #cbeeff;
+}
+
+.guestimate-badge--expected {
+  color: #1e3a8a;
+  background-color: #dae4ff;
+}
+
+.guestimate-badge--high {
+  color: #8a4b00;
+  background-color: #ffe6b3;
+}
+
+.guestimate-subtle {
+  color: #334155;
+}
+
+.guestimate-total {
+  color: #0f172a;
+}
+
+.guestimate-total--low {
+  border-top-color: #9ad9ff !important;
+}
+
+.guestimate-total--expected {
+  border-top-color: #b8ccff !important;
+}
+
+.guestimate-total--high {
+  border-top-color: #ffd287 !important;
+}

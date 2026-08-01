@@ -1,0 +1,21 @@
+{
+  "id": "07fb4084991449499b6a7872ce78ea34",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "kind": "ReadingReminder",
+  "channel": "Push",
+  "recommendedReadingDate": "2026-09-01",
+  "timeZoneId": "Europe/London",
+  "scheduledForUtc": "2026-09-01T08:00:00+00:00",
+  "nextAttemptAtUtc": "2026-09-01T08:00:00+00:00",
+  "status": "Pending",
+  "attemptCount": 0,
+  "maxAttempts": 5,
+  "templateVersion": "reading-reminder-v1",
+  "deduplicationKey": "952677d227f74558acf5a3dcc9b33896:ReadingReminder:Push:2026-09-01:d-0",
+  "lastErrorCode": null,
+  "lastErrorMessage": null,
+  "attemptHistory": [],
+  "createdAtUtc": "2026-08-01T21:36:06.8178814+00:00",
+  "updatedAtUtc": "2026-08-01T21:36:06.8178814+00:00",
+  "version": 1
+}

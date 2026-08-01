@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { PortalApiError, portalClient } from "../../api/portalClient";
 import type {
   BoilerAssumptionOptionItemResponse,
@@ -98,6 +100,31 @@ export function ReadingsDashboardView({
     useState<FieldErrors>({});
   const [linkPaymentConfirmed, setLinkPaymentConfirmed] = useState(false);
   const [unlinkPaymentConfirmed, setUnlinkPaymentConfirmed] = useState(false);
+  const [isAverageModalOpen, setIsAverageModalOpen] = useState(false);
+  const [isGuestimateModalOpen, setIsGuestimateModalOpen] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsErrorMessage, setInsightsErrorMessage] = useState("");
+  const [averageSummaryRows, setAverageSummaryRows] = useState<
+    Array<{ label: string; unit: string; usage: number; cost: number }>
+  >([]);
+  const [guestimateRows, setGuestimateRows] = useState<
+    Array<{
+      label: string;
+      unit: string;
+      lowUsage: number;
+      expectedUsage: number;
+      highUsage: number;
+      lowCost: number;
+      expectedCost: number;
+      highCost: number;
+    }>
+  >([]);
+  const [guestimateRangeLabel, setGuestimateRangeLabel] = useState("");
+  const [pendingReadingDate, setPendingReadingDate] = useState("");
+  const [addReadingConfirmed, setAddReadingConfirmed] = useState(false);
+  const [addReadingConfirmationError, setAddReadingConfirmationError] =
+    useState("");
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const pageSize = 12;
 
   const todayIsoDate = () => {
@@ -209,6 +236,11 @@ export function ReadingsDashboardView({
       style: "currency",
       currency: "GBP",
     }).format(Number(value ?? "0"));
+
+  const formatAbsoluteCurrency = (value?: string) => {
+    const numeric = Number(value ?? "0");
+    return formatCurrency(String(Math.abs(numeric)));
+  };
 
   const formatCurrencyUpTo5 = (value?: string) =>
     new Intl.NumberFormat("en-GB", {
@@ -421,11 +453,456 @@ export function ReadingsDashboardView({
     componentName: string,
   ) => summary.componentLines.find((item) => item.component === componentName);
 
-  const openAddModal = () => {
-    const localToday = todayIsoDate();
+  const getBalanceLabel = (difference: number) => {
+    if (difference > 0) {
+      return "Amount due";
+    }
 
+    if (difference < 0) {
+      return "Credit";
+    }
+
+    return "Settled";
+  };
+
+  const getBalanceClassName = (difference: number) => {
+    if (difference > 0) {
+      return "text-danger";
+    }
+
+    if (difference < 0) {
+      return "text-success";
+    }
+
+    return "text-secondary";
+  };
+
+  const getPeriodDays = (summary: StatementSummaryResponse) =>
+    summary.tariffSegments.reduce(
+      (totalDays, segment) => totalDays + segment.days,
+      0,
+    );
+
+  const getPeriodMetrics = (summary: StatementSummaryResponse) => {
+    const cold = getComponent(summary, "ColdWater");
+    const hot = getComponent(summary, "HotWater");
+    const apartment = getComponent(summary, "ApartmentElectricity");
+    const boiler = getComponent(summary, "BoilerElectricity");
+
+    const coldUsage = Number(cold?.usage ?? "0");
+    const hotUsage = Number(hot?.usage ?? "0");
+    const apartmentUsage = Number(apartment?.usage ?? "0");
+    const boilerUsage = Number(boiler?.usage ?? "0");
+
+    const coldCost = Number(cold?.total ?? "0");
+    const hotCost = Number(hot?.total ?? "0");
+    const apartmentCost = Number(apartment?.total ?? "0");
+    const boilerCost = Number(boiler?.total ?? "0");
+
+    return {
+      coldUsage,
+      hotUsage,
+      waterUsage: coldUsage + hotUsage,
+      apartmentUsage,
+      boilerUsage,
+      electricityUsage: apartmentUsage + boilerUsage,
+      coldCost,
+      hotCost,
+      waterCost: coldCost + hotCost,
+      apartmentCost,
+      boilerCost,
+      electricityCost: apartmentCost + boilerCost,
+    };
+  };
+
+  const mapToAverageRows = (metrics: ReturnType<typeof getPeriodMetrics>) => [
+    {
+      label: "Water Usage",
+      unit: "m3",
+      usage: metrics.waterUsage,
+      cost: metrics.waterCost,
+    },
+    {
+      label: "Cold",
+      unit: "m3",
+      usage: metrics.coldUsage,
+      cost: metrics.coldCost,
+    },
+    {
+      label: "Hot",
+      unit: "m3",
+      usage: metrics.hotUsage,
+      cost: metrics.hotCost,
+    },
+    {
+      label: "Electricity Usage",
+      unit: "kWh",
+      usage: metrics.electricityUsage,
+      cost: metrics.electricityCost,
+    },
+    {
+      label: "Apartment",
+      unit: "kWh",
+      usage: metrics.apartmentUsage,
+      cost: metrics.apartmentCost,
+    },
+    {
+      label: "Boiler",
+      unit: "kWh",
+      usage: metrics.boilerUsage,
+      cost: metrics.boilerCost,
+    },
+  ];
+
+  const mapToGuestimateRows = (
+    low: ReturnType<typeof getPeriodMetrics>,
+    expected: ReturnType<typeof getPeriodMetrics>,
+    high: ReturnType<typeof getPeriodMetrics>,
+  ) => [
+    {
+      label: "Water Usage",
+      unit: "m3",
+      lowUsage: low.waterUsage,
+      expectedUsage: expected.waterUsage,
+      highUsage: high.waterUsage,
+      lowCost: low.waterCost,
+      expectedCost: expected.waterCost,
+      highCost: high.waterCost,
+    },
+    {
+      label: "Cold",
+      unit: "m3",
+      lowUsage: low.coldUsage,
+      expectedUsage: expected.coldUsage,
+      highUsage: high.coldUsage,
+      lowCost: low.coldCost,
+      expectedCost: expected.coldCost,
+      highCost: high.coldCost,
+    },
+    {
+      label: "Hot",
+      unit: "m3",
+      lowUsage: low.hotUsage,
+      expectedUsage: expected.hotUsage,
+      highUsage: high.hotUsage,
+      lowCost: low.hotCost,
+      expectedCost: expected.hotCost,
+      highCost: high.hotCost,
+    },
+    {
+      label: "Electricity Usage",
+      unit: "kWh",
+      lowUsage: low.electricityUsage,
+      expectedUsage: expected.electricityUsage,
+      highUsage: high.electricityUsage,
+      lowCost: low.electricityCost,
+      expectedCost: expected.electricityCost,
+      highCost: high.electricityCost,
+    },
+    {
+      label: "Apartment",
+      unit: "kWh",
+      lowUsage: low.apartmentUsage,
+      expectedUsage: expected.apartmentUsage,
+      highUsage: high.apartmentUsage,
+      lowCost: low.apartmentCost,
+      expectedCost: expected.apartmentCost,
+      highCost: high.apartmentCost,
+    },
+    {
+      label: "Boiler",
+      unit: "kWh",
+      lowUsage: low.boilerUsage,
+      expectedUsage: expected.boilerUsage,
+      highUsage: high.boilerUsage,
+      lowCost: low.boilerCost,
+      expectedCost: expected.boilerCost,
+      highCost: high.boilerCost,
+    },
+  ];
+
+  const scaleMetrics = (
+    metrics: ReturnType<typeof getPeriodMetrics>,
+    factor: number,
+  ) => ({
+    coldUsage: metrics.coldUsage * factor,
+    hotUsage: metrics.hotUsage * factor,
+    waterUsage: metrics.waterUsage * factor,
+    apartmentUsage: metrics.apartmentUsage * factor,
+    boilerUsage: metrics.boilerUsage * factor,
+    electricityUsage: metrics.electricityUsage * factor,
+    coldCost: metrics.coldCost * factor,
+    hotCost: metrics.hotCost * factor,
+    waterCost: metrics.waterCost * factor,
+    apartmentCost: metrics.apartmentCost * factor,
+    boilerCost: metrics.boilerCost * factor,
+    electricityCost: metrics.electricityCost * factor,
+  });
+
+  const averageMonthDays = 30.4375;
+
+  const mergeWeightedDaily = (
+    latest: ReturnType<typeof getPeriodMetrics>,
+    previous: ReturnType<typeof getPeriodMetrics>,
+    latestDays: number,
+    previousDays: number,
+  ) => {
+    const latestWeight = 0.6;
+    const previousWeight = 0.4;
+
+    const safeLatestDays = Math.max(1, latestDays);
+    const safePreviousDays = Math.max(1, previousDays);
+
+    return {
+      coldUsage:
+        (latest.coldUsage / safeLatestDays) * latestWeight +
+        (previous.coldUsage / safePreviousDays) * previousWeight,
+      hotUsage:
+        (latest.hotUsage / safeLatestDays) * latestWeight +
+        (previous.hotUsage / safePreviousDays) * previousWeight,
+      waterUsage:
+        (latest.waterUsage / safeLatestDays) * latestWeight +
+        (previous.waterUsage / safePreviousDays) * previousWeight,
+      apartmentUsage:
+        (latest.apartmentUsage / safeLatestDays) * latestWeight +
+        (previous.apartmentUsage / safePreviousDays) * previousWeight,
+      boilerUsage:
+        (latest.boilerUsage / safeLatestDays) * latestWeight +
+        (previous.boilerUsage / safePreviousDays) * previousWeight,
+      electricityUsage:
+        (latest.electricityUsage / safeLatestDays) * latestWeight +
+        (previous.electricityUsage / safePreviousDays) * previousWeight,
+      coldCost:
+        (latest.coldCost / safeLatestDays) * latestWeight +
+        (previous.coldCost / safePreviousDays) * previousWeight,
+      hotCost:
+        (latest.hotCost / safeLatestDays) * latestWeight +
+        (previous.hotCost / safePreviousDays) * previousWeight,
+      waterCost:
+        (latest.waterCost / safeLatestDays) * latestWeight +
+        (previous.waterCost / safePreviousDays) * previousWeight,
+      apartmentCost:
+        (latest.apartmentCost / safeLatestDays) * latestWeight +
+        (previous.apartmentCost / safePreviousDays) * previousWeight,
+      boilerCost:
+        (latest.boilerCost / safeLatestDays) * latestWeight +
+        (previous.boilerCost / safePreviousDays) * previousWeight,
+      electricityCost:
+        (latest.electricityCost / safeLatestDays) * latestWeight +
+        (previous.electricityCost / safePreviousDays) * previousWeight,
+    };
+  };
+
+  const getRecentTwoPeriods = () => periods.slice(0, 2);
+
+  const ensureSummariesForPeriods = async (
+    items: StatementPeriodItemResponse[],
+  ) => {
+    const missingItems = items.filter(
+      (item) => !summariesBySnapshotId[item.snapshotId],
+    );
+
+    const fetchedBySnapshotId: Record<string, StatementSummaryResponse> = {};
+
+    if (missingItems.length > 0) {
+      const fetchedSummaries = await Promise.all(
+        missingItems.map((item) =>
+          portalClient.getStatementSummary(item.snapshotId),
+        ),
+      );
+
+      missingItems.forEach((item, index) => {
+        fetchedBySnapshotId[item.snapshotId] = fetchedSummaries[index];
+      });
+
+      setSummariesBySnapshotId((current) => ({
+        ...current,
+        ...fetchedBySnapshotId,
+      }));
+    }
+
+    const availableBySnapshotId: Record<string, StatementSummaryResponse> = {};
+
+    items.forEach((item) => {
+      const summary =
+        summariesBySnapshotId[item.snapshotId] ??
+        fetchedBySnapshotId[item.snapshotId];
+
+      if (summary) {
+        availableBySnapshotId[item.snapshotId] = summary;
+      }
+    });
+
+    return availableBySnapshotId;
+  };
+
+  const openAverageModal = async () => {
+    setIsAverageModalOpen(true);
+    setInsightsErrorMessage("");
+    setAverageSummaryRows([]);
+
+    if (periods.length < 2) {
+      setInsightsErrorMessage(
+        "At least two calculated periods are required to show an overall average.",
+      );
+      return;
+    }
+
+    const recentPeriods = getRecentTwoPeriods();
+    setInsightsLoading(true);
+    try {
+      const summaries = await ensureSummariesForPeriods(recentPeriods);
+      const latestSummary = summaries[recentPeriods[0].snapshotId];
+      const previousSummary = summaries[recentPeriods[1].snapshotId];
+
+      if (!latestSummary || !previousSummary) {
+        setInsightsErrorMessage(
+          "Unable to load enough summary data for the average view.",
+        );
+        return;
+      }
+
+      const latestMetrics = getPeriodMetrics(latestSummary);
+      const previousMetrics = getPeriodMetrics(previousSummary);
+      const latestDays = getPeriodDays(latestSummary);
+      const previousDays = getPeriodDays(previousSummary);
+      const totalDays = latestDays + previousDays;
+
+      if (totalDays <= 0) {
+        setInsightsErrorMessage(
+          "Unable to calculate monthly average because period duration is not valid.",
+        );
+        return;
+      }
+
+      const combinedMetrics = {
+        coldUsage: latestMetrics.coldUsage + previousMetrics.coldUsage,
+        hotUsage: latestMetrics.hotUsage + previousMetrics.hotUsage,
+        waterUsage: latestMetrics.waterUsage + previousMetrics.waterUsage,
+        apartmentUsage:
+          latestMetrics.apartmentUsage + previousMetrics.apartmentUsage,
+        boilerUsage: latestMetrics.boilerUsage + previousMetrics.boilerUsage,
+        electricityUsage:
+          latestMetrics.electricityUsage + previousMetrics.electricityUsage,
+        coldCost: latestMetrics.coldCost + previousMetrics.coldCost,
+        hotCost: latestMetrics.hotCost + previousMetrics.hotCost,
+        waterCost: latestMetrics.waterCost + previousMetrics.waterCost,
+        apartmentCost:
+          latestMetrics.apartmentCost + previousMetrics.apartmentCost,
+        boilerCost: latestMetrics.boilerCost + previousMetrics.boilerCost,
+        electricityCost:
+          latestMetrics.electricityCost + previousMetrics.electricityCost,
+      };
+
+      const averageMetrics = scaleMetrics(
+        combinedMetrics,
+        averageMonthDays / totalDays,
+      );
+
+      setAverageSummaryRows(mapToAverageRows(averageMetrics));
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setInsightsErrorMessage(
+          `Unable to load average summary. ${error.message}`,
+        );
+      } else {
+        setInsightsErrorMessage("Unable to load average summary.");
+      }
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
+  const openGuestimateModal = async () => {
+    setIsGuestimateModalOpen(true);
+    setInsightsErrorMessage("");
+    setGuestimateRows([]);
+    setGuestimateRangeLabel("");
+
+    const recentPeriods = getRecentTwoPeriods();
+    const today = todayIsoDate();
+    const latestPeriod = recentPeriods[0];
+
+    if (!latestPeriod || latestPeriod.periodEndDateExclusive !== today) {
+      setInsightsErrorMessage(
+        "Next month guestimate is available only when the latest reading period ends yesterday (period end exclusive equals today).",
+      );
+      return;
+    }
+
+    if (recentPeriods.length < 2) {
+      setInsightsErrorMessage(
+        "At least two calculated periods are required to calculate next month guestimate.",
+      );
+      return;
+    }
+
+    setInsightsLoading(true);
+    try {
+      const summaries = await ensureSummariesForPeriods(recentPeriods);
+      const latestSummary = summaries[recentPeriods[0].snapshotId];
+      const previousSummary = summaries[recentPeriods[1].snapshotId];
+
+      if (!latestSummary || !previousSummary) {
+        setInsightsErrorMessage(
+          "Unable to load enough summary data for the guestimate view.",
+        );
+        return;
+      }
+
+      const latestMetrics = getPeriodMetrics(latestSummary);
+      const previousMetrics = getPeriodMetrics(previousSummary);
+      const latestDays = getPeriodDays(latestSummary);
+      const previousDays = getPeriodDays(previousSummary);
+
+      const nextPeriodStart = new Date(
+        `${latestPeriod.periodEndDateExclusive}T00:00:00`,
+      );
+      const nextPeriodEndExclusive = new Date(nextPeriodStart);
+      nextPeriodEndExclusive.setMonth(nextPeriodEndExclusive.getMonth() + 1);
+
+      const nextPeriodDays = Math.max(
+        1,
+        Math.round(
+          (nextPeriodEndExclusive.getTime() - nextPeriodStart.getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
+      );
+
+      const weightedDaily = mergeWeightedDaily(
+        latestMetrics,
+        previousMetrics,
+        latestDays,
+        previousDays,
+      );
+      const expected = scaleMetrics(weightedDaily, nextPeriodDays);
+      const low = scaleMetrics(expected, 0.95);
+      const high = scaleMetrics(expected, 1.05);
+
+      setGuestimateRows(mapToGuestimateRows(low, expected, high));
+      setGuestimateRangeLabel(
+        `${formatRange(
+          latestPeriod.periodEndDateExclusive,
+          `${nextPeriodEndExclusive.getFullYear()}-${String(nextPeriodEndExclusive.getMonth() + 1).padStart(2, "0")}-${String(nextPeriodEndExclusive.getDate()).padStart(2, "0")}`,
+        )}`,
+      );
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setInsightsErrorMessage(
+          `Unable to load next month guestimate. ${error.message}`,
+        );
+      } else {
+        setInsightsErrorMessage("Unable to load next month guestimate.");
+      }
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
+  const openAddModal = () => {
     setModalMode("add");
-    onReadingDateChange(localToday);
+    onReadingDateChange("");
+    setPendingReadingDate("");
     onColdWaterReadingChange(latestReadings?.coldWaterReading ?? "");
     onHotWaterReadingChange(latestReadings?.hotWaterReading ?? "");
     onElectricityReadingChange(latestReadings?.electricityReading ?? "");
@@ -433,6 +910,8 @@ export function ReadingsDashboardView({
     setBoilerOptions([]);
     setSelectedTariffEffectiveFromDate("");
     setSelectedBoilerEffectiveFromDate("");
+    setAddReadingConfirmed(false);
+    setAddReadingConfirmationError("");
     setIsModalOpen(true);
   };
 
@@ -446,6 +925,7 @@ export function ReadingsDashboardView({
 
       setModalMode("edit");
       onReadingDateChange(latest.readingDate);
+      setPendingReadingDate(latest.readingDate);
       onColdWaterReadingChange(latest.coldWaterReading);
       onHotWaterReadingChange(latest.hotWaterReading);
       onElectricityReadingChange(latest.electricityReading);
@@ -498,6 +978,20 @@ export function ReadingsDashboardView({
   };
 
   const handleModalSubmit = async () => {
+    if (
+      modalMode === "add" &&
+      (isDateSelectionInProgress ||
+        !selectedReadingDateIso ||
+        !isAddReadingConfirmationValid)
+    ) {
+      setAddReadingConfirmationError(
+        "Confirm the reading period before saving.",
+      );
+      return;
+    }
+
+    setAddReadingConfirmationError("");
+
     const success =
       modalMode === "add"
         ? await onSubmitReadings({
@@ -573,7 +1067,9 @@ export function ReadingsDashboardView({
     }
 
     try {
-      const body = await portalClient.deletePayment(targetPeriodForPayment.paymentId);
+      const body = await portalClient.deletePayment(
+        targetPeriodForPayment.paymentId,
+      );
       await refreshCardData(targetPeriodForPayment.snapshotId);
       setDashboardMessage(
         `${body.message} Unlinked from ${targetPeriodForPayment.periodStartDate} to ${targetPeriodForPayment.periodEndDateExclusive}.`,
@@ -587,6 +1083,324 @@ export function ReadingsDashboardView({
       } else {
         setDashboardMessage("Unable to unlink payment.");
       }
+    }
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const handleExportPdf = async () => {
+    if (periods.length === 0) {
+      setDashboardMessage("No reading periods are available to export.");
+      return;
+    }
+
+    setIsExportingPdf(true);
+    setDashboardMessage("Preparing PDF export...");
+
+    const summaryMap: Record<string, StatementSummaryResponse> = {
+      ...summariesBySnapshotId,
+    };
+
+    const missingSnapshotIds = periods
+      .map((period) => period.snapshotId)
+      .filter((snapshotId) => !summaryMap[snapshotId]);
+
+    try {
+      if (missingSnapshotIds.length > 0) {
+        const fetched = await Promise.all(
+          missingSnapshotIds.map(async (snapshotId) => ({
+            snapshotId,
+            summary: await portalClient.getStatementSummary(snapshotId),
+          })),
+        );
+
+        const fetchedBySnapshotId: Record<string, StatementSummaryResponse> =
+          {};
+        for (const item of fetched) {
+          fetchedBySnapshotId[item.snapshotId] = item.summary;
+          summaryMap[item.snapshotId] = item.summary;
+        }
+
+        setSummariesBySnapshotId((current) => ({
+          ...current,
+          ...fetchedBySnapshotId,
+        }));
+      }
+
+      const exportContainer = document.createElement("div");
+      exportContainer.setAttribute("data-ba-export", "readings-pdf");
+      exportContainer.style.position = "fixed";
+      exportContainer.style.left = "-99999px";
+      exportContainer.style.top = "0";
+      exportContainer.style.zIndex = "-1";
+      exportContainer.style.background = "#ffffff";
+
+      const cardPages: StatementPeriodItemResponse[][] = [];
+      for (let index = 0; index < periods.length; index += 4) {
+        cardPages.push(periods.slice(index, index + 4));
+      }
+
+      const generatedOn = new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date());
+
+      const summaryPageHtml = `
+        <section class="ba-export-page">
+          <div class="ba-page-title">Readings Dashboard Export</div>
+          <div class="ba-page-subtitle">Generated on ${escapeHtml(generatedOn)}</div>
+          <div class="ba-summary-wrap">
+            <div class="ba-summary-item">
+              <div class="ba-summary-label">Total period charges</div>
+              <div class="ba-summary-value">${escapeHtml(formatCurrency(String(overallPeriodTotal)))}</div>
+            </div>
+            <div class="ba-summary-item">
+              <div class="ba-summary-label">Total payments linked</div>
+              <div class="ba-summary-value">${escapeHtml(formatCurrency(String(overallPaymentsRecorded)))}</div>
+            </div>
+            <div class="ba-summary-item">
+              <div class="ba-summary-label">${escapeHtml(getBalanceLabel(overallDifference))}</div>
+              <div class="ba-summary-value">${escapeHtml(formatAbsoluteCurrency(String(overallDifference)))}</div>
+            </div>
+            <div class="ba-summary-item">
+              <div class="ba-summary-label">Reading periods exported</div>
+              <div class="ba-summary-value">${periods.length}</div>
+            </div>
+          </div>
+        </section>
+      `;
+
+      const cardPagesHtml = cardPages
+        .map((pageItems, pageIndex) => {
+          const cardsHtml = pageItems
+            .map((period) => {
+              const summary = summaryMap[period.snapshotId];
+              const cold = summary ? getComponent(summary, "ColdWater") : null;
+              const hot = summary ? getComponent(summary, "HotWater") : null;
+              const apartment = summary
+                ? getComponent(summary, "ApartmentElectricity")
+                : null;
+              const boiler = summary
+                ? getComponent(summary, "BoilerElectricity")
+                : null;
+              const waterUsage =
+                Number(cold?.usage ?? "0") + Number(hot?.usage ?? "0");
+              const electricityUsage =
+                Number(apartment?.usage ?? "0") + Number(boiler?.usage ?? "0");
+              const waterTotal =
+                Number(cold?.total ?? "0") + Number(hot?.total ?? "0");
+              const electricityTotal =
+                Number(apartment?.total ?? "0") + Number(boiler?.total ?? "0");
+              const periodDifferenceNumber = Number(
+                period.periodDifference ?? "0",
+              );
+
+              return `
+                <article class="ba-export-card">
+                  <div class="ba-card-header">
+                    <div>
+                      <div class="ba-card-title">${escapeHtml(formatPeriodHeading(period.periodEndDateExclusive))}</div>
+                      <div class="ba-card-range">${escapeHtml(formatRange(period.periodStartDate, period.periodEndDateExclusive))}</div>
+                    </div>
+                    ${period.containsEstimatedSegments ? '<div class="ba-badge">Estimated</div>' : ""}
+                  </div>
+                  ${
+                    summary
+                      ? `
+                    <div class="ba-card-row ba-card-main-row"><span>Water Usage: ${escapeHtml(formatUsage(String(waterUsage)))} m3</span><span>${escapeHtml(formatCurrency(String(waterTotal)))}</span></div>
+                    <div class="ba-card-row ba-card-sub-row"><span>Cold: ${escapeHtml(formatUsage(cold?.usage))} m3</span><span>${escapeHtml(formatCurrency(cold?.total))}</span></div>
+                    <div class="ba-card-row ba-card-sub-row"><span>Hot: ${escapeHtml(formatUsage(hot?.usage))} m3</span><span>${escapeHtml(formatCurrency(hot?.total))}</span></div>
+                    <div class="ba-card-row ba-card-main-row"><span>Electricity Usage: ${escapeHtml(formatUsage(String(electricityUsage)))} kWh</span><span>${escapeHtml(formatCurrency(String(electricityTotal)))}</span></div>
+                    <div class="ba-card-row ba-card-sub-row"><span>Apartment: ${escapeHtml(formatUsage(apartment?.usage))} kWh</span><span>${escapeHtml(formatCurrency(apartment?.total))}</span></div>
+                    <div class="ba-card-row ba-card-sub-row"><span>Boiler: ${escapeHtml(formatUsage(boiler?.usage))} kWh</span><span>${escapeHtml(formatCurrency(boiler?.total))}</span></div>
+                    <div class="ba-card-divider"></div>
+                    <div class="ba-card-row ba-card-main-row"><span>Period Total</span><span>${escapeHtml(formatCurrency(summary.periodTotal))}</span></div>
+                    <div class="ba-card-row ba-card-sub-row"><span>Payment recorded</span><span>${escapeHtml(formatCurrency(period.paymentAmount))}</span></div>
+                    <div class="ba-card-row ba-card-main-row"><span>${escapeHtml(getBalanceLabel(periodDifferenceNumber))}</span><span>${escapeHtml(formatAbsoluteCurrency(period.periodDifference))}</span></div>
+                  `
+                      : '<div class="ba-card-empty">Summary was unavailable at export time.</div>'
+                  }
+                </article>
+              `;
+            })
+            .join("");
+
+          return `
+            <section class="ba-export-page">
+              <div class="ba-page-title">Reading Cards</div>
+              <div class="ba-page-subtitle">Page ${pageIndex + 1} of ${cardPages.length}</div>
+              <div class="ba-card-grid">${cardsHtml}</div>
+            </section>
+          `;
+        })
+        .join("");
+
+      exportContainer.innerHTML = `
+        <style>
+          .ba-export-page {
+            width: 794px;
+            height: 1123px;
+            box-sizing: border-box;
+            padding: 32px;
+            background: #ffffff;
+            color: #111827;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .ba-page-title {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.1;
+          }
+          .ba-page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+          }
+          .ba-summary-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 8px;
+          }
+          .ba-summary-item {
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 16px;
+            background: #f8fafc;
+          }
+          .ba-summary-label {
+            color: #4b5563;
+            font-size: 13px;
+            margin-bottom: 6px;
+          }
+          .ba-summary-value {
+            font-size: 26px;
+            font-weight: 700;
+          }
+          .ba-card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-auto-rows: 1fr;
+            gap: 16px;
+            flex: 1;
+          }
+          .ba-export-card {
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 14px;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow: hidden;
+          }
+          .ba-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+          }
+          .ba-card-title {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+          }
+          .ba-card-range {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 2px;
+          }
+          .ba-badge {
+            background: #f59e0b;
+            color: #111827;
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+          }
+          .ba-card-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            line-height: 1.3;
+          }
+          .ba-card-main-row {
+            font-size: 13px;
+            font-weight: 600;
+          }
+          .ba-card-sub-row {
+            color: #6b7280;
+            font-size: 12px;
+          }
+          .ba-card-divider {
+            border-top: 1px solid #e5e7eb;
+            margin-top: 4px;
+            padding-top: 2px;
+          }
+          .ba-card-empty {
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+        ${summaryPageHtml}
+        ${cardPagesHtml}
+      `;
+
+      document.body.appendChild(exportContainer);
+
+      try {
+        const pageNodes = Array.from(
+          exportContainer.querySelectorAll(".ba-export-page"),
+        );
+
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "pt",
+          format: "a4",
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        for (let pageIndex = 0; pageIndex < pageNodes.length; pageIndex += 1) {
+          const pageNode = pageNodes[pageIndex] as HTMLElement;
+          const canvas = await html2canvas(pageNode, {
+            backgroundColor: "#ffffff",
+            scale: 2,
+          });
+
+          const imageData = canvas.toDataURL("image/png");
+          if (pageIndex > 0) {
+            pdf.addPage();
+          }
+
+          pdf.addImage(imageData, "PNG", 0, 0, pdfWidth, pdfHeight);
+        }
+
+        pdf.save(`readings-dashboard-${todayIsoDate()}.pdf`);
+        setDashboardMessage(
+          `Exported ${periods.length} reading period card(s) to PDF.`,
+        );
+      } finally {
+        exportContainer.remove();
+      }
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setDashboardMessage(`Unable to export PDF. ${error.message}`);
+      } else {
+        setDashboardMessage("Unable to export PDF.");
+      }
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -692,6 +1506,99 @@ export function ReadingsDashboardView({
       (totalDays, segment) => totalDays + segment.days,
       0,
     ) ?? 0;
+  const overallPeriodTotal = periods.reduce(
+    (total, period) => total + Number(period.periodTotal ?? "0"),
+    0,
+  );
+  const overallPaymentsRecorded = periods.reduce(
+    (total, period) => total + Number(period.paymentAmount ?? "0"),
+    0,
+  );
+  const overallDifference = overallPeriodTotal - overallPaymentsRecorded;
+  const canOpenGuestimateButton =
+    periods.length >= 2 &&
+    periods[0]?.periodEndDateExclusive === todayIsoDate();
+  const getAverageRow = (label: string) =>
+    averageSummaryRows.find((row) => row.label === label);
+  const getGuestimateRow = (label: string) =>
+    guestimateRows.find((row) => row.label === label);
+
+  const averageWaterRow = getAverageRow("Water Usage");
+  const averageColdRow = getAverageRow("Cold");
+  const averageHotRow = getAverageRow("Hot");
+  const averageElectricityRow = getAverageRow("Electricity Usage");
+  const averageApartmentRow = getAverageRow("Apartment");
+  const averageBoilerRow = getAverageRow("Boiler");
+  const averageTotalCost =
+    (averageWaterRow?.cost ?? 0) + (averageElectricityRow?.cost ?? 0);
+
+  const guestimateWaterRow = getGuestimateRow("Water Usage");
+  const guestimateColdRow = getGuestimateRow("Cold");
+  const guestimateHotRow = getGuestimateRow("Hot");
+  const guestimateElectricityRow = getGuestimateRow("Electricity Usage");
+  const guestimateApartmentRow = getGuestimateRow("Apartment");
+  const guestimateBoilerRow = getGuestimateRow("Boiler");
+
+  const lowTotalCost =
+    (guestimateWaterRow?.lowCost ?? 0) +
+    (guestimateElectricityRow?.lowCost ?? 0);
+  const expectedTotalCost =
+    (guestimateWaterRow?.expectedCost ?? 0) +
+    (guestimateElectricityRow?.expectedCost ?? 0);
+  const highTotalCost =
+    (guestimateWaterRow?.highCost ?? 0) +
+    (guestimateElectricityRow?.highCost ?? 0);
+
+  const isDateSelectionInProgress =
+    modalMode === "add" && pendingReadingDate !== readingDate;
+  const readingDateForSelection = readingDate;
+  const selectedReadingDateIso = /^\d{4}-\d{2}-\d{2}$/.test(
+    readingDateForSelection,
+  )
+    ? readingDateForSelection
+    : null;
+  const previousReadingDateIso = latestReadings?.readingDate ?? null;
+  const canBuildPeriodConfirmation =
+    modalMode === "add" &&
+    selectedReadingDateIso !== null &&
+    previousReadingDateIso !== null;
+
+  const periodConfirmationDays = canBuildPeriodConfirmation
+    ? Math.round(
+        (new Date(`${selectedReadingDateIso}T00:00:00`).getTime() -
+          new Date(`${previousReadingDateIso}T00:00:00`).getTime()) /
+          (24 * 60 * 60 * 1000),
+      )
+    : null;
+
+  const periodConfirmationMonthsApprox =
+    periodConfirmationDays !== null ? periodConfirmationDays / 30.4375 : null;
+  const periodConfirmationMonthsRounded =
+    periodConfirmationMonthsApprox !== null
+      ? Math.max(1, Math.round(periodConfirmationMonthsApprox))
+      : null;
+  const periodConfirmationMonthsLabel =
+    periodConfirmationMonthsRounded === null
+      ? null
+      : periodConfirmationMonthsRounded === 1
+        ? "about 1 month"
+        : `about ${periodConfirmationMonthsRounded} months`;
+  const periodConfirmationIsLong =
+    periodConfirmationMonthsApprox !== null &&
+    periodConfirmationMonthsApprox >= 6;
+  const periodConfirmationRange =
+    canBuildPeriodConfirmation &&
+    periodConfirmationDays !== null &&
+    periodConfirmationDays > 0
+      ? formatRange(previousReadingDateIso, selectedReadingDateIso)
+      : null;
+  const isFirstReadingFlow =
+    modalMode === "add" &&
+    selectedReadingDateIso !== null &&
+    previousReadingDateIso === null;
+  const isAddReadingConfirmationValid = isFirstReadingFlow
+    ? addReadingConfirmed
+    : periodConfirmationRange !== null && addReadingConfirmed;
 
   useEffect(() => {
     if (!isDetailsModalOpen) {
@@ -740,7 +1647,6 @@ export function ReadingsDashboardView({
           </section>
 
           {routeTabs}
-
           <div className="card radius-10 border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
@@ -756,26 +1662,101 @@ export function ReadingsDashboardView({
                     type="button"
                     className="btn btn-outline-secondary"
                     onClick={() => void loadReadingPeriods()}
-                    disabled={loading || cardsLoading}
+                    disabled={loading || cardsLoading || isExportingPdf}
                   >
                     Refresh dashboard
                   </button>
                   <button
                     type="button"
+                    className="btn btn-outline-dark"
+                    onClick={() => void handleExportPdf()}
+                    disabled={loading || cardsLoading || isExportingPdf}
+                  >
+                    {isExportingPdf ? "Exporting PDF..." : "Export PDF"}
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={openAddModal}
-                    disabled={loading || cardsLoading}
+                    disabled={loading || cardsLoading || isExportingPdf}
                   >
                     Add new reading
                   </button>
                 </div>
               </div>
 
-              <div className="alert alert-light border mb-3" role="status">
-                <div className="fw-semibold mb-1">Dashboard status</div>
-                <div>{dashboardMessage}</div>
-                <div className="mt-1 text-secondary small">
-                  {billingMessage}
+              <div className="card border mb-3 bg-light-subtle">
+                <div className="card-body py-3">
+                  <div className="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
+                    <div>
+                      <div className="fw-semibold">Overall summary</div>
+                      <div className="text-secondary small">
+                        Across all loaded reading periods, showing total
+                        charges, linked payments, and whether your account is in
+                        credit or has an amount due.
+                      </div>
+                    </div>
+                    <span
+                      className={`badge ${overallDifference < 0 ? "bg-success" : overallDifference > 0 ? "bg-danger" : "bg-secondary"}`}
+                    >
+                      {getBalanceLabel(overallDifference)}
+                    </span>
+                  </div>
+                  <div className="row g-2 small">
+                    <div className="col-12 col-md-4">
+                      <div className="text-secondary">Total period charges</div>
+                      <div className="fw-semibold">
+                        {formatCurrency(String(overallPeriodTotal))}
+                      </div>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <div className="text-secondary">
+                        Total payments linked
+                      </div>
+                      <div className="fw-semibold">
+                        {formatCurrency(String(overallPaymentsRecorded))}
+                      </div>
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <div className="text-secondary">
+                        {getBalanceLabel(overallDifference)}
+                      </div>
+                      <div
+                        className={`fw-semibold ${getBalanceClassName(overallDifference)}`}
+                      >
+                        {formatAbsoluteCurrency(String(overallDifference))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="d-flex flex-wrap gap-2 mt-3">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => void openAverageModal()}
+                      disabled={loading || cardsLoading}
+                    >
+                      View overall average
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-info btn-sm"
+                      onClick={() => void openGuestimateModal()}
+                      disabled={
+                        loading || cardsLoading || !canOpenGuestimateButton
+                      }
+                    >
+                      View next month guestimate
+                    </button>
+                  </div>
+                  {!canOpenGuestimateButton && (
+                    <div className="text-secondary small mt-2">
+                      Guestimate becomes available when your latest period end
+                      exclusive date matches today.
+                    </div>
+                  )}
+                  <div className="visually-hidden" aria-live="polite">
+                    {dashboardMessage} {billingMessage}
+                  </div>
                 </div>
               </div>
 
@@ -813,6 +1794,15 @@ export function ReadingsDashboardView({
                       const isLatestCard =
                         period.snapshotId === latestSnapshotId;
                       const canEditLatest = isLatestCard && !period.hasPayment;
+                      const periodDifferenceNumber = Number(
+                        period.periodDifference ?? "0",
+                      );
+                      const periodDifferenceLabel = getBalanceLabel(
+                        periodDifferenceNumber,
+                      );
+                      const periodDifferenceClassName = getBalanceClassName(
+                        periodDifferenceNumber,
+                      );
 
                       return (
                         <div
@@ -942,9 +1932,11 @@ export function ReadingsDashboardView({
                                       </span>
                                     </div>
                                     <div className="d-flex justify-content-between fw-semibold mt-1">
-                                      <span>Period difference:</span>
-                                      <span>
-                                        {formatCurrency(
+                                      <span>{periodDifferenceLabel}:</span>
+                                      <span
+                                        className={periodDifferenceClassName}
+                                      >
+                                        {formatAbsoluteCurrency(
                                           period.periodDifference,
                                         )}
                                       </span>
@@ -954,7 +1946,9 @@ export function ReadingsDashboardView({
                                         <button
                                           type="button"
                                           className="btn btn-outline-success btn-sm"
-                                          onClick={() => openLinkPaymentModal(period)}
+                                          onClick={() =>
+                                            openLinkPaymentModal(period)
+                                          }
                                           disabled={loading || cardsLoading}
                                         >
                                           Link payment
@@ -964,7 +1958,9 @@ export function ReadingsDashboardView({
                                         <button
                                           type="button"
                                           className="btn btn-outline-danger btn-sm"
-                                          onClick={() => openUnlinkPaymentModal(period)}
+                                          onClick={() =>
+                                            openUnlinkPaymentModal(period)
+                                          }
                                           disabled={loading || cardsLoading}
                                         >
                                           Unlink payment
@@ -1433,10 +2429,26 @@ export function ReadingsDashboardView({
                             id="readingDateModal"
                             type="date"
                             className={`form-control ${getFieldErrors(readingsFieldErrors, "readingDate").length > 0 ? "is-invalid" : ""}`}
-                            value={readingDate}
-                            onChange={(event) =>
-                              onReadingDateChange(event.target.value)
+                            value={
+                              modalMode === "add"
+                                ? pendingReadingDate
+                                : readingDate
                             }
+                            onChange={(event) => {
+                              if (modalMode === "add") {
+                                setPendingReadingDate(event.target.value);
+                                setAddReadingConfirmed(false);
+                                setAddReadingConfirmationError("");
+                                return;
+                              }
+
+                              onReadingDateChange(event.target.value);
+                            }}
+                            onBlur={() => {
+                              if (modalMode === "add") {
+                                onReadingDateChange(pendingReadingDate);
+                              }
+                            }}
                           />
                           {getFieldErrors(readingsFieldErrors, "readingDate")
                             .length > 0 && (
@@ -1445,6 +2457,12 @@ export function ReadingsDashboardView({
                                 readingsFieldErrors,
                                 "readingDate",
                               ).join(" ")}
+                            </div>
+                          )}
+                          {modalMode === "add" && (
+                            <div className="form-text">
+                              Tariff and boiler options refresh after you finish
+                              selecting a date and close or leave this field.
                             </div>
                           )}
                         </div>
@@ -1532,6 +2550,105 @@ export function ReadingsDashboardView({
                             </div>
                           )}
                         </div>
+
+                        {modalMode === "add" &&
+                          !isDateSelectionInProgress &&
+                          selectedReadingDateIso && (
+                            <div className="col-12">
+                              {isFirstReadingFlow ? (
+                                <div
+                                  className="alert alert-info border mb-0"
+                                  role="status"
+                                >
+                                  <div className="fw-semibold mb-1">
+                                    Confirm reading date
+                                  </div>
+                                  <div>
+                                    This will be saved as your first reading on{" "}
+                                    {selectedReadingDateIso}. Please confirm
+                                    this date is correct.
+                                  </div>
+                                  <div className="form-check mt-2 mb-0">
+                                    <input
+                                      id="confirmAddReadingPeriod"
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      checked={addReadingConfirmed}
+                                      onChange={(event) => {
+                                        setAddReadingConfirmed(
+                                          event.target.checked,
+                                        );
+                                        setAddReadingConfirmationError("");
+                                      }}
+                                    />
+                                    <label
+                                      className="form-check-label"
+                                      htmlFor="confirmAddReadingPeriod"
+                                    >
+                                      I confirm this reading date is correct.
+                                    </label>
+                                  </div>
+                                </div>
+                              ) : periodConfirmationRange &&
+                                periodConfirmationDays !== null &&
+                                periodConfirmationMonthsLabel !== null ? (
+                                <div
+                                  className={`alert border mb-0 ${periodConfirmationIsLong ? "alert-warning" : "alert-info"}`}
+                                  role="status"
+                                >
+                                  <div className="fw-semibold mb-1">
+                                    Confirm reading period
+                                  </div>
+                                  <div>
+                                    This reading period will be from{" "}
+                                    {periodConfirmationRange} (
+                                    {periodConfirmationDays} days,{" "}
+                                    {periodConfirmationMonthsLabel}). Is this
+                                    correct?
+                                  </div>
+                                  {periodConfirmationIsLong && (
+                                    <div className="small mt-1">
+                                      This is a long period. Please double-check
+                                      the month/year before saving.
+                                    </div>
+                                  )}
+                                  <div className="form-check mt-2 mb-0">
+                                    <input
+                                      id="confirmAddReadingPeriod"
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      checked={addReadingConfirmed}
+                                      onChange={(event) => {
+                                        setAddReadingConfirmed(
+                                          event.target.checked,
+                                        );
+                                        setAddReadingConfirmationError("");
+                                      }}
+                                    />
+                                    <label
+                                      className="form-check-label"
+                                      htmlFor="confirmAddReadingPeriod"
+                                    >
+                                      I confirm this reading period is correct.
+                                    </label>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className="alert alert-danger border mb-0"
+                                  role="alert"
+                                >
+                                  Reading date must be after your previous
+                                  reading date ({previousReadingDateIso}).
+                                </div>
+                              )}
+                              {addReadingConfirmationError.length > 0 && (
+                                <div className="text-danger small mt-2">
+                                  {addReadingConfirmationError}
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </div>
                     </div>
                     <div className="modal-footer">
@@ -1568,8 +2685,15 @@ export function ReadingsDashboardView({
 
           {isLinkPaymentModalOpen && targetPeriodForPayment && (
             <>
-              <div className="modal fade show d-block" tabIndex={-1} role="dialog">
-                <div className="modal-dialog modal-dialog-centered" role="document">
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                role="dialog"
+              >
+                <div
+                  className="modal-dialog modal-dialog-centered"
+                  role="document"
+                >
                   <div className="modal-content border-0 shadow-lg">
                     <div className="modal-header">
                       <h5 className="modal-title">Link payment to period</h5>
@@ -1583,58 +2707,97 @@ export function ReadingsDashboardView({
                     </div>
                     <div className="modal-body">
                       <div className="alert alert-info border" role="status">
-                        Period: {formatRange(targetPeriodForPayment.periodStartDate, targetPeriodForPayment.periodEndDateExclusive)}
+                        Period:{" "}
+                        {formatRange(
+                          targetPeriodForPayment.periodStartDate,
+                          targetPeriodForPayment.periodEndDateExclusive,
+                        )}
                       </div>
 
                       <div className="row g-3">
                         <div className="col-12">
-                          <label htmlFor="linkPaymentAmount" className="form-label">Amount</label>
+                          <label
+                            htmlFor="linkPaymentAmount"
+                            className="form-label"
+                          >
+                            Amount
+                          </label>
                           <input
                             id="linkPaymentAmount"
                             type="text"
                             className={`form-control ${linkPaymentFieldErrors.amount ? "is-invalid" : ""}`}
                             value={linkPaymentAmount}
-                            onChange={(event) => setLinkPaymentAmount(event.target.value)}
+                            onChange={(event) =>
+                              setLinkPaymentAmount(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12 col-md-6">
-                          <label htmlFor="linkPaymentDate" className="form-label">Payment date</label>
+                          <label
+                            htmlFor="linkPaymentDate"
+                            className="form-label"
+                          >
+                            Payment date
+                          </label>
                           <input
                             id="linkPaymentDate"
                             type="date"
                             className={`form-control ${linkPaymentFieldErrors.paymentDate ? "is-invalid" : ""}`}
                             value={linkPaymentDate}
-                            onChange={(event) => setLinkPaymentDate(event.target.value)}
+                            onChange={(event) =>
+                              setLinkPaymentDate(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12 col-md-6">
-                          <label htmlFor="linkPaymentMethod" className="form-label">Method</label>
+                          <label
+                            htmlFor="linkPaymentMethod"
+                            className="form-label"
+                          >
+                            Method
+                          </label>
                           <input
                             id="linkPaymentMethod"
                             type="text"
                             className={`form-control ${linkPaymentFieldErrors.method ? "is-invalid" : ""}`}
                             value={linkPaymentMethod}
-                            onChange={(event) => setLinkPaymentMethod(event.target.value)}
+                            onChange={(event) =>
+                              setLinkPaymentMethod(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12 col-md-6">
-                          <label htmlFor="linkPaymentReference" className="form-label">Reference (optional)</label>
+                          <label
+                            htmlFor="linkPaymentReference"
+                            className="form-label"
+                          >
+                            Reference (optional)
+                          </label>
                           <input
                             id="linkPaymentReference"
                             type="text"
                             className={`form-control ${linkPaymentFieldErrors.reference ? "is-invalid" : ""}`}
                             value={linkPaymentReference}
-                            onChange={(event) => setLinkPaymentReference(event.target.value)}
+                            onChange={(event) =>
+                              setLinkPaymentReference(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12 col-md-6">
-                          <label htmlFor="linkPaymentNotes" className="form-label">Notes (optional)</label>
+                          <label
+                            htmlFor="linkPaymentNotes"
+                            className="form-label"
+                          >
+                            Notes (optional)
+                          </label>
                           <input
                             id="linkPaymentNotes"
                             type="text"
                             className={`form-control ${linkPaymentFieldErrors.notes ? "is-invalid" : ""}`}
                             value={linkPaymentNotes}
-                            onChange={(event) => setLinkPaymentNotes(event.target.value)}
+                            onChange={(event) =>
+                              setLinkPaymentNotes(event.target.value)
+                            }
                           />
                         </div>
                         <div className="col-12">
@@ -1644,18 +2807,30 @@ export function ReadingsDashboardView({
                               className="form-check-input"
                               type="checkbox"
                               checked={linkPaymentConfirmed}
-                              onChange={(event) => setLinkPaymentConfirmed(event.target.checked)}
+                              onChange={(event) =>
+                                setLinkPaymentConfirmed(event.target.checked)
+                              }
                             />
-                            <label className="form-check-label" htmlFor="linkPaymentConfirm">
-                              I confirm this payment should be linked to this period.
+                            <label
+                              className="form-check-label"
+                              htmlFor="linkPaymentConfirm"
+                            >
+                              I confirm this payment should be linked to this
+                              period.
                             </label>
                           </div>
                         </div>
                       </div>
 
-                      {Object.values(linkPaymentFieldErrors).flat().length > 0 && (
-                        <div className="alert alert-danger border mt-3 mb-0" role="alert">
-                          {Object.values(linkPaymentFieldErrors).flat().join(" ")}
+                      {Object.values(linkPaymentFieldErrors).flat().length >
+                        0 && (
+                        <div
+                          className="alert alert-danger border mt-3 mb-0"
+                          role="alert"
+                        >
+                          {Object.values(linkPaymentFieldErrors)
+                            .flat()
+                            .join(" ")}
                         </div>
                       )}
                     </div>
@@ -1686,8 +2861,15 @@ export function ReadingsDashboardView({
 
           {isUnlinkPaymentModalOpen && targetPeriodForPayment && (
             <>
-              <div className="modal fade show d-block" tabIndex={-1} role="dialog">
-                <div className="modal-dialog modal-dialog-centered" role="document">
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                role="dialog"
+              >
+                <div
+                  className="modal-dialog modal-dialog-centered"
+                  role="document"
+                >
                   <div className="modal-content border-0 shadow-lg">
                     <div className="modal-header">
                       <h5 className="modal-title">Unlink payment</h5>
@@ -1701,7 +2883,12 @@ export function ReadingsDashboardView({
                     </div>
                     <div className="modal-body">
                       <div className="alert alert-warning border" role="status">
-                        You are unlinking the payment from {formatRange(targetPeriodForPayment.periodStartDate, targetPeriodForPayment.periodEndDateExclusive)}.
+                        You are unlinking the payment from{" "}
+                        {formatRange(
+                          targetPeriodForPayment.periodStartDate,
+                          targetPeriodForPayment.periodEndDateExclusive,
+                        )}
+                        .
                       </div>
                       <div className="form-check">
                         <input
@@ -1709,16 +2896,28 @@ export function ReadingsDashboardView({
                           className="form-check-input"
                           type="checkbox"
                           checked={unlinkPaymentConfirmed}
-                          onChange={(event) => setUnlinkPaymentConfirmed(event.target.checked)}
+                          onChange={(event) =>
+                            setUnlinkPaymentConfirmed(event.target.checked)
+                          }
                         />
-                        <label className="form-check-label" htmlFor="unlinkPaymentConfirm">
-                          I confirm this payment should be unlinked from this period.
+                        <label
+                          className="form-check-label"
+                          htmlFor="unlinkPaymentConfirm"
+                        >
+                          I confirm this payment should be unlinked from this
+                          period.
                         </label>
                       </div>
 
-                      {Object.values(unlinkPaymentFieldErrors).flat().length > 0 && (
-                        <div className="alert alert-danger border mt-3 mb-0" role="alert">
-                          {Object.values(unlinkPaymentFieldErrors).flat().join(" ")}
+                      {Object.values(unlinkPaymentFieldErrors).flat().length >
+                        0 && (
+                        <div
+                          className="alert alert-danger border mt-3 mb-0"
+                          role="alert"
+                        >
+                          {Object.values(unlinkPaymentFieldErrors)
+                            .flat()
+                            .join(" ")}
                         </div>
                       )}
                     </div>
@@ -2123,6 +3322,647 @@ export function ReadingsDashboardView({
                         type="button"
                         className="btn btn-outline-secondary"
                         onClick={closeDetailsModal}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show"></div>
+            </>
+          )}
+
+          {isAverageModalOpen && (
+            <>
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                role="dialog"
+              >
+                <div
+                  className="modal-dialog modal-lg modal-dialog-scrollable"
+                  role="document"
+                >
+                  <div className="modal-content border-0 shadow-lg">
+                    <div className="modal-header">
+                      <h5 className="modal-title">Average monthly usage</h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Close"
+                        onClick={() => setIsAverageModalOpen(false)}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      <p className="text-secondary small mb-3">
+                        A typical month based on your latest two calculated
+                        reading periods.
+                      </p>
+
+                      {insightsLoading && (
+                        <div className="text-secondary">
+                          Loading average summary...
+                        </div>
+                      )}
+
+                      {!insightsLoading && insightsErrorMessage.length > 0 && (
+                        <div
+                          className="alert alert-warning border mb-0"
+                          role="status"
+                        >
+                          {insightsErrorMessage}
+                        </div>
+                      )}
+
+                      {!insightsLoading &&
+                        insightsErrorMessage.length === 0 &&
+                        averageSummaryRows.length > 0 && (
+                          <div className="d-flex flex-column gap-3">
+                            <div className="card border shadow-sm mb-0">
+                              <div className="card-body py-3">
+                                <div className="d-flex justify-content-between fw-semibold">
+                                  <span>
+                                    Water Usage:{" "}
+                                    {formatUsage(
+                                      String(averageWaterRow?.usage ?? 0),
+                                    )}{" "}
+                                    m3
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageWaterRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between small text-secondary mt-1">
+                                  <span>
+                                    Cold:{" "}
+                                    {formatUsage(
+                                      String(averageColdRow?.usage ?? 0),
+                                    )}{" "}
+                                    m3
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageColdRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between small text-secondary mt-1">
+                                  <span>
+                                    Hot:{" "}
+                                    {formatUsage(
+                                      String(averageHotRow?.usage ?? 0),
+                                    )}{" "}
+                                    m3
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageHotRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="card border shadow-sm mb-0">
+                              <div className="card-body py-3">
+                                <div className="d-flex justify-content-between fw-semibold">
+                                  <span>
+                                    Electricity Usage:{" "}
+                                    {formatUsage(
+                                      String(averageElectricityRow?.usage ?? 0),
+                                    )}{" "}
+                                    kWh
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageElectricityRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between small text-secondary mt-1">
+                                  <span>
+                                    Apartment:{" "}
+                                    {formatUsage(
+                                      String(averageApartmentRow?.usage ?? 0),
+                                    )}{" "}
+                                    kWh
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageApartmentRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between small text-secondary mt-1">
+                                  <span>
+                                    Boiler:{" "}
+                                    {formatUsage(
+                                      String(averageBoilerRow?.usage ?? 0),
+                                    )}{" "}
+                                    kWh
+                                  </span>
+                                  <span>
+                                    {formatCurrency(
+                                      String(averageBoilerRow?.cost ?? 0),
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="card border shadow-sm mb-0">
+                              <div className="card-body py-3">
+                                <div className="d-flex justify-content-between fw-semibold">
+                                  <span>Total (Water + Electricity):</span>
+                                  <span>
+                                    {formatCurrency(String(averageTotalCost))}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setIsAverageModalOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show"></div>
+            </>
+          )}
+
+          {isGuestimateModalOpen && (
+            <>
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                role="dialog"
+              >
+                <div
+                  className="modal-dialog modal-xl modal-dialog-scrollable"
+                  role="document"
+                >
+                  <div className="modal-content border-0 shadow-lg">
+                    <div className="modal-header">
+                      <h5 className="modal-title">Next month guestimate</h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Close"
+                        onClick={() => setIsGuestimateModalOpen(false)}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      <p className="text-secondary small mb-2">
+                        Forecast uses a weighted daily average from the latest
+                        two periods (60% latest, 40% previous), then applies a
+                        -5% to +5% range.
+                      </p>
+                      {guestimateRangeLabel.length > 0 && (
+                        <p className="text-secondary small mb-3">
+                          Forecast period: {guestimateRangeLabel}
+                        </p>
+                      )}
+
+                      {insightsLoading && (
+                        <div className="text-secondary">
+                          Loading next month guestimate...
+                        </div>
+                      )}
+
+                      {!insightsLoading && insightsErrorMessage.length > 0 && (
+                        <div
+                          className="alert alert-warning border mb-0"
+                          role="status"
+                        >
+                          {insightsErrorMessage}
+                        </div>
+                      )}
+
+                      {!insightsLoading &&
+                        insightsErrorMessage.length === 0 &&
+                        guestimateRows.length > 0 && (
+                          <div className="row g-3">
+                            <div className="col-12 col-xl-4">
+                              <div className="card shadow-sm h-100 mb-0 guestimate-card guestimate-card--low">
+                                <div className="card-body py-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="fw-semibold guestimate-title guestimate-title--low">
+                                      Low (-5%)
+                                    </div>
+                                    <span className="badge guestimate-badge guestimate-badge--low">
+                                      Lower use
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold">
+                                    <span>
+                                      Water Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateWaterRow?.lowUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateWaterRow?.lowCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Cold:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateColdRow?.lowUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(guestimateColdRow?.lowCost ?? 0),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Hot:{" "}
+                                      {formatUsage(
+                                        String(guestimateHotRow?.lowUsage ?? 0),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(guestimateHotRow?.lowCost ?? 0),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3">
+                                    <span>
+                                      Electricity Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateElectricityRow?.lowUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateElectricityRow?.lowCost ??
+                                            0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Apartment:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateApartmentRow?.lowUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateApartmentRow?.lowCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Boiler:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateBoilerRow?.lowUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateBoilerRow?.lowCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3 pt-2 border-top guestimate-total guestimate-total--low">
+                                    <span>Total (Water + Electricity):</span>
+                                    <span>
+                                      {formatCurrency(String(lowTotalCost))}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="col-12 col-xl-4">
+                              <div className="card shadow-sm h-100 mb-0 guestimate-card guestimate-card--expected">
+                                <div className="card-body py-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="fw-semibold guestimate-title guestimate-title--expected">
+                                      Expected
+                                    </div>
+                                    <span className="badge guestimate-badge guestimate-badge--expected">
+                                      Most likely
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold">
+                                    <span>
+                                      Water Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateWaterRow?.expectedUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateWaterRow?.expectedCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Cold:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateColdRow?.expectedUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateColdRow?.expectedCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Hot:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateHotRow?.expectedUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateHotRow?.expectedCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3">
+                                    <span>
+                                      Electricity Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateElectricityRow?.expectedUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateElectricityRow?.expectedCost ??
+                                            0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Apartment:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateApartmentRow?.expectedUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateApartmentRow?.expectedCost ??
+                                            0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Boiler:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateBoilerRow?.expectedUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateBoilerRow?.expectedCost ??
+                                            0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3 pt-2 border-top guestimate-total guestimate-total--expected">
+                                    <span>Total (Water + Electricity):</span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(expectedTotalCost),
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="col-12 col-xl-4">
+                              <div className="card shadow-sm h-100 mb-0 guestimate-card guestimate-card--high">
+                                <div className="card-body py-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="fw-semibold guestimate-title guestimate-title--high">
+                                      High (+5%)
+                                    </div>
+                                    <span className="badge guestimate-badge guestimate-badge--high">
+                                      Higher use
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold">
+                                    <span>
+                                      Water Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateWaterRow?.highUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateWaterRow?.highCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Cold:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateColdRow?.highUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateColdRow?.highCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Hot:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateHotRow?.highUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      m3
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(guestimateHotRow?.highCost ?? 0),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3">
+                                    <span>
+                                      Electricity Usage:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateElectricityRow?.highUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateElectricityRow?.highCost ??
+                                            0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Apartment:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateApartmentRow?.highUsage ??
+                                            0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateApartmentRow?.highCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex justify-content-between small guestimate-subtle mt-1">
+                                    <span>
+                                      Boiler:{" "}
+                                      {formatUsage(
+                                        String(
+                                          guestimateBoilerRow?.highUsage ?? 0,
+                                        ),
+                                      )}{" "}
+                                      kWh
+                                    </span>
+                                    <span>
+                                      {formatCurrency(
+                                        String(
+                                          guestimateBoilerRow?.highCost ?? 0,
+                                        ),
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  <div className="d-flex justify-content-between fw-semibold mt-3 pt-2 border-top guestimate-total guestimate-total--high">
+                                    <span>Total (Water + Electricity):</span>
+                                    <span>
+                                      {formatCurrency(String(highTotalCost))}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setIsGuestimateModalOpen(false)}
                       >
                         Close
                       </button>

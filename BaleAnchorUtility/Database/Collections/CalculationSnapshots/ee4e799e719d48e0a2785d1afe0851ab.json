@@ -1,0 +1,90 @@
+{
+  "id": "ee4e799e719d48e0a2785d1afe0851ab",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "periodStartDate": "2026-06-01",
+  "periodEndDateExclusive": "2026-07-01",
+  "daysInPeriod": 30,
+  "coldWaterUsed": 6.701,
+  "hotWaterUsed": 3.652,
+  "apartmentElectricityUsed": 155.11,
+  "boilerElectricityUsed": 45.112941176470588235294117647,
+  "coldWaterTotal": 21.13,
+  "hotWaterTotal": 11.21,
+  "apartmentElectricityTotal": 63.26,
+  "boilerElectricityTotal": 11.75,
+  "waterTotal": 32.34,
+  "electricityTotal": 75.01,
+  "periodTotal": 107.34,
+  "containsEstimatedSegments": false,
+  "estimatedAllocationLabel": null,
+  "engineVersion": "calc-engine-v1",
+  "roundingPolicyVersion": "money-2dp-awayfromzero:v1",
+  "inputHash": "75A3C3BDCA06DEA7AFCEDB517C447BF5263850DF74D04C818266A3415A3489BE",
+  "equationSummary": "PeriodTotal = WaterTotal \u002B ElectricityTotal; WaterTotal = ColdWaterTotal \u002B HotWaterTotal; ElectricityTotal = ApartmentElectricityTotal \u002B BoilerElectricityTotal.",
+  "hotWaterTemperatureCelsiusUsed": 55,
+  "hotWaterHeatCapacityUsed": 4.186,
+  "hotWaterDensityUsed": 1000,
+  "kiloJouleToKiloWattHourFactorUsed": 3600,
+  "boilerKwhPerCubicMeterUsed": 10.500000,
+  "boilerEfficiencyPercentUsed": 85.00,
+  "tariffSegments": [
+    {
+      "startDate": "2026-06-01",
+      "endDateExclusive": "2026-07-01",
+      "days": 30,
+      "isEstimatedAllocation": false,
+      "waterTariffPerUnit": 3.06820,
+      "waterStandingChargePerDay": 0.01900,
+      "waterVatPercent": 0,
+      "electricityTariffPerUnit": 0.24796,
+      "electricityStandingChargePerDay": 0.72626,
+      "electricityVatPercent": 5,
+      "coldWaterUsage": 6.701,
+      "hotWaterUsage": 3.652,
+      "apartmentElectricityUsage": 155.11,
+      "boilerElectricityUsage": 45.112941176470588235294117647
+    }
+  ],
+  "componentLines": [
+    {
+      "component": "ColdWater",
+      "usage": 6.701,
+      "usageSubtotal": 20.56000820,
+      "standingSubtotal": 0.57000,
+      "vatAmount": 0.00000000,
+      "total": 21.13,
+      "equation": "Cold-water total = ((CW x WR) \u002B (D x WS)) x (1 \u002B WV)"
+    },
+    {
+      "component": "HotWater",
+      "usage": 3.652,
+      "usageSubtotal": 11.20506640,
+      "standingSubtotal": 0,
+      "vatAmount": 0.00000000,
+      "total": 11.21,
+      "equation": "Hot-water total = (HW x WR) x (1 \u002B WV)"
+    },
+    {
+      "component": "ApartmentElectricity",
+      "usage": 155.11,
+      "usageSubtotal": 38.4610756,
+      "standingSubtotal": 21.78780,
+      "vatAmount": 3.01244378,
+      "total": 63.26,
+      "equation": "Apartment electricity total = ((AE x ER) \u002B (D x ES)) x (1 \u002B EV)"
+    },
+    {
+      "component": "BoilerElectricity",
+      "usage": 45.112941176470588235294117647,
+      "usageSubtotal": 11.186204894117647058823529412,
+      "standingSubtotal": 0,
+      "vatAmount": 0.5593102447058823529411764706,
+      "total": 11.75,
+      "equation": "Boiler electricity total = (BE x ER) x (1 \u002B EV)"
+    }
+  ],
+  "integrityChecksPassed": true,
+  "integrityDigest": "Validated: usage sums, segment sums, component totals, combined totals.",
+  "createdAtUtc": "2026-08-01T21:31:47.2561963+00:00",
+  "version": 1
+}

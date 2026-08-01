@@ -37,7 +37,7 @@ public sealed class StatementSummaryServiceTests
             },
             CancellationToken.None);
 
-        var service = new StatementSummaryService(users, snapshots, payments);
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), payments);
 
         var response = await service.GetLatestSummaryAsync("u-active", CancellationToken.None);
 
@@ -71,6 +71,7 @@ public sealed class StatementSummaryServiceTests
         var service = new StatementSummaryService(
             users,
             new InMemoryCalculationSnapshotRepository(),
+            new InMemoryReadingSubmissionRepository(),
             new InMemoryPaymentRepository());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -106,7 +107,7 @@ public sealed class StatementSummaryServiceTests
             },
             CancellationToken.None);
 
-        var service = new StatementSummaryService(users, snapshots, payments);
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), payments);
 
         var response = await service.GetSelectedSummaryAsync(
             "u-active",
@@ -130,7 +131,7 @@ public sealed class StatementSummaryServiceTests
         var snapshots = new InMemoryCalculationSnapshotRepository();
         await snapshots.AddAsync(CreateSnapshot("s1", "u-active", "2026-06-01", "2026-07-01", 50m), CancellationToken.None);
 
-        var service = new StatementSummaryService(users, snapshots, new InMemoryPaymentRepository());
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), new InMemoryPaymentRepository());
 
         var response = await service.GetSelectedSummaryAsync(
             "u-active",
@@ -153,6 +154,7 @@ public sealed class StatementSummaryServiceTests
         var service = new StatementSummaryService(
             users,
             new InMemoryCalculationSnapshotRepository(),
+            new InMemoryReadingSubmissionRepository(),
             new InMemoryPaymentRepository());
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -168,6 +170,7 @@ public sealed class StatementSummaryServiceTests
         var service = new StatementSummaryService(
             users,
             new InMemoryCalculationSnapshotRepository(),
+            new InMemoryReadingSubmissionRepository(),
             new InMemoryPaymentRepository());
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
@@ -203,7 +206,7 @@ public sealed class StatementSummaryServiceTests
             },
             CancellationToken.None);
 
-        var service = new StatementSummaryService(users, snapshots, payments);
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), payments);
 
         var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
 
@@ -225,6 +228,7 @@ public sealed class StatementSummaryServiceTests
         var service = new StatementSummaryService(
             users,
             new InMemoryCalculationSnapshotRepository(),
+            new InMemoryReadingSubmissionRepository(),
             new InMemoryPaymentRepository());
 
         var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
@@ -247,13 +251,50 @@ public sealed class StatementSummaryServiceTests
         newerSnapshot.CreatedAtUtc = DateTimeOffset.Parse("2026-08-05T00:00:00Z");
         await snapshots.AddAsync(newerSnapshot, CancellationToken.None);
 
-        var service = new StatementSummaryService(users, snapshots, new InMemoryPaymentRepository());
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), new InMemoryPaymentRepository());
 
         var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
 
         Assert.Single(response.Items);
         Assert.Equal("s-newer", response.Items[0].SnapshotId);
         Assert.Equal("82.00", response.Items[0].PeriodTotal);
+    }
+
+    [Fact]
+    public async Task GetStatementPeriodsAsync_ExcludesSnapshotsWhoseEndDateNoLongerExistsInReadings()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(CreateSnapshot("s-july", "u-active", "2025-10-01", "2026-08-01", 351.27m), CancellationToken.None);
+        await snapshots.AddAsync(CreateSnapshot("s-oct", "u-active", "2025-10-01", "2025-11-01", 137.90m), CancellationToken.None);
+
+        // Simulate "edit latest" where only the corrected end date remains in readings.
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(
+            new ReadingSubmission
+            {
+                Id = "r-oct",
+                UserId = "u-active",
+                ReadingDate = "2025-11-01",
+                ColdWaterReading = 10m,
+                HotWaterReading = 5m,
+                ElectricityReading = 200m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, readings, new InMemoryPaymentRepository());
+
+        var response = await service.GetStatementPeriodsAsync("u-active", CancellationToken.None);
+
+        Assert.Single(response.Items);
+        Assert.Equal("s-oct", response.Items[0].SnapshotId);
+        Assert.Equal("2025-10-01", response.Items[0].PeriodStartDate);
+        Assert.Equal("2025-11-01", response.Items[0].PeriodEndDateExclusive);
     }
 
     private static UserAccount CreateActiveUser(string id)

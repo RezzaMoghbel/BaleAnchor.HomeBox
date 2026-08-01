@@ -1,0 +1,11 @@
+{
+  "id": "4e094b55a60c4892b7899f17b60eb1bd",
+  "actorUserId": "952677d227f74558acf5a3dcc9b33896",
+  "targetUserId": "952677d227f74558acf5a3dcc9b33896",
+  "category": "PAYMENT",
+  "action": "DELETE_PAYMENT",
+  "reason": "Payment unlinked by resident",
+  "metadata": "paymentId:d96a4e8c63814dba8f5663fb2fabeaf1;period:2025-10-01_2026-08-01;amount:82.34",
+  "createdAtUtc": "2026-08-01T19:50:30.1308275+00:00",
+  "version": 1
+}

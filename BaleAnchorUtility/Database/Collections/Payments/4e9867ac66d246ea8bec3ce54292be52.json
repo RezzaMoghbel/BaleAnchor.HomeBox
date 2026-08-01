@@ -1,0 +1,16 @@
+{
+  "id": "4e9867ac66d246ea8bec3ce54292be52",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "periodStartDate": "2025-12-01",
+  "periodEndDateExclusive": "2026-01-01",
+  "amount": 82.34,
+  "paymentDate": "2025-12-01",
+  "method": "Direct Debit",
+  "reference": "December2025",
+  "notes": "2025-Dec-04",
+  "source": "Resident",
+  "verificationStatus": "Unverified",
+  "createdAtUtc": "2026-08-01T20:49:54.7548865+00:00",
+  "updatedAtUtc": "2026-08-01T20:59:31.0589681+00:00",
+  "version": 2
+}

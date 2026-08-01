@@ -1,0 +1,16 @@
+{
+  "id": "9c085dfc26f548f8a48631775e34252c",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "periodStartDate": "2026-06-01",
+  "periodEndDateExclusive": "2026-07-01",
+  "amount": 172.88,
+  "paymentDate": "2026-08-01",
+  "method": "Direct Debit",
+  "reference": "June2026",
+  "notes": "2026-Jun-08",
+  "source": "Resident",
+  "verificationStatus": "Unverified",
+  "createdAtUtc": "2026-08-01T21:33:08.4044404+00:00",
+  "updatedAtUtc": "2026-08-01T21:33:08.4044404+00:00",
+  "version": 1
+}

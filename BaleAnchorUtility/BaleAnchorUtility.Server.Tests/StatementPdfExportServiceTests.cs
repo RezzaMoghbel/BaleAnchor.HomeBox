@@ -37,7 +37,7 @@ public sealed class StatementPdfExportServiceTests
             CancellationToken.None);
 
         var exports = new InMemoryStatementExportRepository();
-        var summaryService = new StatementSummaryService(users, snapshots, payments);
+        var summaryService = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), payments);
         var service = new StatementPdfExportService(
             summaryService,
             new FakeStatementPdfGenerator(),

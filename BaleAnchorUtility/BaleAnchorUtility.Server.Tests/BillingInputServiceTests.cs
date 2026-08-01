@@ -624,6 +624,102 @@ public sealed class BillingInputServiceTests
     }
 
     [Fact]
+    public async Task UpdateLatestReadingsAsync_DeletesSupersededSnapshotsForPreviousLatestEndDate()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active", "resident@example.com"));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r1",
+                UserId = "u-active",
+                ReadingDate = "2026-07-01",
+                ColdWaterReading = 10m,
+                HotWaterReading = 10m,
+                ElectricityReading = 10m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        await readings.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Billing.ReadingSubmission
+            {
+                Id = "r2",
+                UserId = "u-active",
+                ReadingDate = "2026-08-01",
+                ColdWaterReading = 15m,
+                HotWaterReading = 15m,
+                ElectricityReading = 20m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        await snapshots.AddAsync(
+            new BaleAnchorUtility.Server.Domain.Calculations.CalculationSnapshot
+            {
+                Id = "s-old",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                DaysInPeriod = 31,
+                ColdWaterUsed = 0m,
+                HotWaterUsed = 0m,
+                ApartmentElectricityUsed = 0m,
+                BoilerElectricityUsed = 0m,
+                ColdWaterTotal = 0m,
+                HotWaterTotal = 0m,
+                ApartmentElectricityTotal = 0m,
+                BoilerElectricityTotal = 0m,
+                WaterTotal = 0m,
+                ElectricityTotal = 0m,
+                PeriodTotal = 10m,
+                ContainsEstimatedSegments = false,
+                EngineVersion = "calc-engine-v1",
+                RoundingPolicyVersion = "money-2dp-awayfromzero:v1",
+                InputHash = "hash",
+                EquationSummary = "eq",
+                BoilerKwhPerCubicMeterUsed = 10.5m,
+                BoilerEfficiencyPercentUsed = 85m,
+                TariffSegments = [],
+                ComponentLines = [],
+                IntegrityChecksPassed = true,
+                IntegrityDigest = "Validated",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(
+            users,
+            readings,
+            new InMemoryTariffVersionRepository(),
+            new InMemoryPaymentRepository(),
+            null,
+            snapshots);
+
+        await service.UpdateLatestReadingsAsync(
+            "u-active",
+            new SubmitReadingsRequest
+            {
+                ReadingDate = "2026-07-21",
+                ColdWaterReading = "16",
+                HotWaterReading = "16",
+                ElectricityReading = "21",
+            },
+            CancellationToken.None);
+
+        var remainingSnapshots = await snapshots.GetByUserIdAsync("u-active", CancellationToken.None);
+        Assert.Empty(remainingSnapshots);
+    }
+
+    [Fact]
     public async Task UpdateLatestReadingsAsync_RejectsUpdate_WhenLatestPeriodHasPayment()
     {
         var users = new InMemoryUserRepository();
@@ -699,7 +795,8 @@ public sealed class BillingInputServiceTests
         InMemoryReadingSubmissionRepository readings,
         InMemoryTariffVersionRepository tariffs,
         InMemoryPaymentRepository payments,
-        InMemoryUtilitySetupRepository? utilitySetups = null)
+        InMemoryUtilitySetupRepository? utilitySetups = null,
+        InMemoryCalculationSnapshotRepository? snapshots = null)
     {
         var setupRepository = utilitySetups;
         if (setupRepository is null)
@@ -738,6 +835,7 @@ public sealed class BillingInputServiceTests
             setupRepository,
             tariffs,
             new InMemoryBoilerAssumptionVersionRepository(),
+            snapshots ?? new InMemoryCalculationSnapshotRepository(),
             payments,
             new ReminderDispatchService(
                 users,

@@ -1,0 +1,21 @@
+{
+  "id": "225574192b7742bb8734ba3399479d90",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "kind": "ReadingReminder",
+  "channel": "Email",
+  "recommendedReadingDate": "2026-09-01",
+  "timeZoneId": "Europe/London",
+  "scheduledForUtc": "2026-08-25T08:00:00+00:00",
+  "nextAttemptAtUtc": "2026-08-25T08:00:00+00:00",
+  "status": "Pending",
+  "attemptCount": 0,
+  "maxAttempts": 5,
+  "templateVersion": "reading-reminder-v1",
+  "deduplicationKey": "952677d227f74558acf5a3dcc9b33896:ReadingReminder:Email:2026-09-01:d-7",
+  "lastErrorCode": null,
+  "lastErrorMessage": null,
+  "attemptHistory": [],
+  "createdAtUtc": "2026-08-01T21:36:06.6027947+00:00",
+  "updatedAtUtc": "2026-08-01T21:36:06.6027947+00:00",
+  "version": 1
+}

@@ -13,6 +13,18 @@ internal sealed class InMemoryCalculationSnapshotRepository : ICalculationSnapsh
         return Task.CompletedTask;
     }
 
+    public Task DeleteByUserAndPeriodEndDateAsync(
+        string userId,
+        string periodEndDateExclusive,
+        CancellationToken cancellationToken)
+    {
+        snapshots.RemoveAll(x =>
+            string.Equals(x.UserId, userId, StringComparison.Ordinal)
+            && string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal));
+
+        return Task.CompletedTask;
+    }
+
     public Task<CalculationSnapshot?> GetLatestByUserIdAsync(string userId, CancellationToken cancellationToken)
     {
         var latest = snapshots

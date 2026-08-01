@@ -266,7 +266,7 @@ public sealed class StatementsControllerTests
 
         var payments = new InMemoryPaymentRepository();
         var exports = new InMemoryStatementExportRepository();
-        var summaryService = new StatementSummaryService(users, snapshots, payments);
+        var summaryService = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), payments);
         var exportService = new StatementPdfExportService(
             summaryService,
             new FakeStatementPdfGenerator(),

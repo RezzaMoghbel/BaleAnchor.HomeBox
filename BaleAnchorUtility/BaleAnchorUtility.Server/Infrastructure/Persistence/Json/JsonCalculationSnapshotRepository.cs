@@ -18,6 +18,25 @@ public sealed class JsonCalculationSnapshotRepository : ICalculationSnapshotRepo
         return store.UpsertAsync(Collection, snapshot.Id, snapshot, cancellationToken);
     }
 
+    public async Task DeleteByUserAndPeriodEndDateAsync(
+        string userId,
+        string periodEndDateExclusive,
+        CancellationToken cancellationToken)
+    {
+        var snapshots = await store.GetAllAsync<CalculationSnapshot>(Collection, cancellationToken);
+
+        var staleIds = snapshots
+            .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal))
+            .Select(x => x.Id)
+            .ToList();
+
+        foreach (var id in staleIds)
+        {
+            await store.DeleteAsync(Collection, id, cancellationToken);
+        }
+    }
+
     public async Task<CalculationSnapshot?> GetLatestByUserIdAsync(string userId, CancellationToken cancellationToken)
     {
         var all = await store.GetAllAsync<CalculationSnapshot>(Collection, cancellationToken);

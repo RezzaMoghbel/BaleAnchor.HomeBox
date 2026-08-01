@@ -1,0 +1,12 @@
+{
+  "id": "f68193a394344067a547ce4c05459a0e",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "readingDate": "2026-05-01",
+  "coldWaterReading": 62.589,
+  "hotWaterReading": 42.921,
+  "electricityReading": 6666.67,
+  "appliedBoilerEffectiveFromDate": "2025-03-22",
+  "createdAtUtc": "2026-08-01T21:01:15.4120243+00:00",
+  "updatedAtUtc": "2026-08-01T21:01:15.4120243+00:00",
+  "version": 1
+}

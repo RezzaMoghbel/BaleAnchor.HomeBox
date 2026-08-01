@@ -1,0 +1,11 @@
+{
+  "id": "10fdad812b594ecbbcd4c4c161fa36df",
+  "actorUserId": "952677d227f74558acf5a3dcc9b33896",
+  "targetUserId": "952677d227f74558acf5a3dcc9b33896",
+  "category": "PAYMENT",
+  "action": "UPDATE_PAYMENT",
+  "reason": "Payment updated by resident",
+  "metadata": "paymentId:4e9867ac66d246ea8bec3ce54292be52;period:2025-12-01_2026-01-01;amount:82.34",
+  "createdAtUtc": "2026-08-01T20:59:31.0840246+00:00",
+  "version": 1
+}
