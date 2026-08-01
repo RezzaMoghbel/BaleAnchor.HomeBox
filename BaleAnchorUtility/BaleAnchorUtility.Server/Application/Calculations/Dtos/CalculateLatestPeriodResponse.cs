@@ -33,6 +33,10 @@ public sealed class CalculateLatestPeriodResponse
 
 public sealed class BoilerAssumptionSummaryResponse
 {
+    public required string HotWaterTemperatureCelsius { get; init; }
+    public required string HotWaterHeatCapacity { get; init; }
+    public required string HotWaterDensity { get; init; }
+    public required string KiloJouleToKiloWattHourFactor { get; init; }
     public required string BoilerKwhPerCubicMeter { get; init; }
     public required string BoilerEfficiencyPercent { get; init; }
 }

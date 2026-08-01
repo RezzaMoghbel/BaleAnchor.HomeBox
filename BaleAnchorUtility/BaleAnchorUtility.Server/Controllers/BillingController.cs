@@ -195,6 +195,81 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPost("boiler-assumptions")]
+    [ProducesResponseType(typeof(UpsertBoilerAssumptionVersionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpsertBoilerAssumptionVersionResponse>> UpsertBoilerAssumptionVersion(
+        [FromBody] UpsertBoilerAssumptionVersionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.UpsertBoilerAssumptionVersionAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_CONFLICT");
+        }
+    }
+
+    [HttpGet("boiler-assumptions/active")]
+    [ProducesResponseType(typeof(ActiveBoilerAssumptionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ActiveBoilerAssumptionResponse>> GetActiveBoilerAssumption(
+        [FromQuery] string? onDate,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.GetActiveBoilerAssumptionAsync(userId, onDate, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpGet("boiler-assumptions/options")]
+    [ProducesResponseType(typeof(BoilerAssumptionOptionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<BoilerAssumptionOptionsResponse>> GetBoilerAssumptionOptions(
+        [FromQuery] string? onDate,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.GetBoilerAssumptionOptionsAsync(userId, onDate, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_NOT_AVAILABLE");
+        }
+    }
+
     [HttpPost("calculations/latest")]
     [ProducesResponseType(typeof(CalculateLatestPeriodResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

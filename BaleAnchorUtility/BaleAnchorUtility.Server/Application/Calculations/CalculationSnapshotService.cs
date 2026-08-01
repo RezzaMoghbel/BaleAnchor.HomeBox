@@ -18,6 +18,7 @@ public sealed class CalculationSnapshotService
     private readonly IUserRepository userRepository;
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
+    private readonly IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository;
     private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly ICalculationSnapshotRepository calculationSnapshotRepository;
     private readonly ISystemClock clock;
@@ -27,6 +28,7 @@ public sealed class CalculationSnapshotService
         IUserRepository userRepository,
         IReadingSubmissionRepository readingSubmissionRepository,
         ITariffVersionRepository tariffVersionRepository,
+        IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository,
         IUtilitySetupRepository utilitySetupRepository,
         ICalculationSnapshotRepository calculationSnapshotRepository,
         ISystemClock clock,
@@ -35,6 +37,7 @@ public sealed class CalculationSnapshotService
         this.userRepository = userRepository;
         this.readingSubmissionRepository = readingSubmissionRepository;
         this.tariffVersionRepository = tariffVersionRepository;
+        this.boilerAssumptionVersionRepository = boilerAssumptionVersionRepository;
         this.utilitySetupRepository = utilitySetupRepository;
         this.calculationSnapshotRepository = calculationSnapshotRepository;
         this.clock = clock;
@@ -108,12 +111,14 @@ public sealed class CalculationSnapshotService
             throw new InvalidOperationException("Calculation inputs are invalid because meter values rolled back.");
         }
 
-        if (setup.BoilerKwhPerCubicMeter <= 0m || setup.BoilerEfficiencyPercent <= 0m)
+        var boilerAssumptions = await ResolveBoilerAssumptionsAsync(userId, end, setup, cancellationToken);
+
+        if (boilerAssumptions.BoilerKwhPerCubicMeter <= 0m || boilerAssumptions.BoilerEfficiencyPercent <= 0m)
         {
             throw new InvalidOperationException("Boiler assumptions are invalid for calculation.");
         }
 
-        var boilerUsed = hotUsed * setup.BoilerKwhPerCubicMeter / (setup.BoilerEfficiencyPercent / 100m);
+        var boilerUsed = hotUsed * boilerAssumptions.BoilerKwhPerCubicMeter / (boilerAssumptions.BoilerEfficiencyPercent / 100m);
 
         var tariffs = await tariffVersionRepository.GetByUserUpToDateAsync(userId, end.ReadingDate, cancellationToken);
         var periodTariffs = BuildTariffSegments(tariffs, startDate, endDate);
@@ -203,7 +208,7 @@ public sealed class CalculationSnapshotService
             CreateComponentLine("BoilerElectricity", boilerUsed, boiler),
         };
 
-        var inputHash = ComputeInputHash(userId, start, end, setup, periodTariffs);
+        var inputHash = ComputeInputHash(userId, start, end, setup, periodTariffs, boilerAssumptions);
         var now = clock.UtcNow;
         var snapshot = new CalculationSnapshot
         {
@@ -229,8 +234,12 @@ public sealed class CalculationSnapshotService
             RoundingPolicyVersion = RoundingPolicyVersion,
             InputHash = inputHash,
             EquationSummary = equation,
-            BoilerKwhPerCubicMeterUsed = setup.BoilerKwhPerCubicMeter,
-            BoilerEfficiencyPercentUsed = setup.BoilerEfficiencyPercent,
+            HotWaterTemperatureCelsiusUsed = boilerAssumptions.HotWaterTemperatureCelsius,
+            HotWaterHeatCapacityUsed = boilerAssumptions.HotWaterHeatCapacity,
+            HotWaterDensityUsed = boilerAssumptions.HotWaterDensity,
+            KiloJouleToKiloWattHourFactorUsed = boilerAssumptions.KiloJouleToKiloWattHourFactor,
+            BoilerKwhPerCubicMeterUsed = boilerAssumptions.BoilerKwhPerCubicMeter,
+            BoilerEfficiencyPercentUsed = boilerAssumptions.BoilerEfficiencyPercent,
             TariffSegments = segmentTraces,
             ComponentLines = componentLines,
             IntegrityChecksPassed = true,
@@ -282,6 +291,10 @@ public sealed class CalculationSnapshotService
             EstimatedAllocationLabel = snapshot.EstimatedAllocationLabel,
             BoilerAssumptions = new BoilerAssumptionSummaryResponse
             {
+                HotWaterTemperatureCelsius = snapshot.HotWaterTemperatureCelsiusUsed.ToString("0.##", CultureInfo.InvariantCulture),
+                HotWaterHeatCapacity = snapshot.HotWaterHeatCapacityUsed.ToString("0.######", CultureInfo.InvariantCulture),
+                HotWaterDensity = snapshot.HotWaterDensityUsed.ToString("0.###", CultureInfo.InvariantCulture),
+                KiloJouleToKiloWattHourFactor = snapshot.KiloJouleToKiloWattHourFactorUsed.ToString("0.###", CultureInfo.InvariantCulture),
                 BoilerKwhPerCubicMeter = snapshot.BoilerKwhPerCubicMeterUsed.ToString("0.#####", CultureInfo.InvariantCulture),
                 BoilerEfficiencyPercent = snapshot.BoilerEfficiencyPercentUsed.ToString("0.#####", CultureInfo.InvariantCulture),
             },
@@ -493,7 +506,19 @@ public sealed class CalculationSnapshotService
             StandingSubtotal = result.StandingSubtotal,
             VatAmount = result.VatAmount,
             Total = decimal.Round(result.Total, 2, MidpointRounding.AwayFromZero),
-            Equation = "total = (usage x unitRate + standing) + VAT",
+            Equation = GetCombinedEquation(component),
+        };
+    }
+
+    private static string GetCombinedEquation(string component)
+    {
+        return component switch
+        {
+            "ColdWater" => "Cold-water total = ((CW x WR) + (D x WS)) x (1 + WV)",
+            "HotWater" => "Hot-water total = (HW x WR) x (1 + WV)",
+            "ApartmentElectricity" => "Apartment electricity total = ((AE x ER) + (D x ES)) x (1 + EV)",
+            "BoilerElectricity" => "Boiler electricity total = (BE x ER) x (1 + EV)",
+            _ => "Total = (usage x unitRate + standing) + VAT",
         };
     }
 
@@ -537,15 +562,21 @@ public sealed class CalculationSnapshotService
         Domain.Billing.ReadingSubmission start,
         Domain.Billing.ReadingSubmission end,
         Domain.Onboarding.UtilitySetupSubmission setup,
-        IReadOnlyList<TariffSegment> segments)
+        IReadOnlyList<TariffSegment> segments,
+        BoilerAssumptionInputs boilerAssumptions)
     {
         var content = new StringBuilder()
             .Append(userId)
             .Append('|').Append(start.Id).Append(':').Append(start.Version)
             .Append('|').Append(end.Id).Append(':').Append(end.Version)
             .Append('|').Append(setup.Id).Append(':').Append(setup.Version)
-            .Append('|').Append(setup.BoilerKwhPerCubicMeter.ToString(CultureInfo.InvariantCulture))
-            .Append('|').Append(setup.BoilerEfficiencyPercent.ToString(CultureInfo.InvariantCulture));
+            .Append('|').Append(boilerAssumptions.EffectiveFromDate)
+            .Append('|').Append(boilerAssumptions.HotWaterTemperatureCelsius.ToString(CultureInfo.InvariantCulture))
+            .Append('|').Append(boilerAssumptions.HotWaterHeatCapacity.ToString(CultureInfo.InvariantCulture))
+            .Append('|').Append(boilerAssumptions.HotWaterDensity.ToString(CultureInfo.InvariantCulture))
+            .Append('|').Append(boilerAssumptions.KiloJouleToKiloWattHourFactor.ToString(CultureInfo.InvariantCulture))
+            .Append('|').Append(boilerAssumptions.BoilerKwhPerCubicMeter.ToString(CultureInfo.InvariantCulture))
+            .Append('|').Append(boilerAssumptions.BoilerEfficiencyPercent.ToString(CultureInfo.InvariantCulture));
 
         foreach (var segment in segments)
         {
@@ -574,6 +605,58 @@ public sealed class CalculationSnapshotService
         return value;
     }
 
+    private async Task<BoilerAssumptionInputs> ResolveBoilerAssumptionsAsync(
+        string userId,
+        ReadingSubmission end,
+        Domain.Onboarding.UtilitySetupSubmission setup,
+        CancellationToken cancellationToken)
+    {
+        Domain.Billing.BoilerAssumptionVersion? selectedVersion = null;
+        if (!string.IsNullOrWhiteSpace(end.AppliedBoilerEffectiveFromDate))
+        {
+            selectedVersion = await boilerAssumptionVersionRepository.GetByUserAndEffectiveFromDateAsync(
+                userId,
+                end.AppliedBoilerEffectiveFromDate,
+                cancellationToken);
+
+            if (selectedVersion is null)
+            {
+                throw new InvalidOperationException(
+                    "The boiler assumptions linked to the selected reading were not found.");
+            }
+        }
+
+        selectedVersion ??= await boilerAssumptionVersionRepository.GetActiveByUserAndDateAsync(
+            userId,
+            end.ReadingDate,
+            cancellationToken);
+
+        if (selectedVersion is not null)
+        {
+            return new BoilerAssumptionInputs
+            {
+                EffectiveFromDate = selectedVersion.EffectiveFromDate,
+                HotWaterTemperatureCelsius = selectedVersion.HotWaterTemperatureCelsius,
+                HotWaterHeatCapacity = selectedVersion.HotWaterHeatCapacity,
+                HotWaterDensity = selectedVersion.HotWaterDensity,
+                KiloJouleToKiloWattHourFactor = selectedVersion.KiloJouleToKiloWattHourFactor,
+                BoilerKwhPerCubicMeter = selectedVersion.BoilerKwhPerCubicMeter,
+                BoilerEfficiencyPercent = selectedVersion.BoilerEfficiencyPercent,
+            };
+        }
+
+        return new BoilerAssumptionInputs
+        {
+            EffectiveFromDate = setup.MoveInDate,
+            HotWaterTemperatureCelsius = setup.HotWaterTemperatureCelsius,
+            HotWaterHeatCapacity = setup.HotWaterHeatCapacity,
+            HotWaterDensity = setup.HotWaterDensity,
+            KiloJouleToKiloWattHourFactor = setup.KiloJouleToKiloWattHourFactor,
+            BoilerKwhPerCubicMeter = setup.BoilerKwhPerCubicMeter,
+            BoilerEfficiencyPercent = setup.BoilerEfficiencyPercent,
+        };
+    }
+
     private sealed class TariffSegment
     {
         public required DateOnly StartDate { get; init; }
@@ -593,5 +676,16 @@ public sealed class CalculationSnapshotService
         public decimal StandingSubtotal { get; init; }
         public decimal VatAmount { get; init; }
         public decimal Total { get; init; }
+    }
+
+    private sealed class BoilerAssumptionInputs
+    {
+        public required string EffectiveFromDate { get; init; }
+        public required decimal HotWaterTemperatureCelsius { get; init; }
+        public required decimal HotWaterHeatCapacity { get; init; }
+        public required decimal HotWaterDensity { get; init; }
+        public required decimal KiloJouleToKiloWattHourFactor { get; init; }
+        public required decimal BoilerKwhPerCubicMeter { get; init; }
+        public required decimal BoilerEfficiencyPercent { get; init; }
     }
 }

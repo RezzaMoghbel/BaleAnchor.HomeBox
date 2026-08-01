@@ -357,6 +357,7 @@ export interface SubmitReadingsResponse {
   userId: string;
   readingDate: string;
   appliedTariffEffectiveFromDate?: string;
+  appliedBoilerEffectiveFromDate?: string;
   message: string;
 }
 
@@ -379,6 +380,25 @@ export interface TariffOptionsResponse {
   items: TariffOptionItemResponse[];
 }
 
+export interface BoilerAssumptionOptionItemResponse {
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+  isLatestApplicable: boolean;
+}
+
+export interface BoilerAssumptionOptionsResponse {
+  userId: string;
+  onDate: string;
+  recommendedEffectiveFromDate: string;
+  count: number;
+  items: BoilerAssumptionOptionItemResponse[];
+}
+
 export interface LatestReadingsResponse {
   userId: string;
   readingDate: string;
@@ -399,6 +419,18 @@ export interface UpsertTariffResponse {
   message: string;
 }
 
+export interface UpsertBoilerAssumptionVersionResponse {
+  userId: string;
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+  message: string;
+}
+
 export interface ActiveTariffResponse {
   userId: string;
   effectiveFromDate: string;
@@ -408,6 +440,17 @@ export interface ActiveTariffResponse {
   electricityTariffPerUnit: string;
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
+}
+
+export interface ActiveBoilerAssumptionResponse {
+  userId: string;
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
 }
 
 export interface CalculateLatestPeriodResponse {
@@ -441,6 +484,10 @@ export interface CalculateLatestPeriodResponse {
 }
 
 export interface BoilerAssumptionSummaryResponse {
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
   boilerKwhPerCubicMeter: string;
   boilerEfficiencyPercent: string;
 }

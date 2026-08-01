@@ -28,10 +28,20 @@ export function useBillingFormState() {
   const [electricityStandingChargePerDay, setElectricityStandingChargePerDay] =
     useState("");
   const [electricityVatPercent, setElectricityVatPercent] = useState("");
+  const [boilerEffectiveFromDate, setBoilerEffectiveFromDate] = useState("");
+  const [hotWaterTemperatureCelsius, setHotWaterTemperatureCelsius] =
+    useState("");
+  const [hotWaterHeatCapacity, setHotWaterHeatCapacity] = useState("");
+  const [hotWaterDensity, setHotWaterDensity] = useState("");
+  const [kiloJouleToKiloWattHourFactor, setKiloJouleToKiloWattHourFactor] =
+    useState("");
+  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] = useState("");
+  const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] = useState("");
   const [readingsFieldErrors, setReadingsFieldErrors] = useState<FieldErrors>(
     {},
   );
   const [tariffFieldErrors, setTariffFieldErrors] = useState<FieldErrors>({});
+  const [boilerFieldErrors, setBoilerFieldErrors] = useState<FieldErrors>({});
 
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
@@ -117,6 +127,55 @@ export function useBillingFormState() {
     );
   };
 
+  const handleBoilerEffectiveFromDateChange = (value: string) => {
+    setBoilerEffectiveFromDate(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "effectiveFromDate"),
+    );
+  };
+
+  const handleHotWaterTemperatureCelsiusChange = (value: string) => {
+    setHotWaterTemperatureCelsius(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "hotWaterTemperatureCelsius"),
+    );
+  };
+
+  const handleHotWaterHeatCapacityChange = (value: string) => {
+    setHotWaterHeatCapacity(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "hotWaterHeatCapacity"),
+    );
+  };
+
+  const handleHotWaterDensityChange = (value: string) => {
+    setHotWaterDensity(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "hotWaterDensity"),
+    );
+  };
+
+  const handleKiloJouleToKiloWattHourFactorChange = (value: string) => {
+    setKiloJouleToKiloWattHourFactor(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "kiloJouleToKiloWattHourFactor"),
+    );
+  };
+
+  const handleBoilerKwhPerCubicMeterChange = (value: string) => {
+    setBoilerKwhPerCubicMeter(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "boilerKwhPerCubicMeter"),
+    );
+  };
+
+  const handleBoilerEfficiencyPercentChange = (value: string) => {
+    setBoilerEfficiencyPercent(value);
+    setBoilerFieldErrors((current) =>
+      clearFieldError(current, "boilerEfficiencyPercent"),
+    );
+  };
+
   const handlePaymentAmountChange = (value: string) => {
     setPaymentAmount(value);
     setPaymentFieldErrors((current) => clearFieldError(current, "amount"));
@@ -154,8 +213,16 @@ export function useBillingFormState() {
     electricityTariffPerUnit,
     electricityStandingChargePerDay,
     electricityVatPercent,
+    boilerEffectiveFromDate,
+    hotWaterTemperatureCelsius,
+    hotWaterHeatCapacity,
+    hotWaterDensity,
+    kiloJouleToKiloWattHourFactor,
+    boilerKwhPerCubicMeter,
+    boilerEfficiencyPercent,
     readingsFieldErrors,
     tariffFieldErrors,
+    boilerFieldErrors,
     paymentAmount,
     paymentDate,
     paymentMethod,
@@ -169,6 +236,7 @@ export function useBillingFormState() {
     setPaymentNotes,
     setReadingsFieldErrors,
     setTariffFieldErrors,
+    setBoilerFieldErrors,
     setPaymentFieldErrors,
     handleReadingDateChange,
     handleColdWaterReadingChange,
@@ -181,6 +249,13 @@ export function useBillingFormState() {
     handleElectricityTariffPerUnitChange,
     handleElectricityStandingChargePerDayChange,
     handleElectricityVatPercentChange,
+    handleBoilerEffectiveFromDateChange,
+    handleHotWaterTemperatureCelsiusChange,
+    handleHotWaterHeatCapacityChange,
+    handleHotWaterDensityChange,
+    handleKiloJouleToKiloWattHourFactorChange,
+    handleBoilerKwhPerCubicMeterChange,
+    handleBoilerEfficiencyPercentChange,
     handlePaymentAmountChange,
     handlePaymentDateChange,
     handlePaymentMethodChange,

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { PortalApiError, portalClient } from "../../api/portalClient";
 import type {
+  BoilerAssumptionOptionItemResponse,
   FieldErrors,
   LatestReadingsResponse,
   StatementPeriodItemResponse,
@@ -24,7 +25,10 @@ interface ReadingsDashboardViewProps {
   onColdWaterReadingChange: (value: string) => void;
   onHotWaterReadingChange: (value: string) => void;
   onElectricityReadingChange: (value: string) => void;
-  onSubmitReadings: (tariffEffectiveFromDate?: string) => Promise<boolean>;
+  onSubmitReadings: (selection?: {
+    tariffEffectiveFromDate?: string;
+    boilerEffectiveFromDate?: string;
+  }) => Promise<boolean>;
   onUpdateLatestReadings: () => Promise<boolean>;
   onLoadLatestReadings: () => Promise<void>;
   onRunLatestCalculation: () => Promise<void>;
@@ -69,8 +73,14 @@ export function ReadingsDashboardView({
   const [tariffOptions, setTariffOptions] = useState<
     TariffOptionItemResponse[]
   >([]);
+  const [boilerOptions, setBoilerOptions] = useState<
+    BoilerAssumptionOptionItemResponse[]
+  >([]);
   const [tariffOptionsLoading, setTariffOptionsLoading] = useState(false);
+  const [boilerOptionsLoading, setBoilerOptionsLoading] = useState(false);
   const [selectedTariffEffectiveFromDate, setSelectedTariffEffectiveFromDate] =
+    useState("");
+  const [selectedBoilerEffectiveFromDate, setSelectedBoilerEffectiveFromDate] =
     useState("");
   const pageSize = 12;
 
@@ -187,7 +197,142 @@ export function ReadingsDashboardView({
       maximumFractionDigits: 5,
     }).format(Number(value ?? "0"));
 
+  const formatDecimalUpTo5 = (value: number) =>
+    new Intl.NumberFormat("en-GB", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 5,
+    }).format(value);
+
   const formatPercent = (value?: string) => `${formatUsage(value)}%`;
+
+  const formatComponentUsage = (component: string, usage?: string) => {
+    const normalized = component.toLowerCase();
+
+    if (normalized.includes("water")) {
+      return `${formatUsage(usage)} m3`;
+    }
+
+    if (normalized.includes("electric")) {
+      return `${formatUsage(usage)} kWh`;
+    }
+
+    return formatUsage(usage);
+  };
+
+  const formatUsageSubtotalTooltip = (usage: string, usageSubtotal: string) => {
+    const usageValue = Number(usage);
+    const usageSubtotalValue = Number(usageSubtotal);
+
+    if (!Number.isFinite(usageValue) || usageValue <= 0) {
+      return "Usage and unit rate details are not available for this row.";
+    }
+
+    const unitRateValue = usageSubtotalValue / usageValue;
+    const unitRateText = formatDecimalUpTo5(unitRateValue);
+    const usageText = formatUsage(usage);
+
+    return `(${usageText} x ${unitRateText})`;
+  };
+
+  const formatStandingSubtotalTooltip = (
+    standingSubtotal: string,
+    periodDays: number,
+  ) => {
+    const standingSubtotalValue = Number(standingSubtotal);
+
+    if (!Number.isFinite(standingSubtotalValue) || periodDays <= 0) {
+      return "Standing day-rate details are not available for this row.";
+    }
+
+    const standingRatePerDay = standingSubtotalValue / periodDays;
+    const standingRateText = formatDecimalUpTo5(standingRatePerDay);
+
+    return `(${periodDays} x ${standingRateText})`;
+  };
+
+  const getComponentDisplayName = (component: string) => {
+    return component
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace("Electricity", "Elec");
+  };
+
+  const equationVariableDescriptions: Record<string, string> = {
+    CW: "Cold-water usage in m3",
+    HW: "Hot-water usage in m3",
+    AE: "Apartment electricity usage in kWh",
+    BE: "Boiler electricity usage in kWh",
+    D: "Number of days in the calculation period",
+    WR: "Water unit rate per m3",
+    WS: "Water standing charge per day",
+    WV: "Water VAT rate as a decimal",
+    ER: "Electricity unit rate per kWh",
+    ES: "Electricity standing charge per day",
+    EV: "Electricity VAT rate as a decimal",
+    WT: "Temperature increase in °C",
+    HC: "Specific heat capacity of water in kJ/kg°C",
+    WD: "Approximate water density in kg/m3",
+    NK: "Number of kilojoules in one kWh",
+    ΔT: "Temperature increase in °C",
+    "4.186": "Specific heat capacity of water in kJ/kg°C",
+    "1,000": "Approximate water density in kg/m3",
+    "3,600": "Number of kilojoules in one kWh",
+  };
+
+  const renderEquationWithTooltips = (equation: string) => {
+    const tokens = equation.split(
+      /(CW|HW|AE|BE|WR|WS|WV|ER|ES|EV|D|WT|HC|WD|NK|ΔT|4\.186|1,000|3,600)/g,
+    );
+
+    return tokens.map((token, index) => {
+      const description = equationVariableDescriptions[token];
+      if (!description) {
+        return <span key={`eq-token-${index}-${token}`}>{token}</span>;
+      }
+
+      return (
+        <span
+          key={`eq-token-${index}-${token}`}
+          className="text-decoration-underline"
+          style={{ textDecorationStyle: "dotted", cursor: "help" }}
+          data-ba-tooltip="equation-variable"
+          data-bs-toggle="tooltip"
+          data-bs-placement="top"
+          title={description}
+        >
+          {token}
+        </span>
+      );
+    });
+  };
+
+  const getCanonicalEquation = (component: string, equation: string) => {
+    const normalized = equation.replace(/\s+/g, " ").trim().toLowerCase();
+
+    if (normalized !== "total = (usage x unitrate + standing) + vat") {
+      return equation;
+    }
+
+    switch (component) {
+      case "ColdWater":
+        return "Cold-water total = ((CW x WR) + (D x WS)) x (1 + WV)";
+      case "HotWater":
+        return "Hot-water volume total = (HW x WR) x (1 + WV)";
+      case "ApartmentElectricity":
+        return "Apartment electricity total = ((AE x ER) + (D x ES)) x (1 + EV)";
+      case "BoilerElectricity":
+        return "Boiler electricity total = (BE x ER) x (1 + EV)";
+      default:
+        return equation;
+    }
+  };
+
+  const getBoilerUsageEquation = (component: string) => {
+    if (component !== "BoilerElectricity") {
+      return null;
+    }
+
+    return "BE = HW x WT x HC x WD ÷ NK";
+  };
 
   const toNumber = (value?: string) => Number(value ?? "0");
 
@@ -265,7 +410,9 @@ export function ReadingsDashboardView({
     onHotWaterReadingChange(latestReadings?.hotWaterReading ?? "");
     onElectricityReadingChange(latestReadings?.electricityReading ?? "");
     setTariffOptions([]);
+    setBoilerOptions([]);
     setSelectedTariffEffectiveFromDate("");
+    setSelectedBoilerEffectiveFromDate("");
     setIsModalOpen(true);
   };
 
@@ -305,7 +452,10 @@ export function ReadingsDashboardView({
   const handleModalSubmit = async () => {
     const success =
       modalMode === "add"
-        ? await onSubmitReadings(selectedTariffEffectiveFromDate)
+        ? await onSubmitReadings({
+            tariffEffectiveFromDate: selectedTariffEffectiveFromDate,
+            boilerEffectiveFromDate: selectedBoilerEffectiveFromDate,
+          })
         : await onUpdateLatestReadings();
 
     if (!success) {
@@ -349,6 +499,39 @@ export function ReadingsDashboardView({
     }
   };
 
+  const loadBoilerOptions = async (onDate: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(onDate)) {
+      return;
+    }
+
+    setBoilerOptionsLoading(true);
+    try {
+      const body = await portalClient.getBoilerAssumptionOptions(onDate);
+      setBoilerOptions(body.items);
+
+      const hasCurrentSelection = body.items.some(
+        (item) => item.effectiveFromDate === selectedBoilerEffectiveFromDate,
+      );
+
+      if (!hasCurrentSelection) {
+        setSelectedBoilerEffectiveFromDate(body.recommendedEffectiveFromDate);
+      }
+    } catch (error) {
+      setBoilerOptions([]);
+      setSelectedBoilerEffectiveFromDate("");
+
+      if (error instanceof PortalApiError) {
+        setDashboardMessage(
+          `Unable to load boiler assumption options. ${error.message}`,
+        );
+      } else {
+        setDashboardMessage("Unable to load boiler assumption options.");
+      }
+    } finally {
+      setBoilerOptionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (
       !isModalOpen ||
@@ -358,7 +541,10 @@ export function ReadingsDashboardView({
       return;
     }
 
-    void loadTariffOptions(readingDate);
+    void Promise.all([
+      loadTariffOptions(readingDate),
+      loadBoilerOptions(readingDate),
+    ]);
   }, [isModalOpen, modalMode, readingDate]);
 
   const latestSnapshotId = periods[0]?.snapshotId;
@@ -371,11 +557,49 @@ export function ReadingsDashboardView({
   const selectedTariffOption = tariffOptions.find(
     (option) => option.effectiveFromDate === selectedTariffEffectiveFromDate,
   );
+  const selectedBoilerOption = boilerOptions.find(
+    (option) => option.effectiveFromDate === selectedBoilerEffectiveFromDate,
+  );
   const selectedTariffIndex = tariffOptions.findIndex(
     (option) => option.effectiveFromDate === selectedTariffEffectiveFromDate,
   );
   const previousTariffOption =
     selectedTariffIndex >= 0 ? tariffOptions[selectedTariffIndex + 1] : null;
+  const detailsPeriodDays =
+    detailsSummary?.tariffSegments.reduce(
+      (totalDays, segment) => totalDays + segment.days,
+      0,
+    ) ?? 0;
+
+  useEffect(() => {
+    if (!isDetailsModalOpen) {
+      return;
+    }
+
+    const bootstrapWindow = window as Window & {
+      bootstrap?: {
+        Tooltip: new (element: Element) => { dispose?: () => void };
+      };
+    };
+
+    const TooltipConstructor = bootstrapWindow.bootstrap?.Tooltip;
+    if (!TooltipConstructor) {
+      return;
+    }
+
+    const tooltipElements = Array.from(
+      document.querySelectorAll("[data-ba-tooltip]"),
+    );
+    const tooltipInstances = tooltipElements.map(
+      (element) => new TooltipConstructor(element),
+    );
+
+    return () => {
+      for (const instance of tooltipInstances) {
+        instance.dispose?.();
+      }
+    };
+  }, [isDetailsModalOpen, detailsSummary]);
 
   return (
     <div className="wrapper">
@@ -953,6 +1177,104 @@ export function ReadingsDashboardView({
                                 </div>
                               </div>
                             )}
+
+                            <div className="col-12">
+                              <label
+                                htmlFor="boilerEffectiveFromDateModal"
+                                className="form-label"
+                              >
+                                Boiler assumptions effective from
+                              </label>
+                              <select
+                                id="boilerEffectiveFromDateModal"
+                                className={`form-select ${getFieldErrors(readingsFieldErrors, "boilerEffectiveFromDate").length > 0 ? "is-invalid" : ""}`}
+                                value={selectedBoilerEffectiveFromDate}
+                                onChange={(event) =>
+                                  setSelectedBoilerEffectiveFromDate(
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={boilerOptionsLoading || loading}
+                              >
+                                <option value="" disabled>
+                                  {boilerOptionsLoading
+                                    ? "Loading boiler options..."
+                                    : "Select boiler assumptions by effective date"}
+                                </option>
+                                {boilerOptions.map((option) => (
+                                  <option
+                                    key={option.effectiveFromDate}
+                                    value={option.effectiveFromDate}
+                                  >
+                                    {option.effectiveFromDate}
+                                    {option.isLatestApplicable
+                                      ? " (latest available)"
+                                      : ""}
+                                  </option>
+                                ))}
+                              </select>
+                              {getFieldErrors(
+                                readingsFieldErrors,
+                                "boilerEffectiveFromDate",
+                              ).length > 0 && (
+                                <div className="invalid-feedback d-block">
+                                  {getFieldErrors(
+                                    readingsFieldErrors,
+                                    "boilerEffectiveFromDate",
+                                  ).join(" ")}
+                                </div>
+                              )}
+                              <div className="form-text">
+                                Boiler assumptions are filtered to dates on or
+                                before the reading date and the latest
+                                applicable version is selected by default.
+                              </div>
+                            </div>
+
+                            {selectedBoilerOption && (
+                              <div className="col-12">
+                                <div className="card border bg-light-subtle mb-0">
+                                  <div className="card-body py-3">
+                                    <div className="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
+                                      <h6 className="mb-0">
+                                        Selected boiler assumptions preview
+                                      </h6>
+                                      {selectedBoilerOption.isLatestApplicable && (
+                                        <span className="badge bg-success">
+                                          Latest available
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="small text-secondary">
+                                      Temp:{" "}
+                                      {
+                                        selectedBoilerOption.hotWaterTemperatureCelsius
+                                      }
+                                      {" | Heat cap: "}
+                                      {
+                                        selectedBoilerOption.hotWaterHeatCapacity
+                                      }
+                                      {" | Density: "}
+                                      {selectedBoilerOption.hotWaterDensity}
+                                      {" | kJ→kWh: "}
+                                      {
+                                        selectedBoilerOption.kiloJouleToKiloWattHourFactor
+                                      }
+                                    </div>
+                                    <div className="small text-secondary">
+                                      kWh/m3:{" "}
+                                      {
+                                        selectedBoilerOption.boilerKwhPerCubicMeter
+                                      }
+                                      {" | Efficiency %: "}
+                                      {
+                                        selectedBoilerOption.boilerEfficiencyPercent
+                                      }
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </>
                         )}
 
@@ -1161,9 +1483,6 @@ export function ReadingsDashboardView({
                           <div className="card border shadow-sm mb-0">
                             <div className="card-body">
                               <h6 className="mb-2">Calculation metadata</h6>
-                              <div className="small text-secondary mb-2">
-                                {detailsSummary.equationSummary}
-                              </div>
                               <div className="row g-3 small">
                                 <div className="col-12 col-md-6">
                                   <div>
@@ -1172,14 +1491,6 @@ export function ReadingsDashboardView({
                                     </span>{" "}
                                     <span className="fw-semibold">
                                       {detailsSummary.engineVersion}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="text-secondary">
-                                      Rounding policy:
-                                    </span>{" "}
-                                    <span className="fw-semibold">
-                                      {detailsSummary.roundingPolicyVersion}
                                     </span>
                                   </div>
                                 </div>
@@ -1196,14 +1507,6 @@ export function ReadingsDashboardView({
                                         : "Failed"}
                                     </span>
                                   </div>
-                                  <div className="text-truncate">
-                                    <span className="text-secondary">
-                                      Integrity digest:
-                                    </span>{" "}
-                                    <span className="fw-semibold">
-                                      {detailsSummary.integrityDigest}
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1213,6 +1516,50 @@ export function ReadingsDashboardView({
                             <div className="card-body">
                               <h6 className="mb-2">Boiler assumptions</h6>
                               <div className="row g-3 small">
+                                <div className="col-12 col-md-6">
+                                  <span className="text-secondary">
+                                    Temp (deg C):
+                                  </span>{" "}
+                                  <span className="fw-semibold">
+                                    {
+                                      detailsSummary.boilerAssumptions
+                                        .hotWaterTemperatureCelsius
+                                    }
+                                  </span>
+                                </div>
+                                <div className="col-12 col-md-6">
+                                  <span className="text-secondary">
+                                    Heat capacity:
+                                  </span>{" "}
+                                  <span className="fw-semibold">
+                                    {
+                                      detailsSummary.boilerAssumptions
+                                        .hotWaterHeatCapacity
+                                    }
+                                  </span>
+                                </div>
+                                <div className="col-12 col-md-6">
+                                  <span className="text-secondary">
+                                    Water density:
+                                  </span>{" "}
+                                  <span className="fw-semibold">
+                                    {
+                                      detailsSummary.boilerAssumptions
+                                        .hotWaterDensity
+                                    }
+                                  </span>
+                                </div>
+                                <div className="col-12 col-md-6">
+                                  <span className="text-secondary">
+                                    kJ to kWh factor:
+                                  </span>{" "}
+                                  <span className="fw-semibold">
+                                    {
+                                      detailsSummary.boilerAssumptions
+                                        .kiloJouleToKiloWattHourFactor
+                                    }
+                                  </span>
+                                </div>
                                 <div className="col-12 col-md-6">
                                   <span className="text-secondary">
                                     kWh per m3:
@@ -1248,12 +1595,12 @@ export function ReadingsDashboardView({
                                     <tr>
                                       <th scope="col">Segment</th>
                                       <th scope="col">Days</th>
-                                      <th scope="col">Cold m3</th>
-                                      <th scope="col">Hot m3</th>
-                                      <th scope="col">Apartment kWh</th>
-                                      <th scope="col">Boiler kWh</th>
-                                      <th scope="col">Water unit</th>
-                                      <th scope="col">Electric unit</th>
+                                      <th scope="col">Water Unit Rate</th>
+                                      <th scope="col">Water Standing</th>
+                                      <th scope="col">Water VAT</th>
+                                      <th scope="col">Electric Unit Rate</th>
+                                      <th scope="col">Electric Standing</th>
+                                      <th scope="col">Electric VAT</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1277,31 +1624,37 @@ export function ReadingsDashboardView({
                                           </td>
                                           <td>{segment.days}</td>
                                           <td>
-                                            {formatUsage(
-                                              segment.coldWaterUsage,
-                                            )}
-                                          </td>
-                                          <td>
-                                            {formatUsage(segment.hotWaterUsage)}
-                                          </td>
-                                          <td>
-                                            {formatUsage(
-                                              segment.apartmentElectricityUsage,
-                                            )}
-                                          </td>
-                                          <td>
-                                            {formatUsage(
-                                              segment.boilerElectricityUsage,
-                                            )}
-                                          </td>
-                                          <td>
-                                            {formatCurrency(
+                                            {formatCurrencyUpTo5(
                                               segment.waterTariffPerUnit,
+                                            )}{" "}
+                                            /m3
+                                          </td>
+                                          <td>
+                                            {formatCurrencyUpTo5(
+                                              segment.waterStandingChargePerDay,
+                                            )}{" "}
+                                            /day
+                                          </td>
+                                          <td>
+                                            {formatPercent(
+                                              segment.waterVatPercent,
                                             )}
                                           </td>
                                           <td>
-                                            {formatCurrency(
+                                            {formatCurrencyUpTo5(
                                               segment.electricityTariffPerUnit,
+                                            )}{" "}
+                                            /kWh
+                                          </td>
+                                          <td>
+                                            {formatCurrencyUpTo5(
+                                              segment.electricityStandingChargePerDay,
+                                            )}{" "}
+                                            /day
+                                          </td>
+                                          <td>
+                                            {formatPercent(
+                                              segment.electricityVatPercent,
                                             )}
                                           </td>
                                         </tr>
@@ -1322,11 +1675,11 @@ export function ReadingsDashboardView({
                                     <tr>
                                       <th scope="col">Component</th>
                                       <th scope="col">Usage</th>
-                                      <th scope="col">Subtotal (usage)</th>
-                                      <th scope="col">Subtotal (standing)</th>
-                                      <th scope="col">VAT</th>
+                                      <th scope="col">Usage total</th>
+                                      <th scope="col">Standing total</th>
                                       <th scope="col">Total</th>
-                                      <th scope="col">Equation</th>
+                                      <th scope="col">VAT</th>
+                                      <th scope="col">Sub Total</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1334,27 +1687,106 @@ export function ReadingsDashboardView({
                                       (line) => (
                                         <tr key={line.component}>
                                           <td>{line.component}</td>
-                                          <td>{formatUsage(line.usage)}</td>
                                           <td>
-                                            {formatCurrency(line.usageSubtotal)}
+                                            {formatComponentUsage(
+                                              line.component,
+                                              line.usage,
+                                            )}
+                                          </td>
+                                          <td>
+                                            <span
+                                              className="text-decoration-underline"
+                                              style={{
+                                                textDecorationStyle: "dotted",
+                                                cursor: "help",
+                                              }}
+                                              data-ba-tooltip="usage-subtotal"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              title={formatUsageSubtotalTooltip(
+                                                line.usage,
+                                                line.usageSubtotal,
+                                              )}
+                                            >
+                                              {formatCurrency(
+                                                line.usageSubtotal,
+                                              )}
+                                            </span>
+                                          </td>
+                                          <td>
+                                            <span
+                                              className="text-decoration-underline"
+                                              style={{
+                                                textDecorationStyle: "dotted",
+                                                cursor: "help",
+                                              }}
+                                              data-ba-tooltip="standing-subtotal"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              title={formatStandingSubtotalTooltip(
+                                                line.standingSubtotal,
+                                                detailsPeriodDays,
+                                              )}
+                                            >
+                                              {formatCurrency(
+                                                line.standingSubtotal,
+                                              )}
+                                            </span>
                                           </td>
                                           <td>
                                             {formatCurrency(
-                                              line.standingSubtotal,
+                                              String(
+                                                toNumber(line.usageSubtotal) +
+                                                  toNumber(
+                                                    line.standingSubtotal,
+                                                  ),
+                                              ),
                                             )}
                                           </td>
                                           <td>
                                             {formatCurrency(line.vatAmount)}
                                           </td>
                                           <td>{formatCurrency(line.total)}</td>
-                                          <td className="small text-secondary">
-                                            {line.equation}
-                                          </td>
                                         </tr>
                                       ),
                                     )}
                                   </tbody>
                                 </table>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="card border shadow-sm mb-0">
+                            <div className="card-body">
+                              <h6 className="mb-2">Equations</h6>
+                              <div className="d-flex flex-column gap-3">
+                                {detailsSummary.componentLines.map((line) => (
+                                  <div
+                                    key={`equation-${line.component}`}
+                                    className="small border rounded p-2"
+                                  >
+                                    <div className="fw-semibold mb-1">
+                                      {getComponentDisplayName(line.component)}
+                                    </div>
+                                    <div className="small font-monospace text-secondary">
+                                      {renderEquationWithTooltips(
+                                        getCanonicalEquation(
+                                          line.component,
+                                          line.equation,
+                                        ),
+                                      )}
+                                    </div>
+                                    {getBoilerUsageEquation(line.component) && (
+                                      <div className="small font-monospace text-secondary mt-1">
+                                        {renderEquationWithTooltips(
+                                          getBoilerUsageEquation(
+                                            line.component,
+                                          ) ?? "",
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           </div>

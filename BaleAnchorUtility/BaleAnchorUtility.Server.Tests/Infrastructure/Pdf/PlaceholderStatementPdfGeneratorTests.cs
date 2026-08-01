@@ -36,6 +36,10 @@ public sealed class PlaceholderStatementPdfGeneratorTests
                 EquationSummary = "eq",
                 BoilerAssumptions = new BoilerAssumptionSummaryResponse
                 {
+                    HotWaterTemperatureCelsius = "55",
+                    HotWaterHeatCapacity = "4.186",
+                    HotWaterDensity = "1000",
+                    KiloJouleToKiloWattHourFactor = "3600",
                     BoilerKwhPerCubicMeter = "3",
                     BoilerEfficiencyPercent = "100",
                 },

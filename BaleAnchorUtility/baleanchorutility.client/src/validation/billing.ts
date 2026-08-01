@@ -47,6 +47,16 @@ const tariffSchema = z.object({
   electricityVatPercent: decimalUpTo6Schema,
 });
 
+const boilerAssumptionSchema = z.object({
+  effectiveFromDate: isoDateSchema,
+  hotWaterTemperatureCelsius: decimalUpTo6Schema,
+  hotWaterHeatCapacity: decimalUpTo6Schema,
+  hotWaterDensity: decimalUpTo6Schema,
+  kiloJouleToKiloWattHourFactor: decimalUpTo6Schema,
+  boilerKwhPerCubicMeter: decimalUpTo6Schema,
+  boilerEfficiencyPercent: decimalUpTo6Schema,
+});
+
 const paymentSchema = z.object({
   amount: decimalUpTo2Schema,
   paymentDate: isoDateSchema,
@@ -73,7 +83,9 @@ interface ReadingsValidationInput {
   hotWaterReading: string;
   electricityReading: string;
   tariffEffectiveFromDate?: string;
+  boilerEffectiveFromDate?: string;
   requireTariffSelection?: boolean;
+  requireBoilerSelection?: boolean;
 }
 
 interface TariffValidationInput {
@@ -84,6 +96,16 @@ interface TariffValidationInput {
   electricityTariffPerUnit: string;
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
+}
+
+interface BoilerAssumptionValidationInput {
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
 }
 
 interface PaymentValidationInput {
@@ -130,6 +152,18 @@ export function validateReadingsInput(
     };
   }
 
+  if (
+    input.requireBoilerSelection &&
+    (!input.boilerEffectiveFromDate ||
+      input.boilerEffectiveFromDate.trim().length === 0)
+  ) {
+    return {
+      boilerEffectiveFromDate: [
+        "Select the latest available boiler assumptions.",
+      ],
+    };
+  }
+
   return {};
 }
 
@@ -143,6 +177,22 @@ export function validateTariffInput(input: TariffValidationInput): FieldErrors {
     electricityStandingChargePerDay:
       input.electricityStandingChargePerDay.trim(),
     electricityVatPercent: input.electricityVatPercent.trim(),
+  });
+
+  return result.success ? {} : toFieldErrors(result.error);
+}
+
+export function validateBoilerAssumptionInput(
+  input: BoilerAssumptionValidationInput,
+): FieldErrors {
+  const result = boilerAssumptionSchema.safeParse({
+    effectiveFromDate: input.effectiveFromDate.trim(),
+    hotWaterTemperatureCelsius: input.hotWaterTemperatureCelsius.trim(),
+    hotWaterHeatCapacity: input.hotWaterHeatCapacity.trim(),
+    hotWaterDensity: input.hotWaterDensity.trim(),
+    kiloJouleToKiloWattHourFactor: input.kiloJouleToKiloWattHourFactor.trim(),
+    boilerKwhPerCubicMeter: input.boilerKwhPerCubicMeter.trim(),
+    boilerEfficiencyPercent: input.boilerEfficiencyPercent.trim(),
   });
 
   return result.success ? {} : toFieldErrors(result.error);

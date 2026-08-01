@@ -62,8 +62,16 @@ function App() {
     electricityTariffPerUnit,
     electricityStandingChargePerDay,
     electricityVatPercent,
+    boilerEffectiveFromDate,
+    hotWaterTemperatureCelsius,
+    hotWaterHeatCapacity,
+    hotWaterDensity,
+    kiloJouleToKiloWattHourFactor,
+    boilerKwhPerCubicMeter,
+    boilerEfficiencyPercent,
     readingsFieldErrors,
     tariffFieldErrors,
+    boilerFieldErrors,
     paymentAmount,
     paymentDate,
     paymentMethod,
@@ -77,6 +85,7 @@ function App() {
     setPaymentNotes,
     setReadingsFieldErrors,
     setTariffFieldErrors,
+    setBoilerFieldErrors,
     setPaymentFieldErrors,
     handleReadingDateChange,
     handleColdWaterReadingChange,
@@ -89,6 +98,13 @@ function App() {
     handleElectricityTariffPerUnitChange,
     handleElectricityStandingChargePerDayChange,
     handleElectricityVatPercentChange,
+    handleBoilerEffectiveFromDateChange,
+    handleHotWaterTemperatureCelsiusChange,
+    handleHotWaterHeatCapacityChange,
+    handleHotWaterDensityChange,
+    handleKiloJouleToKiloWattHourFactorChange,
+    handleBoilerKwhPerCubicMeterChange,
+    handleBoilerEfficiencyPercentChange,
     handlePaymentAmountChange,
     handlePaymentDateChange,
     handlePaymentMethodChange,
@@ -223,6 +239,7 @@ function App() {
     billingMessage,
     latestReadings,
     activeTariff,
+    activeBoilerAssumption,
     latestCalculation,
     paymentMessage,
     latestPaymentSummary,
@@ -234,6 +251,8 @@ function App() {
     loadLatestReadings,
     submitTariffVersion,
     loadActiveTariff,
+    submitBoilerAssumptionVersion,
+    loadActiveBoilerAssumption,
     runLatestCalculation,
     loadLatestCalculation,
     recordLatestPeriodPayment,
@@ -256,6 +275,13 @@ function App() {
     electricityTariffPerUnit,
     electricityStandingChargePerDay,
     electricityVatPercent,
+    boilerEffectiveFromDate,
+    hotWaterTemperatureCelsius,
+    hotWaterHeatCapacity,
+    hotWaterDensity,
+    kiloJouleToKiloWattHourFactor,
+    boilerKwhPerCubicMeter,
+    boilerEfficiencyPercent,
     paymentAmount,
     paymentDate,
     paymentMethod,
@@ -268,6 +294,7 @@ function App() {
     setPaymentNotes,
     setReadingsFieldErrors,
     setTariffFieldErrors,
+    setBoilerFieldErrors,
     setPaymentFieldErrors,
   });
 
@@ -600,10 +627,10 @@ function App() {
     initialElectricityTariffPerUnit,
     initialElectricityStandingChargePerDay,
     initialElectricityVatPercent,
-    hotWaterTemperatureCelsius,
-    hotWaterHeatCapacity,
-    hotWaterDensity,
-    kiloJouleToKiloWattHourFactor,
+    hotWaterTemperatureCelsius: onboardingHotWaterTemperatureCelsius,
+    hotWaterHeatCapacity: onboardingHotWaterHeatCapacity,
+    hotWaterDensity: onboardingHotWaterDensity,
+    kiloJouleToKiloWattHourFactor: onboardingKiloJouleToKiloWattHourFactor,
     utilitySetupMessage,
     utilityFieldErrors,
     onboardingProgress,
@@ -628,10 +655,11 @@ function App() {
     setInitialElectricityTariffPerUnit,
     setInitialElectricityStandingChargePerDay,
     setInitialElectricityVatPercent,
-    setHotWaterTemperatureCelsius,
-    setHotWaterHeatCapacity,
-    setHotWaterDensity,
-    setKiloJouleToKiloWattHourFactor,
+    setHotWaterTemperatureCelsius: setOnboardingHotWaterTemperatureCelsius,
+    setHotWaterHeatCapacity: setOnboardingHotWaterHeatCapacity,
+    setHotWaterDensity: setOnboardingHotWaterDensity,
+    setKiloJouleToKiloWattHourFactor:
+      setOnboardingKiloJouleToKiloWattHourFactor,
   } = useOnboardingWorkflow({
     setLoading,
     setStatusMessage,
@@ -880,10 +908,10 @@ function App() {
         initialElectricityStandingChargePerDay
       }
       initialElectricityVatPercent={initialElectricityVatPercent}
-      hotWaterTemperatureCelsius={hotWaterTemperatureCelsius}
-      hotWaterHeatCapacity={hotWaterHeatCapacity}
-      hotWaterDensity={hotWaterDensity}
-      kiloJouleToKiloWattHourFactor={kiloJouleToKiloWattHourFactor}
+      hotWaterTemperatureCelsius={onboardingHotWaterTemperatureCelsius}
+      hotWaterHeatCapacity={onboardingHotWaterHeatCapacity}
+      hotWaterDensity={onboardingHotWaterDensity}
+      kiloJouleToKiloWattHourFactor={onboardingKiloJouleToKiloWattHourFactor}
       profileFieldErrors={profileFieldErrors}
       utilityFieldErrors={utilityFieldErrors}
       getFieldErrors={getFieldErrors}
@@ -913,10 +941,14 @@ function App() {
         setInitialElectricityStandingChargePerDay
       }
       onInitialElectricityVatPercentChange={setInitialElectricityVatPercent}
-      onHotWaterTemperatureCelsiusChange={setHotWaterTemperatureCelsius}
-      onHotWaterHeatCapacityChange={setHotWaterHeatCapacity}
-      onHotWaterDensityChange={setHotWaterDensity}
-      onKiloJouleToKiloWattHourFactorChange={setKiloJouleToKiloWattHourFactor}
+      onHotWaterTemperatureCelsiusChange={
+        setOnboardingHotWaterTemperatureCelsius
+      }
+      onHotWaterHeatCapacityChange={setOnboardingHotWaterHeatCapacity}
+      onHotWaterDensityChange={setOnboardingHotWaterDensity}
+      onKiloJouleToKiloWattHourFactorChange={
+        setOnboardingKiloJouleToKiloWattHourFactor
+      }
     />
   );
 
@@ -1258,9 +1290,18 @@ function App() {
       electricityTariffPerUnit={electricityTariffPerUnit}
       electricityStandingChargePerDay={electricityStandingChargePerDay}
       electricityVatPercent={electricityVatPercent}
+      boilerEffectiveFromDate={boilerEffectiveFromDate}
+      hotWaterTemperatureCelsius={hotWaterTemperatureCelsius}
+      hotWaterHeatCapacity={hotWaterHeatCapacity}
+      hotWaterDensity={hotWaterDensity}
+      kiloJouleToKiloWattHourFactor={kiloJouleToKiloWattHourFactor}
+      boilerKwhPerCubicMeter={boilerKwhPerCubicMeter}
+      boilerEfficiencyPercent={boilerEfficiencyPercent}
       tariffFieldErrors={tariffFieldErrors}
+      boilerFieldErrors={boilerFieldErrors}
       billingMessage={billingMessage}
       activeTariff={activeTariff}
+      activeBoilerAssumption={activeBoilerAssumption}
       latestCalculation={latestCalculation}
       getFieldErrors={getFieldErrors}
       onTariffEffectiveFromDateChange={handleTariffEffectiveFromDateChange}
@@ -1272,8 +1313,21 @@ function App() {
         handleElectricityStandingChargePerDayChange
       }
       onElectricityVatPercentChange={handleElectricityVatPercentChange}
+      onBoilerEffectiveFromDateChange={handleBoilerEffectiveFromDateChange}
+      onHotWaterTemperatureCelsiusChange={
+        handleHotWaterTemperatureCelsiusChange
+      }
+      onHotWaterHeatCapacityChange={handleHotWaterHeatCapacityChange}
+      onHotWaterDensityChange={handleHotWaterDensityChange}
+      onKiloJouleToKiloWattHourFactorChange={
+        handleKiloJouleToKiloWattHourFactorChange
+      }
+      onBoilerKwhPerCubicMeterChange={handleBoilerKwhPerCubicMeterChange}
+      onBoilerEfficiencyPercentChange={handleBoilerEfficiencyPercentChange}
       onSubmitTariffVersion={submitTariffVersion}
       onLoadActiveTariff={loadActiveTariff}
+      onSubmitBoilerAssumptionVersion={submitBoilerAssumptionVersion}
+      onLoadActiveBoilerAssumption={loadActiveBoilerAssumption}
       onRunLatestCalculation={runLatestCalculation}
       onLoadLatestCalculation={loadLatestCalculation}
       formatDateRange={formatDateRange}

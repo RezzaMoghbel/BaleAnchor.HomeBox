@@ -8,6 +8,7 @@ public sealed class ReadingSubmission
     public decimal ColdWaterReading { get; set; }
     public decimal HotWaterReading { get; set; }
     public decimal ElectricityReading { get; set; }
+    public string? AppliedBoilerEffectiveFromDate { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public int Version { get; set; }

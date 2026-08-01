@@ -24,6 +24,10 @@ public sealed class CalculationSnapshot
     public string RoundingPolicyVersion { get; set; } = "money-2dp-awayfromzero:v1";
     public required string InputHash { get; set; }
     public required string EquationSummary { get; set; }
+    public decimal HotWaterTemperatureCelsiusUsed { get; set; }
+    public decimal HotWaterHeatCapacityUsed { get; set; }
+    public decimal HotWaterDensityUsed { get; set; }
+    public decimal KiloJouleToKiloWattHourFactorUsed { get; set; }
     public decimal BoilerKwhPerCubicMeterUsed { get; set; }
     public decimal BoilerEfficiencyPercentUsed { get; set; }
     public List<CalculationTariffSegmentTrace> TariffSegments { get; set; } = [];

@@ -15,6 +15,7 @@ public sealed class BillingInputService
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
+    private readonly IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository;
     private readonly IPaymentRepository paymentRepository;
     private readonly ReminderDispatchService reminderDispatchService;
     private readonly ISystemClock clock;
@@ -25,6 +26,7 @@ public sealed class BillingInputService
         IReadingSubmissionRepository readingSubmissionRepository,
         IUtilitySetupRepository utilitySetupRepository,
         ITariffVersionRepository tariffVersionRepository,
+        IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository,
         IPaymentRepository paymentRepository,
         ReminderDispatchService reminderDispatchService,
         ISystemClock clock,
@@ -34,6 +36,7 @@ public sealed class BillingInputService
         this.readingSubmissionRepository = readingSubmissionRepository;
         this.utilitySetupRepository = utilitySetupRepository;
         this.tariffVersionRepository = tariffVersionRepository;
+        this.boilerAssumptionVersionRepository = boilerAssumptionVersionRepository;
         this.paymentRepository = paymentRepository;
         this.reminderDispatchService = reminderDispatchService;
         this.clock = clock;
@@ -60,6 +63,14 @@ public sealed class BillingInputService
                 request.TariffEffectiveFromDate,
                 "Tariff effective-from date must use yyyy-MM-dd format.");
         }
+
+            DateOnly? requestedBoilerEffectiveFromDate = null;
+            if (!string.IsNullOrWhiteSpace(request.BoilerEffectiveFromDate))
+            {
+                requestedBoilerEffectiveFromDate = ParseIsoDate(
+                request.BoilerEffectiveFromDate,
+                "Boiler effective-from date must use yyyy-MM-dd format.");
+            }
 
         if (readingDate > DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
         {
@@ -120,6 +131,45 @@ public sealed class BillingInputService
             }
         }
 
+        var availableBoilerAssumptions = await GetAvailableBoilerAssumptionsOrSeedFromUtilitySetupAsync(
+            user.Id,
+            readingDateIso,
+            cancellationToken);
+
+        if (availableBoilerAssumptions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No boiler assumptions were found for the reading date. Add a boiler version before submitting readings.");
+        }
+
+        var orderedBoilerAssumptions = availableBoilerAssumptions
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored boiler effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+
+        var latestApplicableBoilerAssumptions = orderedBoilerAssumptions[0];
+        if (requestedBoilerEffectiveFromDate is not null)
+        {
+            var requestedIso = requestedBoilerEffectiveFromDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var selectedBoilerAssumptions = orderedBoilerAssumptions.FirstOrDefault(x =>
+                string.Equals(x.EffectiveFromDate, requestedIso, StringComparison.Ordinal));
+
+            if (selectedBoilerAssumptions is null)
+            {
+                throw new InvalidOperationException(
+                    "Selected boiler assumptions are not available for the requested reading date.");
+            }
+
+            if (!string.Equals(
+                    selectedBoilerAssumptions.EffectiveFromDate,
+                    latestApplicableBoilerAssumptions.EffectiveFromDate,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Select boiler assumptions dated {latestApplicableBoilerAssumptions.EffectiveFromDate} because it is the latest available for this reading date.");
+            }
+        }
+
         var now = clock.UtcNow;
         var submission = new ReadingSubmission
         {
@@ -129,6 +179,7 @@ public sealed class BillingInputService
             ColdWaterReading = coldWater,
             HotWaterReading = hotWater,
             ElectricityReading = electricity,
+            AppliedBoilerEffectiveFromDate = latestApplicableBoilerAssumptions.EffectiveFromDate,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
             Version = 1,
@@ -144,6 +195,7 @@ public sealed class BillingInputService
             UserId = user.Id,
             ReadingDate = submission.ReadingDate,
             AppliedTariffEffectiveFromDate = latestApplicableTariff.EffectiveFromDate,
+            AppliedBoilerEffectiveFromDate = latestApplicableBoilerAssumptions.EffectiveFromDate,
             Message = "Readings submitted successfully.",
         };
     }
@@ -373,6 +425,160 @@ public sealed class BillingInputService
         };
     }
 
+    public async Task<BoilerAssumptionOptionsResponse> GetBoilerAssumptionOptionsAsync(
+        string userId,
+        string? onDate,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var lookupDate = string.IsNullOrWhiteSpace(onDate)
+            ? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime)
+            : ParseIsoDate(onDate, "onDate must use yyyy-MM-dd format.");
+        var lookupDateIso = lookupDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var availableBoilerAssumptions = await GetAvailableBoilerAssumptionsOrSeedFromUtilitySetupAsync(
+            user.Id,
+            lookupDateIso,
+            cancellationToken);
+
+        if (availableBoilerAssumptions.Count == 0)
+        {
+            throw new InvalidOperationException("No boiler assumptions were found for the requested date.");
+        }
+
+        var ordered = availableBoilerAssumptions
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored boiler effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+        var latestEffectiveFromDate = ordered[0].EffectiveFromDate;
+
+        return new BoilerAssumptionOptionsResponse
+        {
+            UserId = user.Id,
+            OnDate = lookupDateIso,
+            RecommendedEffectiveFromDate = latestEffectiveFromDate,
+            Count = ordered.Count,
+            Items = ordered
+                .Select(x => new BoilerAssumptionOptionItemResponse
+                {
+                    EffectiveFromDate = x.EffectiveFromDate,
+                    HotWaterTemperatureCelsius = x.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+                    HotWaterHeatCapacity = x.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+                    HotWaterDensity = x.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+                    KiloJouleToKiloWattHourFactor = x.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+                    BoilerKwhPerCubicMeter = x.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+                    BoilerEfficiencyPercent = x.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                    IsLatestApplicable = string.Equals(x.EffectiveFromDate, latestEffectiveFromDate, StringComparison.Ordinal),
+                })
+                .ToList(),
+        };
+    }
+
+    public async Task<UpsertBoilerAssumptionVersionResponse> UpsertBoilerAssumptionVersionAsync(
+        string userId,
+        UpsertBoilerAssumptionVersionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var effectiveFromDate = ParseIsoDate(request.EffectiveFromDate, "Effective-from date must use yyyy-MM-dd format.");
+
+        var hotWaterTemperatureCelsius = ParseDecimal(request.HotWaterTemperatureCelsius, "Hot-water temperature is invalid.");
+        var hotWaterHeatCapacity = ParseDecimal(request.HotWaterHeatCapacity, "Hot-water heat capacity is invalid.");
+        var hotWaterDensity = ParseDecimal(request.HotWaterDensity, "Hot-water density is invalid.");
+        var kiloJouleToKiloWattHourFactor = ParseDecimal(request.KiloJouleToKiloWattHourFactor, "kJ to kWh conversion factor is invalid.");
+        var boilerKwhPerCubicMeter = ParseDecimal(request.BoilerKwhPerCubicMeter, "Boiler conversion (kWh per cubic meter) is invalid.");
+        var boilerEfficiencyPercent = ParseDecimal(request.BoilerEfficiencyPercent, "Boiler efficiency percent is invalid.");
+
+        if (hotWaterTemperatureCelsius <= 0m
+            || hotWaterHeatCapacity <= 0m
+            || hotWaterDensity <= 0m
+            || kiloJouleToKiloWattHourFactor <= 0m
+            || boilerKwhPerCubicMeter <= 0m
+            || boilerEfficiencyPercent <= 0m)
+        {
+            throw new InvalidOperationException("Boiler assumption values must be greater than zero.");
+        }
+
+        if (boilerEfficiencyPercent > 100m)
+        {
+            throw new InvalidOperationException("Boiler efficiency percent cannot exceed 100.");
+        }
+
+        var effectiveFrom = effectiveFromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var existing = await boilerAssumptionVersionRepository.GetByUserAndEffectiveFromDateAsync(
+            user.Id,
+            effectiveFrom,
+            cancellationToken);
+
+        if (existing is not null)
+        {
+            throw new InvalidOperationException("A boiler assumptions entry already exists for this effective-from date.");
+        }
+
+        var now = clock.UtcNow;
+        var version = new BoilerAssumptionVersion
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            UserId = user.Id,
+            EffectiveFromDate = effectiveFrom,
+            HotWaterTemperatureCelsius = hotWaterTemperatureCelsius,
+            HotWaterHeatCapacity = hotWaterHeatCapacity,
+            HotWaterDensity = hotWaterDensity,
+            KiloJouleToKiloWattHourFactor = kiloJouleToKiloWattHourFactor,
+            BoilerKwhPerCubicMeter = boilerKwhPerCubicMeter,
+            BoilerEfficiencyPercent = boilerEfficiencyPercent,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            Version = 1,
+        };
+
+        await boilerAssumptionVersionRepository.AddAsync(version, cancellationToken);
+
+        logger.LogInformation(
+            "Boiler assumptions version submitted for user {UserId} effective from {EffectiveFromDate}.",
+            user.Id,
+            effectiveFrom);
+
+        return new UpsertBoilerAssumptionVersionResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = version.EffectiveFromDate,
+            HotWaterTemperatureCelsius = version.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterHeatCapacity = version.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterDensity = version.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+            KiloJouleToKiloWattHourFactor = version.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerKwhPerCubicMeter = version.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerEfficiencyPercent = version.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            Message = "Boiler assumptions version saved.",
+        };
+    }
+
+    public async Task<ActiveBoilerAssumptionResponse> GetActiveBoilerAssumptionAsync(
+        string userId,
+        string? onDate,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var lookupDate = string.IsNullOrWhiteSpace(onDate)
+            ? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : ParseIsoDate(onDate, "onDate must use yyyy-MM-dd format.").ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var active = await boilerAssumptionVersionRepository.GetActiveByUserAndDateAsync(user.Id, lookupDate, cancellationToken)
+            ?? throw new InvalidOperationException("No active boiler assumptions were found for the requested date.");
+
+        return new ActiveBoilerAssumptionResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = active.EffectiveFromDate,
+            HotWaterTemperatureCelsius = active.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterHeatCapacity = active.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterDensity = active.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+            KiloJouleToKiloWattHourFactor = active.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerKwhPerCubicMeter = active.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerEfficiencyPercent = active.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+        };
+    }
+
     public async Task<DeleteLatestReadingResponse> DeleteLatestReadingAsync(string userId, CancellationToken cancellationToken)
     {
         var user = await GetEligibleUserAsync(userId, cancellationToken);
@@ -467,6 +673,69 @@ public sealed class BillingInputService
 
         logger.LogInformation(
             "Bootstrapped missing tariff version from utility setup for user {UserId} effective from {EffectiveFromDate}.",
+            userId,
+            seededVersion.EffectiveFromDate);
+
+        return [seededVersion];
+    }
+
+    private async Task<IReadOnlyList<BoilerAssumptionVersion>> GetAvailableBoilerAssumptionsOrSeedFromUtilitySetupAsync(
+        string userId,
+        string onDate,
+        CancellationToken cancellationToken)
+    {
+        var availableBoilerAssumptions = await boilerAssumptionVersionRepository.GetByUserUpToDateAsync(
+            userId,
+            onDate,
+            cancellationToken);
+        if (availableBoilerAssumptions.Count > 0)
+        {
+            return availableBoilerAssumptions;
+        }
+
+        var anyExistingBoilerAssumptions = await boilerAssumptionVersionRepository.GetByUserUpToDateAsync(
+            userId,
+            MaxIsoDate,
+            cancellationToken);
+        if (anyExistingBoilerAssumptions.Count > 0)
+        {
+            return availableBoilerAssumptions;
+        }
+
+        var utilitySetup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (utilitySetup is null)
+        {
+            return availableBoilerAssumptions;
+        }
+
+        var moveInDate = ParseIsoDate(utilitySetup.MoveInDate, "Stored move-in date is invalid.");
+        var lookupDate = ParseIsoDate(onDate, "onDate must use yyyy-MM-dd format.");
+        if (moveInDate > lookupDate)
+        {
+            return availableBoilerAssumptions;
+        }
+
+        var now = clock.UtcNow;
+        var seededVersion = new BoilerAssumptionVersion
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            UserId = userId,
+            EffectiveFromDate = moveInDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            HotWaterTemperatureCelsius = utilitySetup.HotWaterTemperatureCelsius,
+            HotWaterHeatCapacity = utilitySetup.HotWaterHeatCapacity,
+            HotWaterDensity = utilitySetup.HotWaterDensity,
+            KiloJouleToKiloWattHourFactor = utilitySetup.KiloJouleToKiloWattHourFactor,
+            BoilerKwhPerCubicMeter = utilitySetup.BoilerKwhPerCubicMeter,
+            BoilerEfficiencyPercent = utilitySetup.BoilerEfficiencyPercent,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            Version = 1,
+        };
+
+        await boilerAssumptionVersionRepository.AddAsync(seededVersion, cancellationToken);
+
+        logger.LogInformation(
+            "Bootstrapped missing boiler assumptions version from utility setup for user {UserId} effective from {EffectiveFromDate}.",
             userId,
             seededVersion.EffectiveFromDate);
 

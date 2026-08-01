@@ -2,6 +2,7 @@ using BaleAnchorUtility.Server.Application.Billing;
 using BaleAnchorUtility.Server.Application.Billing.Dtos;
 using BaleAnchorUtility.Server.Application.Notifications;
 using BaleAnchorUtility.Server.Configuration;
+using BaleAnchorUtility.Server.Domain.Billing;
 using BaleAnchorUtility.Server.Domain.Users;
 using BaleAnchorUtility.Server.Tests.TestDoubles;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -186,6 +187,170 @@ public sealed class BillingInputServiceTests
         Assert.Equal(1, result.Count);
         Assert.Equal("2025-03-22", result.RecommendedEffectiveFromDate);
         Assert.Equal("3.0682", result.Items[0].WaterTariffPerUnit);
+    }
+
+    [Fact]
+    public async Task SubmitReadingsAsync_RejectsSelectedBoilerAssumptions_WhenNotLatestApplicable()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active", "resident@example.com"));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        var tariffs = new InMemoryTariffVersionRepository();
+        await SeedTariffVersionAsync(tariffs, "u-active", "2024-07-01", 1.10m, 0.20m);
+        await SeedTariffVersionAsync(tariffs, "u-active", "2025-07-01", 1.25m, 0.35m);
+
+        var utilitySetups = new InMemoryUtilitySetupRepository();
+        utilitySetups.Seed(
+            new BaleAnchorUtility.Server.Domain.Onboarding.UtilitySetupSubmission
+            {
+                Id = "us-1",
+                UserId = "u-active",
+                MoveInDate = "2024-01-01",
+                OpeningColdWaterReading = 0m,
+                OpeningHotWaterReading = 0m,
+                OpeningElectricityReading = 0m,
+                InitialWaterTariffPerUnit = 1m,
+                InitialWaterStandingChargePerDay = 0.01m,
+                InitialWaterVatPercent = 0m,
+                InitialElectricityTariffPerUnit = 0.2m,
+                InitialElectricityStandingChargePerDay = 0.02m,
+                InitialElectricityVatPercent = 5m,
+                HotWaterTemperatureCelsius = 55m,
+                HotWaterHeatCapacity = 4.186m,
+                HotWaterDensity = 1000m,
+                KiloJouleToKiloWattHourFactor = 3600m,
+                BoilerKwhPerCubicMeter = 9m,
+                BoilerEfficiencyPercent = 80m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            });
+
+        var service = CreateService(users, readings, tariffs, new InMemoryPaymentRepository(), utilitySetups);
+
+        await service.UpsertBoilerAssumptionVersionAsync(
+            "u-active",
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = "2024-07-01",
+                HotWaterTemperatureCelsius = "55",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "9",
+                BoilerEfficiencyPercent = "80",
+            },
+            CancellationToken.None);
+
+        await service.UpsertBoilerAssumptionVersionAsync(
+            "u-active",
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = "2025-07-01",
+                HotWaterTemperatureCelsius = "60",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "10.5",
+                BoilerEfficiencyPercent = "85",
+            },
+            CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SubmitReadingsAsync(
+                "u-active",
+                new SubmitReadingsRequest
+                {
+                    ReadingDate = "2026-07-27",
+                    ColdWaterReading = "11.5",
+                    HotWaterReading = "12.5",
+                    ElectricityReading = "99.2",
+                    TariffEffectiveFromDate = "2025-07-01",
+                    BoilerEffectiveFromDate = "2024-07-01",
+                },
+                CancellationToken.None));
+
+        Assert.Equal(
+            "Select boiler assumptions dated 2025-07-01 because it is the latest available for this reading date.",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task GetBoilerAssumptionOptionsAsync_ReturnsLatestApplicableFirst_WithRecommendation()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active", "resident@example.com"));
+
+        var tariffs = new InMemoryTariffVersionRepository();
+        await SeedTariffVersionAsync(tariffs, "u-active", "2024-07-01", 1.10m, 0.20m);
+
+        var utilitySetups = new InMemoryUtilitySetupRepository();
+        utilitySetups.Seed(
+            new BaleAnchorUtility.Server.Domain.Onboarding.UtilitySetupSubmission
+            {
+                Id = "us-1",
+                UserId = "u-active",
+                MoveInDate = "2024-01-01",
+                OpeningColdWaterReading = 0m,
+                OpeningHotWaterReading = 0m,
+                OpeningElectricityReading = 0m,
+                InitialWaterTariffPerUnit = 1m,
+                InitialWaterStandingChargePerDay = 0.01m,
+                InitialWaterVatPercent = 0m,
+                InitialElectricityTariffPerUnit = 0.2m,
+                InitialElectricityStandingChargePerDay = 0.02m,
+                InitialElectricityVatPercent = 5m,
+                HotWaterTemperatureCelsius = 55m,
+                HotWaterHeatCapacity = 4.186m,
+                HotWaterDensity = 1000m,
+                KiloJouleToKiloWattHourFactor = 3600m,
+                BoilerKwhPerCubicMeter = 9m,
+                BoilerEfficiencyPercent = 80m,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            });
+
+        var service = CreateService(users, new InMemoryReadingSubmissionRepository(), tariffs, new InMemoryPaymentRepository(), utilitySetups);
+
+        await service.UpsertBoilerAssumptionVersionAsync(
+            "u-active",
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = "2024-07-01",
+                HotWaterTemperatureCelsius = "55",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "9",
+                BoilerEfficiencyPercent = "80",
+            },
+            CancellationToken.None);
+
+        await service.UpsertBoilerAssumptionVersionAsync(
+            "u-active",
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = "2025-07-01",
+                HotWaterTemperatureCelsius = "60",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "10.5",
+                BoilerEfficiencyPercent = "85",
+            },
+            CancellationToken.None);
+
+        var result = await service.GetBoilerAssumptionOptionsAsync("u-active", "2026-07-27", CancellationToken.None);
+
+        Assert.Equal("u-active", result.UserId);
+        Assert.Equal("2026-07-27", result.OnDate);
+        Assert.Equal(2, result.Count);
+        Assert.Equal("2025-07-01", result.RecommendedEffectiveFromDate);
+        Assert.Equal("2025-07-01", result.Items[0].EffectiveFromDate);
+        Assert.True(result.Items[0].IsLatestApplicable);
+        Assert.Equal("60", result.Items[0].HotWaterTemperatureCelsius);
     }
 
     [Fact]
@@ -536,11 +701,43 @@ public sealed class BillingInputServiceTests
         InMemoryPaymentRepository payments,
         InMemoryUtilitySetupRepository? utilitySetups = null)
     {
+        var setupRepository = utilitySetups;
+        if (setupRepository is null)
+        {
+            setupRepository = new InMemoryUtilitySetupRepository();
+            setupRepository.Seed(
+                new BaleAnchorUtility.Server.Domain.Onboarding.UtilitySetupSubmission
+                {
+                    Id = "setup-u-active",
+                    UserId = "u-active",
+                    MoveInDate = "2026-01-01",
+                    OpeningColdWaterReading = 0m,
+                    OpeningHotWaterReading = 0m,
+                    OpeningElectricityReading = 0m,
+                    InitialWaterTariffPerUnit = 1m,
+                    InitialWaterStandingChargePerDay = 0.01m,
+                    InitialWaterVatPercent = 0m,
+                    InitialElectricityTariffPerUnit = 0.2m,
+                    InitialElectricityStandingChargePerDay = 0.02m,
+                    InitialElectricityVatPercent = 5m,
+                    HotWaterTemperatureCelsius = 55m,
+                    HotWaterHeatCapacity = 4.186m,
+                    HotWaterDensity = 1000m,
+                    KiloJouleToKiloWattHourFactor = 3600m,
+                    BoilerKwhPerCubicMeter = 10.5m,
+                    BoilerEfficiencyPercent = 85m,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    Version = 1,
+                });
+        }
+
         return new BillingInputService(
             users,
             readings,
-            utilitySetups ?? new InMemoryUtilitySetupRepository(),
+            setupRepository,
             tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
             payments,
             new ReminderDispatchService(
                 users,

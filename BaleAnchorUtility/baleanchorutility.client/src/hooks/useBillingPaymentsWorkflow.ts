@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { PortalApiError, portalClient } from "../api/portalClient";
 import type {
+  ActiveBoilerAssumptionResponse,
   ActiveTariffResponse,
   AllTimeBalanceResponse,
   CalculateLatestPeriodResponse,
@@ -10,6 +11,7 @@ import type {
   PaymentHistoryItemResponse,
 } from "../shared/contracts";
 import {
+  validateBoilerAssumptionInput,
   validatePaymentInput,
   validateReadingsInput,
   validateTariffInput,
@@ -28,6 +30,13 @@ interface UseBillingPaymentsWorkflowArgs {
   electricityTariffPerUnit: string;
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
+  boilerEffectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
   paymentAmount: string;
   paymentDate: string;
   paymentMethod: string;
@@ -40,6 +49,7 @@ interface UseBillingPaymentsWorkflowArgs {
   setPaymentNotes: Dispatch<SetStateAction<string>>;
   setReadingsFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
   setTariffFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
+  setBoilerFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
   setPaymentFieldErrors: Dispatch<SetStateAction<FieldErrors>>;
 }
 
@@ -56,6 +66,13 @@ export function useBillingPaymentsWorkflow({
   electricityTariffPerUnit,
   electricityStandingChargePerDay,
   electricityVatPercent,
+  boilerEffectiveFromDate,
+  hotWaterTemperatureCelsius,
+  hotWaterHeatCapacity,
+  hotWaterDensity,
+  kiloJouleToKiloWattHourFactor,
+  boilerKwhPerCubicMeter,
+  boilerEfficiencyPercent,
   paymentAmount,
   paymentDate,
   paymentMethod,
@@ -68,6 +85,7 @@ export function useBillingPaymentsWorkflow({
   setPaymentNotes,
   setReadingsFieldErrors,
   setTariffFieldErrors,
+  setBoilerFieldErrors,
   setPaymentFieldErrors,
 }: UseBillingPaymentsWorkflowArgs) {
   const [billingMessage, setBillingMessage] = useState(
@@ -78,6 +96,8 @@ export function useBillingPaymentsWorkflow({
   const [activeTariff, setActiveTariff] = useState<ActiveTariffResponse | null>(
     null,
   );
+  const [activeBoilerAssumption, setActiveBoilerAssumption] =
+    useState<ActiveBoilerAssumptionResponse | null>(null);
   const [latestCalculation, setLatestCalculation] =
     useState<CalculateLatestPeriodResponse | null>(null);
   const [paymentMessage, setPaymentMessage] = useState(
@@ -116,16 +136,19 @@ export function useBillingPaymentsWorkflow({
     }
   };
 
-  const submitReadings = async (
-    tariffEffectiveFromDate?: string,
-  ): Promise<boolean> => {
+  const submitReadings = async (selection?: {
+    tariffEffectiveFromDate?: string;
+    boilerEffectiveFromDate?: string;
+  }): Promise<boolean> => {
     const validationErrors = validateReadingsInput({
       readingDate,
       coldWaterReading,
       hotWaterReading,
       electricityReading,
-      tariffEffectiveFromDate,
+      tariffEffectiveFromDate: selection?.tariffEffectiveFromDate,
+      boilerEffectiveFromDate: selection?.boilerEffectiveFromDate,
       requireTariffSelection: true,
+      requireBoilerSelection: true,
     });
     if (Object.keys(validationErrors).length > 0) {
       setReadingsFieldErrors(validationErrors);
@@ -141,13 +164,17 @@ export function useBillingPaymentsWorkflow({
         coldWaterReading,
         hotWaterReading,
         electricityReading,
-        tariffEffectiveFromDate,
+        tariffEffectiveFromDate: selection?.tariffEffectiveFromDate,
+        boilerEffectiveFromDate: selection?.boilerEffectiveFromDate,
       });
       const tariffSuffix = body.appliedTariffEffectiveFromDate
         ? ` Tariff: ${body.appliedTariffEffectiveFromDate}.`
         : "";
+      const boilerSuffix = body.appliedBoilerEffectiveFromDate
+        ? ` Boiler: ${body.appliedBoilerEffectiveFromDate}.`
+        : "";
       setBillingMessage(
-        `${body.message} Date: ${body.readingDate}.${tariffSuffix}`,
+        `${body.message} Date: ${body.readingDate}.${tariffSuffix}${boilerSuffix}`,
       );
       await loadLatestReadings();
       return true;
@@ -258,6 +285,74 @@ export function useBillingPaymentsWorkflow({
         setBillingMessage(`Tariff save failed. ${error.message}`);
       } else {
         setBillingMessage("Tariff save failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadActiveBoilerAssumption = async () => {
+    setLoading(true);
+    try {
+      const body = await portalClient.getActiveBoilerAssumption();
+      setActiveBoilerAssumption(body);
+      setBillingMessage(
+        `Loaded active boiler assumptions from ${body.effectiveFromDate}.`,
+      );
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(
+          `Unable to load active boiler assumptions. ${error.message}`,
+        );
+      } else {
+        setBillingMessage("Unable to load active boiler assumptions.");
+      }
+      setActiveBoilerAssumption(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitBoilerAssumptionVersion = async () => {
+    const validationErrors = validateBoilerAssumptionInput({
+      effectiveFromDate: boilerEffectiveFromDate,
+      hotWaterTemperatureCelsius,
+      hotWaterHeatCapacity,
+      hotWaterDensity,
+      kiloJouleToKiloWattHourFactor,
+      boilerKwhPerCubicMeter,
+      boilerEfficiencyPercent,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setBoilerFieldErrors(validationErrors);
+      setBillingMessage(
+        "Review highlighted boiler assumption fields and try again.",
+      );
+      return;
+    }
+
+    setBoilerFieldErrors({});
+    setLoading(true);
+    try {
+      const body = await portalClient.submitBoilerAssumptionVersion({
+        effectiveFromDate: boilerEffectiveFromDate,
+        hotWaterTemperatureCelsius,
+        hotWaterHeatCapacity,
+        hotWaterDensity,
+        kiloJouleToKiloWattHourFactor,
+        boilerKwhPerCubicMeter,
+        boilerEfficiencyPercent,
+      });
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await loadActiveBoilerAssumption();
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBoilerFieldErrors(error.errors);
+        setBillingMessage(`Boiler assumptions save failed. ${error.message}`);
+      } else {
+        setBillingMessage("Boiler assumptions save failed.");
       }
     } finally {
       setLoading(false);
@@ -493,6 +588,7 @@ export function useBillingPaymentsWorkflow({
     billingMessage,
     latestReadings,
     activeTariff,
+    activeBoilerAssumption,
     latestCalculation,
     paymentMessage,
     latestPaymentSummary,
@@ -504,6 +600,8 @@ export function useBillingPaymentsWorkflow({
     loadLatestReadings,
     submitTariffVersion,
     loadActiveTariff,
+    submitBoilerAssumptionVersion,
+    loadActiveBoilerAssumption,
     runLatestCalculation,
     loadLatestCalculation,
     recordLatestPeriodPayment,

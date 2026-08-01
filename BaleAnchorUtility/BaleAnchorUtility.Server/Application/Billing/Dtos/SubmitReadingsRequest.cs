@@ -22,4 +22,7 @@ public sealed class SubmitReadingsRequest
 
     [RegularExpression("^\\d{4}-\\d{2}-\\d{2}$")]
     public string? TariffEffectiveFromDate { get; init; }
+
+    [RegularExpression("^\\d{4}-\\d{2}-\\d{2}$")]
+    public string? BoilerEffectiveFromDate { get; init; }
 }

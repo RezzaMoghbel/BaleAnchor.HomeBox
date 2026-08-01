@@ -83,6 +83,7 @@ public sealed class CalculationSnapshotServiceTests
             users,
             readings,
             tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
             setups,
             snapshots,
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-01T00:00:00Z") },
@@ -205,6 +206,7 @@ public sealed class CalculationSnapshotServiceTests
             users,
             readings,
             tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
             setups,
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-01T00:00:00Z") },
@@ -292,6 +294,7 @@ public sealed class CalculationSnapshotServiceTests
             users,
             readings,
             tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
             setups,
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-01T00:00:00Z") },
@@ -371,6 +374,7 @@ public sealed class CalculationSnapshotServiceTests
             users,
             readings,
             tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
             setups,
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-07-31T00:00:00Z") },
@@ -383,6 +387,129 @@ public sealed class CalculationSnapshotServiceTests
         Assert.Equal("20.959", result.ColdWaterUsed);
         Assert.Equal("13.741", result.HotWaterUsed);
         Assert.Equal("827.75", result.ApartmentElectricityUsed);
+    }
+
+    [Fact]
+    public async Task CalculateLatestPeriodAsync_UsesReadingLinkedBoilerAssumptions_WhenActiveVersionIsDifferent()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateUser("u-active", UserAccountStatus.Active));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r1",
+            UserId = "u-active",
+            ReadingDate = "2026-07-01",
+            ColdWaterReading = 0m,
+            HotWaterReading = 0m,
+            ElectricityReading = 0m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r2",
+            UserId = "u-active",
+            ReadingDate = "2026-08-01",
+            ColdWaterReading = 0m,
+            HotWaterReading = 2m,
+            ElectricityReading = 10m,
+            AppliedBoilerEffectiveFromDate = "2026-07-01",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var tariffs = new InMemoryTariffVersionRepository();
+        await tariffs.AddAsync(new TariffVersion
+        {
+            Id = "t1",
+            UserId = "u-active",
+            EffectiveFromDate = "2026-07-01",
+            WaterTariffPerUnit = 1m,
+            WaterStandingChargePerDay = 0m,
+            WaterVatPercent = 0m,
+            ElectricityTariffPerUnit = 1m,
+            ElectricityStandingChargePerDay = 0m,
+            ElectricityVatPercent = 0m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var setups = new InMemoryUtilitySetupRepository();
+        setups.Seed(new UtilitySetupSubmission
+        {
+            Id = "setup-1",
+            UserId = "u-active",
+            MoveInDate = "2026-07-01",
+            OpeningColdWaterReading = 0m,
+            OpeningHotWaterReading = 0m,
+            OpeningElectricityReading = 0m,
+            InitialWaterTariffPerUnit = 1m,
+            InitialElectricityTariffPerUnit = 1m,
+            HotWaterTemperatureCelsius = 55m,
+            HotWaterHeatCapacity = 4.186m,
+            HotWaterDensity = 1000m,
+            KiloJouleToKiloWattHourFactor = 3600m,
+            BoilerKwhPerCubicMeter = 50m,
+            BoilerEfficiencyPercent = 50m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        });
+
+        var boilers = new InMemoryBoilerAssumptionVersionRepository();
+        await boilers.AddAsync(new BoilerAssumptionVersion
+        {
+            Id = "b1",
+            UserId = "u-active",
+            EffectiveFromDate = "2026-07-01",
+            HotWaterTemperatureCelsius = 55m,
+            HotWaterHeatCapacity = 4.186m,
+            HotWaterDensity = 1000m,
+            KiloJouleToKiloWattHourFactor = 3600m,
+            BoilerKwhPerCubicMeter = 1m,
+            BoilerEfficiencyPercent = 100m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        await boilers.AddAsync(new BoilerAssumptionVersion
+        {
+            Id = "b2",
+            UserId = "u-active",
+            EffectiveFromDate = "2026-07-15",
+            HotWaterTemperatureCelsius = 60m,
+            HotWaterHeatCapacity = 4.186m,
+            HotWaterDensity = 1000m,
+            KiloJouleToKiloWattHourFactor = 3600m,
+            BoilerKwhPerCubicMeter = 10m,
+            BoilerEfficiencyPercent = 100m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var service = new CalculationSnapshotService(
+            users,
+            readings,
+            tariffs,
+            boilers,
+            setups,
+            new InMemoryCalculationSnapshotRepository(),
+            new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-08-01T00:00:00Z") },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var result = await service.CalculateLatestPeriodAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("2", result.BoilerElectricityUsed);
+        Assert.Equal("1", result.BoilerAssumptions.BoilerKwhPerCubicMeter);
+        Assert.Equal("100", result.BoilerAssumptions.BoilerEfficiencyPercent);
     }
 
     private static UserAccount CreateUser(string id, UserAccountStatus status)

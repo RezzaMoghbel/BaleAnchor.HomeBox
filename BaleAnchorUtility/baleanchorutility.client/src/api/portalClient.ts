@@ -1,6 +1,7 @@
 import type {
   AcceptTermsResponse,
   ActiveTariffResponse,
+  ActiveBoilerAssumptionResponse,
   ActiveTermsResponse,
   AdminAuthAccessSettingsResponse,
   AdminEmailTransportSettingsResponse,
@@ -18,6 +19,7 @@ import type {
   AllTimeBalanceResponse,
   AuditLogListResponse,
   CalculateLatestPeriodResponse,
+  BoilerAssumptionOptionsResponse,
   CompleteProfileResponse,
   CompleteUtilitySetupResponse,
   DevelopmentSeedOperationResponse,
@@ -58,6 +60,7 @@ import type {
   UpdatePaymentResponse,
   UpsertPushSubscriptionRequest,
   UpsertTariffResponse,
+  UpsertBoilerAssumptionVersionResponse,
   VerifyCodeResponse,
 } from "../shared/contracts";
 import { readProblemDetails } from "../shared/problemDetails";
@@ -185,6 +188,7 @@ interface SubmitReadingsRequest {
   hotWaterReading: string;
   electricityReading: string;
   tariffEffectiveFromDate?: string;
+  boilerEffectiveFromDate?: string;
 }
 
 interface UpsertTariffRequest {
@@ -195,6 +199,16 @@ interface UpsertTariffRequest {
   electricityTariffPerUnit: string;
   electricityStandingChargePerDay: string;
   electricityVatPercent: string;
+}
+
+interface UpsertBoilerAssumptionVersionRequest {
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
 }
 
 interface RecordLatestPeriodPaymentRequest {
@@ -858,6 +872,52 @@ export const portalClient = {
     const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
     return requestJson<TariffOptionsResponse>(
       `/api/v1/billing/tariffs/options${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  submitBoilerAssumptionVersion(request: UpsertBoilerAssumptionVersionRequest) {
+    return requestJson<UpsertBoilerAssumptionVersionResponse>(
+      "/api/v1/billing/boiler-assumptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  getActiveBoilerAssumption(onDate?: string) {
+    const params = new URLSearchParams();
+    if (onDate && onDate.trim().length > 0) {
+      params.set("onDate", onDate.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<ActiveBoilerAssumptionResponse>(
+      `/api/v1/billing/boiler-assumptions/active${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getBoilerAssumptionOptions(onDate?: string) {
+    const params = new URLSearchParams();
+    if (onDate && onDate.trim().length > 0) {
+      params.set("onDate", onDate.trim());
+    }
+
+    const suffix = params.toString().length > 0 ? `?${params.toString()}` : "";
+    return requestJson<BoilerAssumptionOptionsResponse>(
+      `/api/v1/billing/boiler-assumptions/options${suffix}`,
       {
         method: "GET",
         credentials: "include",

@@ -148,6 +148,7 @@ builder.Services.AddScoped<ITermsAcceptanceRepository, JsonTermsAcceptanceReposi
 builder.Services.AddScoped<IUtilitySetupRepository, JsonUtilitySetupRepository>();
 builder.Services.AddScoped<IReadingSubmissionRepository, JsonReadingSubmissionRepository>();
 builder.Services.AddScoped<ITariffVersionRepository, JsonTariffVersionRepository>();
+builder.Services.AddScoped<IBoilerAssumptionVersionRepository, JsonBoilerAssumptionVersionRepository>();
 builder.Services.AddScoped<ICalculationSnapshotRepository, JsonCalculationSnapshotRepository>();
 builder.Services.AddScoped<IPaymentRepository, JsonPaymentRepository>();
 builder.Services.AddScoped<IStatementExportRepository, JsonStatementExportRepository>();

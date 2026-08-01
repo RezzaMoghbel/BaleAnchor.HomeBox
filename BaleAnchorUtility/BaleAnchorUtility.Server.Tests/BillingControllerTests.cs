@@ -75,6 +75,46 @@ public sealed class BillingControllerTests
     }
 
     [Fact]
+    public async Task UpsertBoilerAssumptionVersion_Returns200_WhenRequestIsValid()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true);
+
+        var action = await controller.UpsertBoilerAssumptionVersion(
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = "2026-07-01",
+                HotWaterTemperatureCelsius = "55",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "10.5",
+                BoilerEfficiencyPercent = "85",
+            },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var body = Assert.IsType<UpsertBoilerAssumptionVersionResponse>(ok.Value);
+
+        Assert.Equal("u1", body.UserId);
+        Assert.Equal("2026-07-01", body.EffectiveFromDate);
+        Assert.Equal("Boiler assumptions version saved.", body.Message);
+    }
+
+    [Fact]
+    public async Task GetBoilerAssumptionOptions_Returns409_WhenNoBoilerAssumptionsAvailable()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true);
+
+        var action = await controller.GetBoilerAssumptionOptions("2026-07-10", CancellationToken.None);
+
+        var conflict = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(conflict.Value);
+
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("BILLING_BOILER_ASSUMPTIONS_NOT_AVAILABLE", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
     public async Task GetLatestPeriodPaymentSummary_ReturnsPayload_WhenSnapshotExists()
     {
         var users = new InMemoryUserRepository();
@@ -89,6 +129,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryPaymentRepository(),
             CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -127,6 +168,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryUtilitySetupRepository(),
             snapshots,
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -223,6 +265,7 @@ public sealed class BillingControllerTests
             readings,
             new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -232,6 +275,7 @@ public sealed class BillingControllerTests
             users,
             readings,
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -317,6 +361,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -326,6 +371,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -409,6 +455,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             payments,
             CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -418,6 +465,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -470,6 +518,7 @@ public sealed class BillingControllerTests
             new InMemoryReadingSubmissionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryPaymentRepository(),
             CreateReminderDispatchService(users),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },
@@ -479,6 +528,7 @@ public sealed class BillingControllerTests
             users,
             new InMemoryReadingSubmissionRepository(),
             new InMemoryTariffVersionRepository(),
+            new InMemoryBoilerAssumptionVersionRepository(),
             new InMemoryUtilitySetupRepository(),
             new InMemoryCalculationSnapshotRepository(),
             new FakeSystemClock { UtcNow = DateTimeOffset.UtcNow },

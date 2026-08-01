@@ -187,6 +187,10 @@ public sealed class StatementSummaryService
             EquationSummary = snapshot.EquationSummary,
             BoilerAssumptions = new BoilerAssumptionSummaryResponse
             {
+                HotWaterTemperatureCelsius = snapshot.HotWaterTemperatureCelsiusUsed.ToString("0.##", CultureInfo.InvariantCulture),
+                HotWaterHeatCapacity = snapshot.HotWaterHeatCapacityUsed.ToString("0.######", CultureInfo.InvariantCulture),
+                HotWaterDensity = snapshot.HotWaterDensityUsed.ToString("0.###", CultureInfo.InvariantCulture),
+                KiloJouleToKiloWattHourFactor = snapshot.KiloJouleToKiloWattHourFactorUsed.ToString("0.###", CultureInfo.InvariantCulture),
                 BoilerKwhPerCubicMeter = snapshot.BoilerKwhPerCubicMeterUsed.ToString("0.#####", CultureInfo.InvariantCulture),
                 BoilerEfficiencyPercent = snapshot.BoilerEfficiencyPercentUsed.ToString("0.#####", CultureInfo.InvariantCulture),
             },
