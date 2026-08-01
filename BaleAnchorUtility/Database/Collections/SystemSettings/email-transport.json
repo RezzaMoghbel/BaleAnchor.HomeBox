@@ -1,0 +1,14 @@
+{
+  "id": "email-transport",
+  "mode": "smtp",
+  "fromName": "Utility Management Service",
+  "fromAddress": "noreply@moghbel.co.uk",
+  "smtpHost": "smtp.ionos.co.uk",
+  "smtpPort": 587,
+  "smtpUseSsl": true,
+  "smtpUsername": "info@moghbel.co.uk",
+  "smtpPasswordCiphertext": "CfDJ8Mgm3_QL95RCk4PDn4I8M3MsKUz5eu8Tf4zCdpSZLUxgVXNs-_DZlDPjKoYsqG2lPtZMfkzvwhmAniViyVn5utgPMcKTxsUYmBlTEjAreZ1F8L9CabrYfEqv-Fs1Lt3yYvNZrGUD4wUBMlcowGfCkGI",
+  "updatedByUserId": "seed-superadmin-0001",
+  "updatedAtUtc": "2026-08-01T14:25:31.3778274+00:00",
+  "version": 1
+}
