@@ -1,0 +1,15 @@
+{
+  "id": "41dee1cf18a446f2955f331f73e34dd9",
+  "tokenHash": "D475F934607F63367597304A70688927A4506612A176DCFE79048F55352D3303",
+  "emailNormalized": "R.MOGHBEL@HOTMAIL.COM",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "deviceSummary": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "createdAtUtc": "2026-08-01T14:27:57.6302281+00:00",
+  "expiresAtUtc": "2026-08-02T14:27:57.6302281+00:00",
+  "lastUsedAtUtc": "2026-08-01T14:38:00.7885237+00:00",
+  "revokedAtUtc": null,
+  "isDelegatedSession": false,
+  "delegatedByUserId": null,
+  "delegationReason": null,
+  "version": 49
+}

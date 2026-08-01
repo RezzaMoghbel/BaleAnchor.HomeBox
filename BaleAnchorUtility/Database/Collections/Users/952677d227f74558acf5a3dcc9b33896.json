@@ -1,0 +1,17 @@
+{
+  "id": "952677d227f74558acf5a3dcc9b33896",
+  "emailDisplay": "r.moghbel@hotmail.com",
+  "emailNormalized": "R.MOGHBEL@HOTMAIL.COM",
+  "surnameNormalized": "MOGHBEL",
+  "dateOfBirth": "1988-04-07",
+  "flatNumberNormalized": "1906",
+  "mobileNumber": "07916984281",
+  "passwordSalt": "ah/lYXYrazyiEcbMWgIDEg==",
+  "passwordHash": "ClA9IqWPG6uEoPhLU4Wwuj89zQcnbOh8XMuM\u002BaY6\u002BxI=",
+  "passwordUpdatedAtUtc": "2026-08-01T14:27:57.5651925+00:00",
+  "role": 0,
+  "status": 5,
+  "createdAtUtc": "2026-08-01T14:27:57.5651925+00:00",
+  "updatedAtUtc": "2026-08-01T14:36:30.937362+00:00",
+  "version": 5
+}

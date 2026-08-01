@@ -1,4 +1,10 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { PortalApiError, portalClient } from "../api/portalClient";
 import type {
   ActiveTermsResponse,
@@ -29,44 +35,48 @@ export function useOnboardingWorkflow({
   );
   const [termsMessage, setTermsMessage] = useState("Active terms not loaded.");
 
-  const [surname, setSurname] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [flatNumber, setFlatNumber] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [surname, setSurnameState] = useState("");
+  const [dateOfBirth, setDateOfBirthState] = useState("");
+  const [flatNumber, setFlatNumberState] = useState("");
+  const [mobileNumber, setMobileNumberState] = useState("");
   const [profileMessage, setProfileMessage] = useState(
     "Profile details not submitted.",
   );
   const [profileFieldErrors, setProfileFieldErrors] = useState<FieldErrors>({});
 
-  const [moveInDate, setMoveInDate] = useState("");
-  const [openingColdWaterReading, setOpeningColdWaterReading] = useState("");
-  const [openingHotWaterReading, setOpeningHotWaterReading] = useState("");
-  const [openingElectricityReading, setOpeningElectricityReading] =
+  const [moveInDate, setMoveInDateState] = useState("");
+  const [openingColdWaterReading, setOpeningColdWaterReadingState] =
     useState("");
-  const [initialWaterTariffPerUnit, setInitialWaterTariffPerUnit] =
+  const [openingHotWaterReading, setOpeningHotWaterReadingState] = useState("");
+  const [openingElectricityReading, setOpeningElectricityReadingState] =
+    useState("");
+  const [initialWaterTariffPerUnit, setInitialWaterTariffPerUnitState] =
     useState("");
   const [
     initialWaterStandingChargePerDay,
-    setInitialWaterStandingChargePerDay,
+    setInitialWaterStandingChargePerDayState,
   ] = useState("");
-  const [initialWaterVatPercent, setInitialWaterVatPercent] = useState("");
-  const [initialElectricityTariffPerUnit, setInitialElectricityTariffPerUnit] =
-    useState("");
+  const [initialWaterVatPercent, setInitialWaterVatPercentState] = useState("");
+  const [
+    initialElectricityTariffPerUnit,
+    setInitialElectricityTariffPerUnitState,
+  ] = useState("");
   const [
     initialElectricityStandingChargePerDay,
-    setInitialElectricityStandingChargePerDay,
+    setInitialElectricityStandingChargePerDayState,
   ] = useState("");
-  const [initialElectricityVatPercent, setInitialElectricityVatPercent] =
+  const [initialElectricityVatPercent, setInitialElectricityVatPercentState] =
     useState("");
-  const [hotWaterTemperatureCelsius, setHotWaterTemperatureCelsius] =
+  const [hotWaterTemperatureCelsius, setHotWaterTemperatureCelsiusState] =
     useState("55");
-  const [hotWaterHeatCapacity, setHotWaterHeatCapacity] = useState("4.186");
-  const [hotWaterDensity, setHotWaterDensity] = useState("1000");
-  const [kiloJouleToKiloWattHourFactor, setKiloJouleToKiloWattHourFactor] =
+  const [hotWaterHeatCapacity, setHotWaterHeatCapacityState] =
+    useState("4.186");
+  const [hotWaterDensity, setHotWaterDensityState] = useState("1000");
+  const [kiloJouleToKiloWattHourFactor, setKiloJouleToKiloWattHourFactorState] =
     useState("3600");
-  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeter] =
+  const [boilerKwhPerCubicMeter, setBoilerKwhPerCubicMeterState] =
     useState("10.500000");
-  const [boilerEfficiencyPercent, setBoilerEfficiencyPercent] =
+  const [boilerEfficiencyPercent, setBoilerEfficiencyPercentState] =
     useState("85.00");
   const [utilitySetupMessage, setUtilitySetupMessage] = useState(
     "Utility setup not submitted.",
@@ -78,65 +88,178 @@ export function useOnboardingWorkflow({
   const [progressMessage, setProgressMessage] = useState(
     "Onboarding progress not loaded.",
   );
+  const allowServerHydrationRef = useRef(true);
+
+  const markLocalOnboardingEdit = () => {
+    allowServerHydrationRef.current = false;
+  };
+
+  const setSurname = (value: string) => {
+    markLocalOnboardingEdit();
+    setSurnameState(value);
+  };
+
+  const setDateOfBirth = (value: string) => {
+    markLocalOnboardingEdit();
+    setDateOfBirthState(value);
+  };
+
+  const setFlatNumber = (value: string) => {
+    markLocalOnboardingEdit();
+    setFlatNumberState(value);
+  };
+
+  const setMobileNumber = (value: string) => {
+    markLocalOnboardingEdit();
+    setMobileNumberState(value);
+  };
+
+  const setMoveInDate = (value: string) => {
+    markLocalOnboardingEdit();
+    setMoveInDateState(value);
+  };
+
+  const setOpeningColdWaterReading = (value: string) => {
+    markLocalOnboardingEdit();
+    setOpeningColdWaterReadingState(value);
+  };
+
+  const setOpeningHotWaterReading = (value: string) => {
+    markLocalOnboardingEdit();
+    setOpeningHotWaterReadingState(value);
+  };
+
+  const setOpeningElectricityReading = (value: string) => {
+    markLocalOnboardingEdit();
+    setOpeningElectricityReadingState(value);
+  };
+
+  const setInitialWaterTariffPerUnit = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialWaterTariffPerUnitState(value);
+  };
+
+  const setInitialWaterStandingChargePerDay = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialWaterStandingChargePerDayState(value);
+  };
+
+  const setInitialWaterVatPercent = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialWaterVatPercentState(value);
+  };
+
+  const setInitialElectricityTariffPerUnit = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialElectricityTariffPerUnitState(value);
+  };
+
+  const setInitialElectricityStandingChargePerDay = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialElectricityStandingChargePerDayState(value);
+  };
+
+  const setInitialElectricityVatPercent = (value: string) => {
+    markLocalOnboardingEdit();
+    setInitialElectricityVatPercentState(value);
+  };
+
+  const setHotWaterTemperatureCelsius = (value: string) => {
+    markLocalOnboardingEdit();
+    setHotWaterTemperatureCelsiusState(value);
+  };
+
+  const setHotWaterHeatCapacity = (value: string) => {
+    markLocalOnboardingEdit();
+    setHotWaterHeatCapacityState(value);
+  };
+
+  const setHotWaterDensity = (value: string) => {
+    markLocalOnboardingEdit();
+    setHotWaterDensityState(value);
+  };
+
+  const setKiloJouleToKiloWattHourFactor = (value: string) => {
+    markLocalOnboardingEdit();
+    setKiloJouleToKiloWattHourFactorState(value);
+  };
+
+  const setBoilerKwhPerCubicMeter = (value: string) => {
+    markLocalOnboardingEdit();
+    setBoilerKwhPerCubicMeterState(value);
+  };
+
+  const setBoilerEfficiencyPercent = (value: string) => {
+    markLocalOnboardingEdit();
+    setBoilerEfficiencyPercentState(value);
+  };
 
   const hydrateFromOnboardingState = (state: OnboardingStateResponse) => {
-    setSurname(state.surname);
-    setDateOfBirth(state.dateOfBirth);
-    setFlatNumber(state.flatNumber);
-    setMobileNumber(state.mobileNumber);
+    if (!allowServerHydrationRef.current) {
+      return;
+    }
+
+    setSurnameState(state.surname);
+    setDateOfBirthState(state.dateOfBirth);
+    setFlatNumberState(state.flatNumber);
+    setMobileNumberState(state.mobileNumber);
 
     if (state.moveInDate) {
-      setMoveInDate(state.moveInDate);
+      setMoveInDateState(state.moveInDate);
     }
     if (state.openingColdWaterReading) {
-      setOpeningColdWaterReading(state.openingColdWaterReading);
+      setOpeningColdWaterReadingState(state.openingColdWaterReading);
     }
     if (state.openingHotWaterReading) {
-      setOpeningHotWaterReading(state.openingHotWaterReading);
+      setOpeningHotWaterReadingState(state.openingHotWaterReading);
     }
     if (state.openingElectricityReading) {
-      setOpeningElectricityReading(state.openingElectricityReading);
+      setOpeningElectricityReadingState(state.openingElectricityReading);
     }
     if (state.initialWaterTariffPerUnit) {
-      setInitialWaterTariffPerUnit(state.initialWaterTariffPerUnit);
+      setInitialWaterTariffPerUnitState(state.initialWaterTariffPerUnit);
     }
     if (state.initialWaterStandingChargePerDay) {
-      setInitialWaterStandingChargePerDay(
+      setInitialWaterStandingChargePerDayState(
         state.initialWaterStandingChargePerDay,
       );
     }
     if (state.initialWaterVatPercent) {
-      setInitialWaterVatPercent(state.initialWaterVatPercent);
+      setInitialWaterVatPercentState(state.initialWaterVatPercent);
     }
     if (state.initialElectricityTariffPerUnit) {
-      setInitialElectricityTariffPerUnit(state.initialElectricityTariffPerUnit);
+      setInitialElectricityTariffPerUnitState(
+        state.initialElectricityTariffPerUnit,
+      );
     }
     if (state.initialElectricityStandingChargePerDay) {
-      setInitialElectricityStandingChargePerDay(
+      setInitialElectricityStandingChargePerDayState(
         state.initialElectricityStandingChargePerDay,
       );
     }
     if (state.initialElectricityVatPercent) {
-      setInitialElectricityVatPercent(state.initialElectricityVatPercent);
+      setInitialElectricityVatPercentState(state.initialElectricityVatPercent);
     }
     if (state.hotWaterTemperatureCelsius) {
-      setHotWaterTemperatureCelsius(state.hotWaterTemperatureCelsius);
+      setHotWaterTemperatureCelsiusState(state.hotWaterTemperatureCelsius);
     }
     if (state.hotWaterHeatCapacity) {
-      setHotWaterHeatCapacity(state.hotWaterHeatCapacity);
+      setHotWaterHeatCapacityState(state.hotWaterHeatCapacity);
     }
     if (state.hotWaterDensity) {
-      setHotWaterDensity(state.hotWaterDensity);
+      setHotWaterDensityState(state.hotWaterDensity);
     }
     if (state.kiloJouleToKiloWattHourFactor) {
-      setKiloJouleToKiloWattHourFactor(state.kiloJouleToKiloWattHourFactor);
+      setKiloJouleToKiloWattHourFactorState(
+        state.kiloJouleToKiloWattHourFactor,
+      );
     }
 
     if (state.boilerKwhPerCubicMeter) {
-      setBoilerKwhPerCubicMeter(state.boilerKwhPerCubicMeter);
+      setBoilerKwhPerCubicMeterState(state.boilerKwhPerCubicMeter);
     }
     if (state.boilerEfficiencyPercent) {
-      setBoilerEfficiencyPercent(state.boilerEfficiencyPercent);
+      setBoilerEfficiencyPercentState(state.boilerEfficiencyPercent);
     }
   };
 
@@ -334,12 +457,8 @@ export function useOnboardingWorkflow({
       return;
     }
 
-    void loadOnboardingState(true);
-    void loadOnboardingProgress(true);
-
     const heartbeat = window.setInterval(() => {
       void refreshSession(true);
-      void loadOnboardingState(true);
       void loadOnboardingProgress(true);
     }, 15000);
 

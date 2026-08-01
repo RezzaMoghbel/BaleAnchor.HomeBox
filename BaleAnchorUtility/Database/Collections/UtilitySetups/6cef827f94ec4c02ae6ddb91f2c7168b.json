@@ -1,0 +1,23 @@
+{
+  "id": "6cef827f94ec4c02ae6ddb91f2c7168b",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "moveInDate": "2025-03-22",
+  "openingColdWaterReading": 1.09,
+  "openingHotWaterReading": 0.52,
+  "openingElectricityReading": 2362.50,
+  "initialWaterTariffPerUnit": 3.06820,
+  "initialWaterStandingChargePerDay": 0.01900,
+  "initialWaterVatPercent": 0,
+  "initialElectricityTariffPerUnit": 0.24796,
+  "initialElectricityStandingChargePerDay": 0.72626,
+  "initialElectricityVatPercent": 5,
+  "hotWaterTemperatureCelsius": 55,
+  "hotWaterHeatCapacity": 4.186,
+  "hotWaterDensity": 1000,
+  "kiloJouleToKiloWattHourFactor": 3600,
+  "boilerKwhPerCubicMeter": 10.500000,
+  "boilerEfficiencyPercent": 85.00,
+  "createdAtUtc": "2026-08-01T14:36:30.937362+00:00",
+  "updatedAtUtc": "2026-08-01T14:36:30.937362+00:00",
+  "version": 1
+}
