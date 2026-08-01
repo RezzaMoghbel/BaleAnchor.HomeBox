@@ -1,0 +1,17 @@
+{
+  "id": "af5d0ca9154c4108acbbdfcbf639405a",
+  "emailNormalized": "R.MOGHBEL@HOTMAIL.COM",
+  "purpose": "LOGIN",
+  "otpHash": "CF1752B90BD60F228B6278F668926F2705DEB28104F963A59E76F96203710FC2",
+  "otpSalt": "9DxtdFiE1VOsFNJoZOIQwg==",
+  "expiresAtUtc": "2026-08-01T14:53:52.95578+00:00",
+  "createdAtUtc": "2026-08-01T14:43:52.95578+00:00",
+  "cooldownUntilUtc": "2026-08-01T14:44:22.95578+00:00",
+  "attemptCount": 1,
+  "maxAttempts": 5,
+  "signupPasswordSalt": null,
+  "signupPasswordHash": null,
+  "consumedAtUtc": "2026-08-01T14:44:17.0847977+00:00",
+  "revokedAtUtc": null,
+  "version": 2
+}

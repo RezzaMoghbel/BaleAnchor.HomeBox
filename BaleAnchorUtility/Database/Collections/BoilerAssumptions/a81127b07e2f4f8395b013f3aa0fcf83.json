@@ -1,0 +1,14 @@
+{
+  "id": "a81127b07e2f4f8395b013f3aa0fcf83",
+  "userId": "952677d227f74558acf5a3dcc9b33896",
+  "effectiveFromDate": "2025-03-22",
+  "hotWaterTemperatureCelsius": 55,
+  "hotWaterHeatCapacity": 4.186,
+  "hotWaterDensity": 1000,
+  "kiloJouleToKiloWattHourFactor": 3600,
+  "boilerKwhPerCubicMeter": 10.500000,
+  "boilerEfficiencyPercent": 85.00,
+  "createdAtUtc": "2026-08-01T14:44:59.6603042+00:00",
+  "updatedAtUtc": "2026-08-01T14:44:59.6603042+00:00",
+  "version": 1
+}
