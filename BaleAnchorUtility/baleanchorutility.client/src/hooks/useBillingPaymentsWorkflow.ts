@@ -4,11 +4,13 @@ import type {
   ActiveBoilerAssumptionResponse,
   ActiveTariffResponse,
   AllTimeBalanceResponse,
+  BoilerAssumptionManagementItemResponse,
   CalculateLatestPeriodResponse,
   FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
   PaymentHistoryItemResponse,
+  TariffManagementItemResponse,
 } from "../shared/contracts";
 import {
   validateBoilerAssumptionInput,
@@ -96,8 +98,14 @@ export function useBillingPaymentsWorkflow({
   const [activeTariff, setActiveTariff] = useState<ActiveTariffResponse | null>(
     null,
   );
+  const [tariffManagementItems, setTariffManagementItems] = useState<
+    TariffManagementItemResponse[]
+  >([]);
   const [activeBoilerAssumption, setActiveBoilerAssumption] =
     useState<ActiveBoilerAssumptionResponse | null>(null);
+  const [boilerManagementItems, setBoilerManagementItems] = useState<
+    BoilerAssumptionManagementItemResponse[]
+  >([]);
   const [latestCalculation, setLatestCalculation] =
     useState<CalculateLatestPeriodResponse | null>(null);
   const [paymentMessage, setPaymentMessage] = useState(
@@ -260,7 +268,7 @@ export function useBillingPaymentsWorkflow({
     if (Object.keys(validationErrors).length > 0) {
       setTariffFieldErrors(validationErrors);
       setBillingMessage("Review highlighted tariff fields and try again.");
-      return;
+      return false;
     }
 
     setTariffFieldErrors({});
@@ -278,7 +286,8 @@ export function useBillingPaymentsWorkflow({
       setBillingMessage(
         `${body.message} Effective from ${body.effectiveFromDate}.`,
       );
-      await loadActiveTariff();
+      await Promise.all([loadActiveTariff(), loadTariffManagement(true)]);
+      return true;
     } catch (error) {
       if (error instanceof PortalApiError) {
         setTariffFieldErrors(error.errors);
@@ -286,6 +295,102 @@ export function useBillingPaymentsWorkflow({
       } else {
         setBillingMessage("Tariff save failed.");
       }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTariffManagement = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const body = await portalClient.getTariffManagement();
+      setTariffManagementItems(body.items);
+      if (!silent) {
+        setBillingMessage(`Loaded ${body.count} tariff version(s).`);
+      }
+    } catch (error) {
+      setTariffManagementItems([]);
+      if (!silent) {
+        if (error instanceof PortalApiError) {
+          setBillingMessage(`Unable to load tariffs. ${error.message}`);
+        } else {
+          setBillingMessage("Unable to load tariffs.");
+        }
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const updateTariffVersion = async (effectiveFromDate: string) => {
+    const validationErrors = validateTariffInput({
+      effectiveFromDate: tariffEffectiveFromDate,
+      waterTariffPerUnit,
+      waterStandingChargePerDay,
+      waterVatPercent,
+      electricityTariffPerUnit,
+      electricityStandingChargePerDay,
+      electricityVatPercent,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setTariffFieldErrors(validationErrors);
+      setBillingMessage("Review highlighted tariff fields and try again.");
+      return false;
+    }
+
+    setTariffFieldErrors({});
+    setLoading(true);
+    try {
+      const body = await portalClient.updateTariffVersion(effectiveFromDate, {
+        effectiveFromDate: tariffEffectiveFromDate,
+        waterTariffPerUnit,
+        waterStandingChargePerDay,
+        waterVatPercent,
+        electricityTariffPerUnit,
+        electricityStandingChargePerDay,
+        electricityVatPercent,
+      });
+
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await Promise.all([loadActiveTariff(), loadTariffManagement(true)]);
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setTariffFieldErrors(error.errors);
+        setBillingMessage(`Tariff update failed. ${error.message}`);
+      } else {
+        setBillingMessage("Tariff update failed.");
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTariffVersion = async (effectiveFromDate: string) => {
+    setLoading(true);
+    try {
+      const body = await portalClient.deleteTariffVersion(effectiveFromDate);
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await Promise.all([loadActiveTariff(), loadTariffManagement(true)]);
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Tariff delete failed. ${error.message}`);
+      } else {
+        setBillingMessage("Tariff delete failed.");
+      }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -328,7 +433,7 @@ export function useBillingPaymentsWorkflow({
       setBillingMessage(
         "Review highlighted boiler assumption fields and try again.",
       );
-      return;
+      return false;
     }
 
     setBoilerFieldErrors({});
@@ -346,7 +451,11 @@ export function useBillingPaymentsWorkflow({
       setBillingMessage(
         `${body.message} Effective from ${body.effectiveFromDate}.`,
       );
-      await loadActiveBoilerAssumption();
+      await Promise.all([
+        loadActiveBoilerAssumption(),
+        loadBoilerAssumptionManagement(true),
+      ]);
+      return true;
     } catch (error) {
       if (error instanceof PortalApiError) {
         setBoilerFieldErrors(error.errors);
@@ -354,6 +463,116 @@ export function useBillingPaymentsWorkflow({
       } else {
         setBillingMessage("Boiler assumptions save failed.");
       }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBoilerAssumptionManagement = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const body = await portalClient.getBoilerAssumptionManagement();
+      setBoilerManagementItems(body.items);
+      if (!silent) {
+        setBillingMessage(`Loaded ${body.count} boiler version(s).`);
+      }
+    } catch (error) {
+      setBoilerManagementItems([]);
+      if (!silent) {
+        if (error instanceof PortalApiError) {
+          setBillingMessage(
+            `Unable to load boiler assumptions. ${error.message}`,
+          );
+        } else {
+          setBillingMessage("Unable to load boiler assumptions.");
+        }
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const updateBoilerAssumptionVersion = async (effectiveFromDate: string) => {
+    const validationErrors = validateBoilerAssumptionInput({
+      effectiveFromDate: boilerEffectiveFromDate,
+      hotWaterTemperatureCelsius,
+      hotWaterHeatCapacity,
+      hotWaterDensity,
+      kiloJouleToKiloWattHourFactor,
+      boilerKwhPerCubicMeter,
+      boilerEfficiencyPercent,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setBoilerFieldErrors(validationErrors);
+      setBillingMessage(
+        "Review highlighted boiler assumption fields and try again.",
+      );
+      return false;
+    }
+
+    setBoilerFieldErrors({});
+    setLoading(true);
+    try {
+      const body = await portalClient.updateBoilerAssumptionVersion(
+        effectiveFromDate,
+        {
+          effectiveFromDate: boilerEffectiveFromDate,
+          hotWaterTemperatureCelsius,
+          hotWaterHeatCapacity,
+          hotWaterDensity,
+          kiloJouleToKiloWattHourFactor,
+          boilerKwhPerCubicMeter,
+          boilerEfficiencyPercent,
+        },
+      );
+
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await Promise.all([
+        loadActiveBoilerAssumption(),
+        loadBoilerAssumptionManagement(true),
+      ]);
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBoilerFieldErrors(error.errors);
+        setBillingMessage(`Boiler assumptions update failed. ${error.message}`);
+      } else {
+        setBillingMessage("Boiler assumptions update failed.");
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteBoilerAssumptionVersion = async (effectiveFromDate: string) => {
+    setLoading(true);
+    try {
+      const body =
+        await portalClient.deleteBoilerAssumptionVersion(effectiveFromDate);
+      setBillingMessage(
+        `${body.message} Effective from ${body.effectiveFromDate}.`,
+      );
+      await Promise.all([
+        loadActiveBoilerAssumption(),
+        loadBoilerAssumptionManagement(true),
+      ]);
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setBillingMessage(`Boiler assumptions delete failed. ${error.message}`);
+      } else {
+        setBillingMessage("Boiler assumptions delete failed.");
+      }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -494,7 +713,7 @@ export function useBillingPaymentsWorkflow({
     if (Object.keys(validationErrors).length > 0) {
       setPaymentFieldErrors(validationErrors);
       setPaymentMessage("Review highlighted payment fields and try again.");
-      return;
+      return false;
     }
 
     setPaymentFieldErrors({});
@@ -512,7 +731,7 @@ export function useBillingPaymentsWorkflow({
         setPaymentMessage(`${body.message} Payment ${body.paymentId} updated.`);
         setEditingPaymentId(null);
       } else {
-        const body = await portalClient.recordLatestPeriodPayment({
+        const body = await portalClient.createPayment({
           amount: paymentAmount,
           paymentDate,
           method: paymentMethod,
@@ -520,7 +739,9 @@ export function useBillingPaymentsWorkflow({
           notes: paymentNotes || undefined,
         });
 
-        setPaymentMessage(`${body.message} Payment ${body.paymentId} saved.`);
+        setPaymentMessage(
+          `${body.message} Payment ${body.paymentId} saved to unlinked pool.`,
+        );
       }
 
       await Promise.all([
@@ -528,6 +749,7 @@ export function useBillingPaymentsWorkflow({
         loadPaymentHistory(true),
         loadAllTimeBalance(true),
       ]);
+      return true;
     } catch (error) {
       if (error instanceof PortalApiError) {
         setPaymentFieldErrors(error.errors);
@@ -535,6 +757,7 @@ export function useBillingPaymentsWorkflow({
       } else {
         setPaymentMessage("Payment save failed.");
       }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -573,12 +796,41 @@ export function useBillingPaymentsWorkflow({
         loadPaymentHistory(true),
         loadAllTimeBalance(true),
       ]);
+      return true;
     } catch (error) {
       if (error instanceof PortalApiError) {
         setPaymentMessage(`Payment delete failed. ${error.message}`);
       } else {
         setPaymentMessage("Payment delete failed.");
       }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unlinkPayment = async (paymentId: string) => {
+    setLoading(true);
+    try {
+      const body = await portalClient.unlinkPayment(paymentId);
+      if (editingPaymentId === paymentId) {
+        setEditingPaymentId(null);
+      }
+
+      setPaymentMessage(`${body.message} Payment ${body.paymentId} unlinked.`);
+      await Promise.all([
+        loadLatestPeriodPaymentSummary(true),
+        loadPaymentHistory(true),
+        loadAllTimeBalance(true),
+      ]);
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setPaymentMessage(`Payment unlink failed. ${error.message}`);
+      } else {
+        setPaymentMessage("Payment unlink failed.");
+      }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -588,7 +840,9 @@ export function useBillingPaymentsWorkflow({
     billingMessage,
     latestReadings,
     activeTariff,
+    tariffManagementItems,
     activeBoilerAssumption,
+    boilerManagementItems,
     latestCalculation,
     paymentMessage,
     latestPaymentSummary,
@@ -599,8 +853,14 @@ export function useBillingPaymentsWorkflow({
     updateLatestReadings,
     loadLatestReadings,
     submitTariffVersion,
+    loadTariffManagement,
+    updateTariffVersion,
+    deleteTariffVersion,
     loadActiveTariff,
     submitBoilerAssumptionVersion,
+    loadBoilerAssumptionManagement,
+    updateBoilerAssumptionVersion,
+    deleteBoilerAssumptionVersion,
     loadActiveBoilerAssumption,
     runLatestCalculation,
     loadLatestCalculation,
@@ -608,6 +868,7 @@ export function useBillingPaymentsWorkflow({
     beginPaymentEdit,
     cancelPaymentEdit,
     deletePayment,
+    unlinkPayment,
     loadLatestPeriodPaymentSummary,
     loadPaymentHistory,
     loadAllTimeBalance,

@@ -182,6 +182,7 @@ public sealed class BillingInputService
             ColdWaterReading = coldWater,
             HotWaterReading = hotWater,
             ElectricityReading = electricity,
+            AppliedTariffEffectiveFromDate = latestApplicableTariff.EffectiveFromDate,
             AppliedBoilerEffectiveFromDate = latestApplicableBoilerAssumptions.EffectiveFromDate,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
@@ -260,9 +261,43 @@ public sealed class BillingInputService
         }
 
         latest.ReadingDate = readingDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var latestReadingDateIso = latest.ReadingDate;
+        var availableTariffs = await GetAvailableTariffsOrSeedFromUtilitySetupAsync(
+            user.Id,
+            latestReadingDateIso,
+            cancellationToken);
+        if (availableTariffs.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No tariff was found for the reading date. Add a tariff version before updating readings.");
+        }
+
+        var latestApplicableTariff = availableTariffs
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .First();
+
+        var availableBoilerAssumptions = await GetAvailableBoilerAssumptionsOrSeedFromUtilitySetupAsync(
+            user.Id,
+            latestReadingDateIso,
+            cancellationToken);
+        if (availableBoilerAssumptions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No boiler assumptions were found for the reading date. Add a boiler version before updating readings.");
+        }
+
+        var latestApplicableBoilerAssumptions = availableBoilerAssumptions
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored boiler effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .First();
+
         latest.ColdWaterReading = coldWater;
         latest.HotWaterReading = hotWater;
         latest.ElectricityReading = electricity;
+        latest.AppliedTariffEffectiveFromDate = latestApplicableTariff.EffectiveFromDate;
+        latest.AppliedBoilerEffectiveFromDate = latestApplicableBoilerAssumptions.EffectiveFromDate;
         latest.UpdatedAtUtc = clock.UtcNow;
         latest.Version += 1;
 
@@ -281,7 +316,195 @@ public sealed class BillingInputService
         {
             UserId = user.Id,
             ReadingDate = latest.ReadingDate,
+            AppliedTariffEffectiveFromDate = latest.AppliedTariffEffectiveFromDate,
+            AppliedBoilerEffectiveFromDate = latest.AppliedBoilerEffectiveFromDate,
             Message = "Latest readings updated successfully.",
+        };
+    }
+
+    public async Task<TariffManagementResponse> GetTariffManagementAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var todayIso = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var allTariffs = await GetAvailableTariffsOrSeedFromUtilitySetupAsync(user.Id, MaxIsoDate, cancellationToken);
+        var active = await tariffVersionRepository.GetActiveByUserAndDateAsync(user.Id, todayIso, cancellationToken);
+        var activeEffectiveFromDate = active?.EffectiveFromDate;
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var linkedCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var reading in readings)
+        {
+            var linkedEffectiveFromDate = !string.IsNullOrWhiteSpace(reading.AppliedTariffEffectiveFromDate)
+                ? reading.AppliedTariffEffectiveFromDate
+                : InferTariffEffectiveFromDateForReading(reading.ReadingDate, allTariffs);
+
+            if (string.IsNullOrWhiteSpace(linkedEffectiveFromDate))
+            {
+                continue;
+            }
+
+            linkedCounts[linkedEffectiveFromDate] =
+                linkedCounts.TryGetValue(linkedEffectiveFromDate, out var existingCount)
+                    ? existingCount + 1
+                    : 1;
+        }
+
+        var ordered = allTariffs
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+
+        var items = ordered.Select(x =>
+        {
+            var linkedCount = linkedCounts.TryGetValue(x.EffectiveFromDate, out var count) ? count : 0;
+            var isActive = string.Equals(x.EffectiveFromDate, activeEffectiveFromDate, StringComparison.Ordinal);
+
+            return new TariffManagementItemResponse
+            {
+                EffectiveFromDate = x.EffectiveFromDate,
+                WaterTariffPerUnit = x.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+                WaterStandingChargePerDay = x.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+                WaterVatPercent = x.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                ElectricityTariffPerUnit = x.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+                ElectricityStandingChargePerDay = x.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+                ElectricityVatPercent = x.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                IsActive = isActive,
+                IsLinked = linkedCount > 0,
+                CanEdit = isActive,
+                CanDelete = linkedCount == 0,
+                LinkedReadingsCount = linkedCount,
+            };
+        }).ToList();
+
+        return new TariffManagementResponse
+        {
+            UserId = user.Id,
+            OnDate = todayIso,
+            Count = items.Count,
+            Items = items,
+        };
+    }
+
+    private static string? InferTariffEffectiveFromDateForReading(
+        string readingDate,
+        IReadOnlyList<TariffVersion> tariffs)
+    {
+        var parsedReadingDate = ParseIsoDate(readingDate, "Stored reading date is invalid.");
+
+        var inferredTariff = tariffs
+            .Where(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid.") <= parsedReadingDate)
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored tariff effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .FirstOrDefault();
+
+        return inferredTariff?.EffectiveFromDate;
+    }
+
+    public async Task<UpsertTariffResponse> UpdateTariffVersionAsync(
+        string userId,
+        string effectiveFromDate,
+        UpsertTariffRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var targetDate = ParseIsoDate(effectiveFromDate, "Tariff effective-from date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        if (!string.Equals(targetDate, request.EffectiveFromDate, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Tariff effective-from date in URL and body must match.");
+        }
+
+        var existing = await tariffVersionRepository.GetByUserAndEffectiveFromDateAsync(user.Id, targetDate, cancellationToken)
+            ?? throw new InvalidOperationException("Tariff version was not found.");
+
+        var todayIso = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var active = await tariffVersionRepository.GetActiveByUserAndDateAsync(user.Id, todayIso, cancellationToken);
+        if (!string.Equals(active?.EffectiveFromDate, targetDate, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only the currently active tariff can be edited.");
+        }
+
+        var waterTariff = ParseDecimal(request.WaterTariffPerUnit, "Water tariff is invalid.");
+        var waterStandingCharge = ParseDecimal(request.WaterStandingChargePerDay, "Water standing charge is invalid.");
+        var waterVatPercent = ParseDecimal(request.WaterVatPercent, "Water VAT percent is invalid.");
+        var electricityTariff = ParseDecimal(request.ElectricityTariffPerUnit, "Electricity tariff is invalid.");
+        var electricityStandingCharge = ParseDecimal(request.ElectricityStandingChargePerDay, "Electricity standing charge is invalid.");
+        var electricityVatPercent = ParseDecimal(request.ElectricityVatPercent, "Electricity VAT percent is invalid.");
+
+        if (waterTariff <= 0m || electricityTariff <= 0m)
+        {
+            throw new InvalidOperationException("Water and electricity tariffs must be greater than zero.");
+        }
+
+        if (waterVatPercent > 100m || electricityVatPercent > 100m)
+        {
+            throw new InvalidOperationException("VAT percent cannot exceed 100.");
+        }
+
+        existing.WaterTariffPerUnit = waterTariff;
+        existing.WaterStandingChargePerDay = waterStandingCharge;
+        existing.WaterVatPercent = waterVatPercent;
+        existing.ElectricityTariffPerUnit = electricityTariff;
+        existing.ElectricityStandingChargePerDay = electricityStandingCharge;
+        existing.ElectricityVatPercent = electricityVatPercent;
+        existing.UpdatedAtUtc = clock.UtcNow;
+        existing.Version += 1;
+
+        await tariffVersionRepository.AddAsync(existing, cancellationToken);
+
+        return new UpsertTariffResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = existing.EffectiveFromDate,
+            WaterTariffPerUnit = existing.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterStandingChargePerDay = existing.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterVatPercent = existing.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityTariffPerUnit = existing.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityStandingChargePerDay = existing.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityVatPercent = existing.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            Message = "Tariff version updated.",
+        };
+    }
+
+    public async Task<UpsertTariffResponse> DeleteTariffVersionAsync(
+        string userId,
+        string effectiveFromDate,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var targetDate = ParseIsoDate(effectiveFromDate, "Tariff effective-from date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var existing = await tariffVersionRepository.GetByUserAndEffectiveFromDateAsync(user.Id, targetDate, cancellationToken)
+            ?? throw new InvalidOperationException("Tariff version was not found.");
+
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var linkedCount = readings.Count(x =>
+            string.Equals(x.AppliedTariffEffectiveFromDate, targetDate, StringComparison.Ordinal));
+
+        if (linkedCount > 0)
+        {
+            throw new InvalidOperationException("This tariff is linked to readings and cannot be deleted.");
+        }
+
+        existing.IsDeleted = true;
+        existing.UpdatedAtUtc = clock.UtcNow;
+        existing.Version += 1;
+
+        await tariffVersionRepository.AddAsync(existing, cancellationToken);
+
+        return new UpsertTariffResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = existing.EffectiveFromDate,
+            WaterTariffPerUnit = existing.WaterTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterStandingChargePerDay = existing.WaterStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            WaterVatPercent = existing.WaterVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityTariffPerUnit = existing.ElectricityTariffPerUnit.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityStandingChargePerDay = existing.ElectricityStandingChargePerDay.ToString("0.######", CultureInfo.InvariantCulture),
+            ElectricityVatPercent = existing.ElectricityVatPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            Message = "Tariff version deleted.",
         };
     }
 
@@ -558,6 +781,172 @@ public sealed class BillingInputService
             BoilerKwhPerCubicMeter = version.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
             BoilerEfficiencyPercent = version.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
             Message = "Boiler assumptions version saved.",
+        };
+    }
+
+    public async Task<BoilerAssumptionManagementResponse> GetBoilerAssumptionManagementAsync(
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var todayIso = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var allBoilerAssumptions = await GetAvailableBoilerAssumptionsOrSeedFromUtilitySetupAsync(user.Id, MaxIsoDate, cancellationToken);
+        var active = await boilerAssumptionVersionRepository.GetActiveByUserAndDateAsync(user.Id, todayIso, cancellationToken);
+        var activeEffectiveFromDate = active?.EffectiveFromDate;
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+
+        var linkedCounts = readings
+            .Where(x => !string.IsNullOrWhiteSpace(x.AppliedBoilerEffectiveFromDate))
+            .GroupBy(x => x.AppliedBoilerEffectiveFromDate!, StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.Ordinal);
+
+        var ordered = allBoilerAssumptions
+            .OrderByDescending(x => ParseIsoDate(x.EffectiveFromDate, "Stored boiler effective-from date is invalid."))
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+
+        var items = ordered.Select(x =>
+        {
+            var linkedCount = linkedCounts.TryGetValue(x.EffectiveFromDate, out var count) ? count : 0;
+            var isActive = string.Equals(x.EffectiveFromDate, activeEffectiveFromDate, StringComparison.Ordinal);
+
+            return new BoilerAssumptionManagementItemResponse
+            {
+                EffectiveFromDate = x.EffectiveFromDate,
+                HotWaterTemperatureCelsius = x.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+                HotWaterHeatCapacity = x.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+                HotWaterDensity = x.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+                KiloJouleToKiloWattHourFactor = x.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+                BoilerKwhPerCubicMeter = x.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+                BoilerEfficiencyPercent = x.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+                IsActive = isActive,
+                IsLinked = linkedCount > 0,
+                CanEdit = isActive,
+                CanDelete = linkedCount == 0,
+                LinkedReadingsCount = linkedCount,
+            };
+        }).ToList();
+
+        return new BoilerAssumptionManagementResponse
+        {
+            UserId = user.Id,
+            OnDate = todayIso,
+            Count = items.Count,
+            Items = items,
+        };
+    }
+
+    public async Task<UpsertBoilerAssumptionVersionResponse> UpdateBoilerAssumptionVersionAsync(
+        string userId,
+        string effectiveFromDate,
+        UpsertBoilerAssumptionVersionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var targetDate = ParseIsoDate(effectiveFromDate, "Boiler effective-from date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        if (!string.Equals(targetDate, request.EffectiveFromDate, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Boiler effective-from date in URL and body must match.");
+        }
+
+        var existing = await boilerAssumptionVersionRepository.GetByUserAndEffectiveFromDateAsync(user.Id, targetDate, cancellationToken)
+            ?? throw new InvalidOperationException("Boiler assumptions version was not found.");
+
+        var todayIso = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var active = await boilerAssumptionVersionRepository.GetActiveByUserAndDateAsync(user.Id, todayIso, cancellationToken);
+        if (!string.Equals(active?.EffectiveFromDate, targetDate, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only the currently active boiler assumptions can be edited.");
+        }
+
+        var hotWaterTemperatureCelsius = ParseDecimal(request.HotWaterTemperatureCelsius, "Hot-water temperature is invalid.");
+        var hotWaterHeatCapacity = ParseDecimal(request.HotWaterHeatCapacity, "Hot-water heat capacity is invalid.");
+        var hotWaterDensity = ParseDecimal(request.HotWaterDensity, "Hot-water density is invalid.");
+        var kiloJouleToKiloWattHourFactor = ParseDecimal(request.KiloJouleToKiloWattHourFactor, "kJ to kWh conversion factor is invalid.");
+        var boilerKwhPerCubicMeter = ParseDecimal(request.BoilerKwhPerCubicMeter, "Boiler conversion (kWh per cubic meter) is invalid.");
+        var boilerEfficiencyPercent = ParseDecimal(request.BoilerEfficiencyPercent, "Boiler efficiency percent is invalid.");
+
+        if (hotWaterTemperatureCelsius <= 0m
+            || hotWaterHeatCapacity <= 0m
+            || hotWaterDensity <= 0m
+            || kiloJouleToKiloWattHourFactor <= 0m
+            || boilerKwhPerCubicMeter <= 0m
+            || boilerEfficiencyPercent <= 0m)
+        {
+            throw new InvalidOperationException("Boiler assumption values must be greater than zero.");
+        }
+
+        if (boilerEfficiencyPercent > 100m)
+        {
+            throw new InvalidOperationException("Boiler efficiency percent cannot exceed 100.");
+        }
+
+        existing.HotWaterTemperatureCelsius = hotWaterTemperatureCelsius;
+        existing.HotWaterHeatCapacity = hotWaterHeatCapacity;
+        existing.HotWaterDensity = hotWaterDensity;
+        existing.KiloJouleToKiloWattHourFactor = kiloJouleToKiloWattHourFactor;
+        existing.BoilerKwhPerCubicMeter = boilerKwhPerCubicMeter;
+        existing.BoilerEfficiencyPercent = boilerEfficiencyPercent;
+        existing.UpdatedAtUtc = clock.UtcNow;
+        existing.Version += 1;
+
+        await boilerAssumptionVersionRepository.AddAsync(existing, cancellationToken);
+
+        return new UpsertBoilerAssumptionVersionResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = existing.EffectiveFromDate,
+            HotWaterTemperatureCelsius = existing.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterHeatCapacity = existing.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterDensity = existing.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+            KiloJouleToKiloWattHourFactor = existing.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerKwhPerCubicMeter = existing.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerEfficiencyPercent = existing.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            Message = "Boiler assumptions version updated.",
+        };
+    }
+
+    public async Task<UpsertBoilerAssumptionVersionResponse> DeleteBoilerAssumptionVersionAsync(
+        string userId,
+        string effectiveFromDate,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetEligibleUserAsync(userId, cancellationToken);
+        var targetDate = ParseIsoDate(effectiveFromDate, "Boiler effective-from date must use yyyy-MM-dd format.")
+            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var existing = await boilerAssumptionVersionRepository.GetByUserAndEffectiveFromDateAsync(user.Id, targetDate, cancellationToken)
+            ?? throw new InvalidOperationException("Boiler assumptions version was not found.");
+
+        var readings = await readingSubmissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+        var linkedCount = readings.Count(x =>
+            string.Equals(x.AppliedBoilerEffectiveFromDate, targetDate, StringComparison.Ordinal));
+
+        if (linkedCount > 0)
+        {
+            throw new InvalidOperationException("These boiler assumptions are linked to readings and cannot be deleted.");
+        }
+
+        existing.IsDeleted = true;
+        existing.UpdatedAtUtc = clock.UtcNow;
+        existing.Version += 1;
+
+        await boilerAssumptionVersionRepository.AddAsync(existing, cancellationToken);
+
+        return new UpsertBoilerAssumptionVersionResponse
+        {
+            UserId = user.Id,
+            EffectiveFromDate = existing.EffectiveFromDate,
+            HotWaterTemperatureCelsius = existing.HotWaterTemperatureCelsius.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterHeatCapacity = existing.HotWaterHeatCapacity.ToString("0.######", CultureInfo.InvariantCulture),
+            HotWaterDensity = existing.HotWaterDensity.ToString("0.######", CultureInfo.InvariantCulture),
+            KiloJouleToKiloWattHourFactor = existing.KiloJouleToKiloWattHourFactor.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerKwhPerCubicMeter = existing.BoilerKwhPerCubicMeter.ToString("0.######", CultureInfo.InvariantCulture),
+            BoilerEfficiencyPercent = existing.BoilerEfficiencyPercent.ToString("0.######", CultureInfo.InvariantCulture),
+            Message = "Boiler assumptions version deleted.",
         };
     }
 

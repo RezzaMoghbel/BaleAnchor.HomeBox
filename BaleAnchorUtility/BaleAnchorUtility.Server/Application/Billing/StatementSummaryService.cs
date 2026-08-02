@@ -109,11 +109,15 @@ public sealed class StatementSummaryService
         }
         var payments = await paymentRepository.GetByUserIdAsync(user.Id, cancellationToken);
 
-        var paymentByPeriod = payments
+        var paymentsByPeriod = payments
+            .Where(x => !string.IsNullOrWhiteSpace(x.PeriodStartDate) && !string.IsNullOrWhiteSpace(x.PeriodEndDateExclusive))
             .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
             .ToDictionary(
                 x => x.Key,
-                x => x.OrderByDescending(p => p.UpdatedAtUtc).First());
+                x => x
+                    .OrderByDescending(p => p.PaymentDate, StringComparer.Ordinal)
+                    .ThenByDescending(p => p.UpdatedAtUtc)
+                    .ToList());
 
         var latestSnapshotByPeriod = snapshots
             .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
@@ -126,9 +130,11 @@ public sealed class StatementSummaryService
             .Select(snapshot =>
             {
                 var key = $"{snapshot.PeriodStartDate}|{snapshot.PeriodEndDateExclusive}";
-                paymentByPeriod.TryGetValue(key, out var payment);
+                paymentsByPeriod.TryGetValue(key, out var linkedPayments);
+                linkedPayments ??= [];
 
-                var paidAmount = payment?.Amount ?? 0m;
+                var paidAmount = linkedPayments.Sum(x => x.Amount);
+                var latestPayment = linkedPayments.FirstOrDefault();
                 var difference = snapshot.PeriodTotal - paidAmount;
 
                 return new StatementPeriodItemResponse
@@ -137,10 +143,23 @@ public sealed class StatementSummaryService
                     PeriodStartDate = snapshot.PeriodStartDate,
                     PeriodEndDateExclusive = snapshot.PeriodEndDateExclusive,
                     PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
-                    HasPayment = payment is not null,
-                    PaymentId = payment?.Id,
-                    PaymentAmount = payment?.Amount.ToString("0.00", CultureInfo.InvariantCulture),
-                    PaymentDate = payment?.PaymentDate,
+                    HasPayment = linkedPayments.Count > 0,
+                    PaymentId = latestPayment?.Id,
+                    PaymentAmount = paidAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                    PaymentDate = latestPayment?.PaymentDate,
+                    LinkedPaymentCount = linkedPayments.Count,
+                    LinkedPayments = linkedPayments
+                        .Select(payment => new LinkedPaymentItemResponse
+                        {
+                            PaymentId = payment.Id,
+                            Amount = payment.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+                            PaymentDate = payment.PaymentDate,
+                            Method = payment.Method,
+                            Reference = payment.Reference,
+                            Notes = payment.Notes,
+                            VerificationStatus = payment.VerificationStatus,
+                        })
+                        .ToList(),
                     PeriodDifference = difference.ToString("0.00", CultureInfo.InvariantCulture),
                     PeriodBalanceStatus = ToBalanceStatus(difference),
                     ContainsEstimatedSegments = snapshot.ContainsEstimatedSegments,
@@ -161,11 +180,15 @@ public sealed class StatementSummaryService
         Domain.Calculations.CalculationSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        var paymentForPeriod = await paymentRepository.GetByUserAndPeriodAsync(
-            userId,
-            snapshot.PeriodStartDate,
-            snapshot.PeriodEndDateExclusive,
-            cancellationToken);
+        var allPayments = await paymentRepository.GetByUserIdAsync(userId, cancellationToken);
+        var periodPayments = allPayments
+            .Where(x =>
+                string.Equals(x.PeriodStartDate, snapshot.PeriodStartDate, StringComparison.Ordinal)
+                && string.Equals(x.PeriodEndDateExclusive, snapshot.PeriodEndDateExclusive, StringComparison.Ordinal))
+            .OrderByDescending(x => x.PaymentDate, StringComparer.Ordinal)
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+        var latestPaymentForPeriod = periodPayments.FirstOrDefault();
 
         var validPeriodEndDates = (await readingSubmissionRepository.GetByUserIdAsync(userId, cancellationToken))
             .Select(x => x.ReadingDate)
@@ -178,13 +201,11 @@ public sealed class StatementSummaryService
                 .Where(x => validPeriodEndDates.Contains(x.PeriodEndDateExclusive))
                 .ToList();
         }
-        var allPayments = await paymentRepository.GetByUserIdAsync(userId, cancellationToken);
-
         var totalCalculatedCharges = allSnapshots.Sum(x => x.PeriodTotal);
         var totalRecordedPayments = allPayments.Sum(x => x.Amount);
         var currentBalance = totalCalculatedCharges - totalRecordedPayments;
 
-        var periodPaidAmount = paymentForPeriod?.Amount ?? 0m;
+        var periodPaidAmount = periodPayments.Sum(x => x.Amount);
         var periodDifference = snapshot.PeriodTotal - periodPaidAmount;
 
         return new LatestStatementSummaryResponse
@@ -193,11 +214,11 @@ public sealed class StatementSummaryService
             PeriodStartDate = snapshot.PeriodStartDate,
             PeriodEndDateExclusive = snapshot.PeriodEndDateExclusive,
             PeriodTotal = snapshot.PeriodTotal.ToString("0.00", CultureInfo.InvariantCulture),
-            HasPayment = paymentForPeriod is not null,
-            PaymentId = paymentForPeriod?.Id,
-            PaymentAmount = paymentForPeriod?.Amount.ToString("0.00", CultureInfo.InvariantCulture),
-            PaymentDate = paymentForPeriod?.PaymentDate,
-            PaymentMethod = paymentForPeriod?.Method,
+            HasPayment = periodPayments.Count > 0,
+            PaymentId = latestPaymentForPeriod?.Id,
+            PaymentAmount = periodPaidAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            PaymentDate = latestPaymentForPeriod?.PaymentDate,
+            PaymentMethod = latestPaymentForPeriod?.Method,
             PeriodDifference = periodDifference.ToString("0.00", CultureInfo.InvariantCulture),
             PeriodBalanceStatus = ToBalanceStatus(periodDifference),
             TotalCalculatedCharges = totalCalculatedCharges.ToString("0.00", CultureInfo.InvariantCulture),

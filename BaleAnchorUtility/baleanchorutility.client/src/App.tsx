@@ -4,6 +4,7 @@ import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
 import { OverviewDashboardView } from "./components/dashboard/OverviewDashboardView";
 import { PaymentsDashboardView } from "./components/dashboard/PaymentsDashboardView";
 import { ReadingsDashboardView } from "./components/dashboard/ReadingsDashboardView";
+import { BoilerDashboardView } from "./components/dashboard/BoilerDashboardView";
 import { TariffsDashboardView } from "./components/dashboard/TariffsDashboardView";
 import { NotificationsDashboardView } from "./components/dashboard/NotificationsDashboardView";
 import { StatementsDashboardView } from "./components/dashboard/StatementsDashboardView";
@@ -239,8 +240,9 @@ function App() {
     billingMessage,
     latestReadings,
     activeTariff,
+    tariffManagementItems,
     activeBoilerAssumption,
-    latestCalculation,
+    boilerManagementItems,
     paymentMessage,
     latestPaymentSummary,
     paymentHistory,
@@ -250,15 +252,21 @@ function App() {
     updateLatestReadings,
     loadLatestReadings,
     submitTariffVersion,
+    loadTariffManagement,
+    updateTariffVersion,
+    deleteTariffVersion,
     loadActiveTariff,
     submitBoilerAssumptionVersion,
+    loadBoilerAssumptionManagement,
+    updateBoilerAssumptionVersion,
+    deleteBoilerAssumptionVersion,
     loadActiveBoilerAssumption,
     runLatestCalculation,
-    loadLatestCalculation,
     recordLatestPeriodPayment,
     beginPaymentEdit,
     cancelPaymentEdit,
     deletePayment,
+    unlinkPayment,
     loadLatestPeriodPaymentSummary,
     loadPaymentHistory,
     loadAllTimeBalance,
@@ -301,16 +309,14 @@ function App() {
   const {
     statementMessage,
     selectedSnapshotId,
-    latestStatementSummary,
     selectedStatementSummary,
     statementPeriods,
     statementExportHistory,
-    loadLatestStatementSummary,
-    loadStatementPeriods,
+    reloadStatements,
     loadSelectedStatementSummary,
     exportSelectedStatementPdf,
-    loadStatementExportHistory,
-    setSelectedSnapshotId,
+    selectedSnapshotIds,
+    toggleSelectedSnapshotId,
   } = useStatementsWorkflow({
     isStatementsDashboard: location.pathname.startsWith(
       "/dashboard/statements",
@@ -755,13 +761,27 @@ function App() {
       ? "statements"
       : location.pathname.startsWith("/dashboard/tariffs")
         ? "tariffs"
-        : location.pathname.startsWith("/dashboard/notifications")
-          ? "notifications"
-          : location.pathname.startsWith("/dashboard/admin")
-            ? "admin"
-            : location.pathname.startsWith("/dashboard/readings")
-              ? "readings"
-              : "overview";
+        : location.pathname.startsWith("/dashboard/boiler")
+          ? "boiler"
+          : location.pathname.startsWith("/dashboard/notifications")
+            ? "notifications"
+            : location.pathname.startsWith("/dashboard/admin")
+              ? "admin"
+              : location.pathname.startsWith("/dashboard/readings")
+                ? "readings"
+                : "overview";
+
+  useEffect(() => {
+    if (dashboardSection === "tariffs") {
+      void loadTariffManagement();
+      return;
+    }
+
+    if (dashboardSection === "boiler") {
+      void loadBoilerAssumptionManagement();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardSection]);
 
   const shellLinkClass = (path: string) =>
     `shell-nav-link${pageMode === path ? " shell-nav-link--active" : ""}`;
@@ -1012,6 +1032,14 @@ function App() {
           to="/dashboard/tariffs"
         >
           Tariffs
+        </Link>
+      )}
+      {!isSuperAdminUser && (
+        <Link
+          className={`shell-nav-link ${dashboardSection === "boiler" ? "shell-nav-link--active" : ""}`}
+          to="/dashboard/boiler"
+        >
+          Boiler
         </Link>
       )}
       {!isAdminUser && (
@@ -1290,19 +1318,10 @@ function App() {
       electricityTariffPerUnit={electricityTariffPerUnit}
       electricityStandingChargePerDay={electricityStandingChargePerDay}
       electricityVatPercent={electricityVatPercent}
-      boilerEffectiveFromDate={boilerEffectiveFromDate}
-      hotWaterTemperatureCelsius={hotWaterTemperatureCelsius}
-      hotWaterHeatCapacity={hotWaterHeatCapacity}
-      hotWaterDensity={hotWaterDensity}
-      kiloJouleToKiloWattHourFactor={kiloJouleToKiloWattHourFactor}
-      boilerKwhPerCubicMeter={boilerKwhPerCubicMeter}
-      boilerEfficiencyPercent={boilerEfficiencyPercent}
       tariffFieldErrors={tariffFieldErrors}
-      boilerFieldErrors={boilerFieldErrors}
       billingMessage={billingMessage}
       activeTariff={activeTariff}
-      activeBoilerAssumption={activeBoilerAssumption}
-      latestCalculation={latestCalculation}
+      tariffManagementItems={tariffManagementItems}
       getFieldErrors={getFieldErrors}
       onTariffEffectiveFromDateChange={handleTariffEffectiveFromDateChange}
       onWaterTariffPerUnitChange={handleWaterTariffPerUnitChange}
@@ -1313,6 +1332,31 @@ function App() {
         handleElectricityStandingChargePerDayChange
       }
       onElectricityVatPercentChange={handleElectricityVatPercentChange}
+      onSubmitTariffVersion={submitTariffVersion}
+      onUpdateTariffVersion={updateTariffVersion}
+      onDeleteTariffVersion={deleteTariffVersion}
+      onLoadTariffManagement={loadTariffManagement}
+      onLoadActiveTariff={loadActiveTariff}
+    />
+  );
+
+  const renderBoilerView = () => (
+    <BoilerDashboardView
+      shellHeader={renderShellHeader()}
+      routeTabs={renderDashboardTabsWithDelegatedBanner()}
+      loading={loading}
+      boilerEffectiveFromDate={boilerEffectiveFromDate}
+      hotWaterTemperatureCelsius={hotWaterTemperatureCelsius}
+      hotWaterHeatCapacity={hotWaterHeatCapacity}
+      hotWaterDensity={hotWaterDensity}
+      kiloJouleToKiloWattHourFactor={kiloJouleToKiloWattHourFactor}
+      boilerKwhPerCubicMeter={boilerKwhPerCubicMeter}
+      boilerEfficiencyPercent={boilerEfficiencyPercent}
+      boilerFieldErrors={boilerFieldErrors}
+      billingMessage={billingMessage}
+      activeBoilerAssumption={activeBoilerAssumption}
+      boilerManagementItems={boilerManagementItems}
+      getFieldErrors={getFieldErrors}
       onBoilerEffectiveFromDateChange={handleBoilerEffectiveFromDateChange}
       onHotWaterTemperatureCelsiusChange={
         handleHotWaterTemperatureCelsiusChange
@@ -1324,14 +1368,11 @@ function App() {
       }
       onBoilerKwhPerCubicMeterChange={handleBoilerKwhPerCubicMeterChange}
       onBoilerEfficiencyPercentChange={handleBoilerEfficiencyPercentChange}
-      onSubmitTariffVersion={submitTariffVersion}
-      onLoadActiveTariff={loadActiveTariff}
       onSubmitBoilerAssumptionVersion={submitBoilerAssumptionVersion}
+      onUpdateBoilerAssumptionVersion={updateBoilerAssumptionVersion}
+      onDeleteBoilerAssumptionVersion={deleteBoilerAssumptionVersion}
+      onLoadBoilerAssumptionManagement={loadBoilerAssumptionManagement}
       onLoadActiveBoilerAssumption={loadActiveBoilerAssumption}
-      onRunLatestCalculation={runLatestCalculation}
-      onLoadLatestCalculation={loadLatestCalculation}
-      formatDateRange={formatDateRange}
-      formatCurrencyGbp={formatCurrencyGbp}
     />
   );
 
@@ -1361,6 +1402,7 @@ function App() {
       onBeginPaymentEdit={beginPaymentEdit}
       onCancelPaymentEdit={cancelPaymentEdit}
       onDeletePayment={deletePayment}
+      onUnlinkPayment={unlinkPayment}
       onLoadLatestPeriodPaymentSummary={() => loadLatestPeriodPaymentSummary()}
       onLoadPaymentHistory={() => loadPaymentHistory()}
       onLoadAllTimeBalance={() => loadAllTimeBalance()}
@@ -1377,16 +1419,14 @@ function App() {
       loading={loading}
       statementMessage={statementMessage}
       selectedSnapshotId={selectedSnapshotId}
-      latestStatementSummary={latestStatementSummary}
+      selectedSnapshotIds={selectedSnapshotIds}
       selectedStatementSummary={selectedStatementSummary}
       statementPeriods={statementPeriods}
       statementExportHistory={statementExportHistory}
-      onLoadLatestStatementSummary={loadLatestStatementSummary}
-      onLoadStatementPeriods={loadStatementPeriods}
+      onReloadStatements={reloadStatements}
       onLoadSelectedStatementSummary={loadSelectedStatementSummary}
       onExportSelectedStatementPdf={exportSelectedStatementPdf}
-      onLoadStatementExportHistory={() => loadStatementExportHistory()}
-      onSelectSnapshotId={setSelectedSnapshotId}
+      onToggleSnapshotSelection={toggleSelectedSnapshotId}
       formatDateRange={formatDateRange}
       formatCurrencyGbp={formatCurrencyGbp}
       formatDisplayDateTime={formatDisplayDateTime}
@@ -1452,6 +1492,14 @@ function App() {
     }
 
     return renderTariffsView();
+  }
+
+  if (dashboardSection === "boiler") {
+    if (isSuperAdminUser) {
+      return renderAdminView();
+    }
+
+    return renderBoilerView();
   }
 
   if (dashboardSection === "payments") {

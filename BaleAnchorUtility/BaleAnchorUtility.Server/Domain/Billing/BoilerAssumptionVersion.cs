@@ -13,5 +13,6 @@ public sealed class BoilerAssumptionVersion
     public decimal BoilerEfficiencyPercent { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+    public bool IsDeleted { get; set; }
     public int Version { get; set; }
 }

@@ -4,8 +4,9 @@ public sealed class PaymentRecord
 {
     public required string Id { get; init; }
     public required string UserId { get; set; }
-    public required string PeriodStartDate { get; set; }
-    public required string PeriodEndDateExclusive { get; set; }
+    public string? PeriodStartDate { get; set; }
+    public string? PeriodEndDateExclusive { get; set; }
+    public string? LinkedSnapshotId { get; set; }
     public decimal Amount { get; set; }
     public required string PaymentDate { get; set; }
     public required string Method { get; set; }

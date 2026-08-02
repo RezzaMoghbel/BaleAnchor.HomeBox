@@ -1,76 +1,80 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type {
-  ActiveTariffResponse,
+  ActiveBoilerAssumptionResponse,
+  BoilerAssumptionManagementItemResponse,
   FieldErrors,
-  TariffManagementItemResponse,
 } from "../../shared/contracts";
 
-interface TariffsDashboardViewProps {
+interface BoilerDashboardViewProps {
   shellHeader: ReactNode;
   routeTabs: ReactNode;
   loading: boolean;
-  tariffEffectiveFromDate: string;
-  waterTariffPerUnit: string;
-  waterStandingChargePerDay: string;
-  waterVatPercent: string;
-  electricityTariffPerUnit: string;
-  electricityStandingChargePerDay: string;
-  electricityVatPercent: string;
-  tariffFieldErrors: FieldErrors;
+  boilerEffectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+  boilerFieldErrors: FieldErrors;
   billingMessage: string;
-  activeTariff: ActiveTariffResponse | null;
-  tariffManagementItems: TariffManagementItemResponse[];
+  activeBoilerAssumption: ActiveBoilerAssumptionResponse | null;
+  boilerManagementItems: BoilerAssumptionManagementItemResponse[];
   getFieldErrors: (errors: FieldErrors, fieldName: string) => string[];
-  onTariffEffectiveFromDateChange: (value: string) => void;
-  onWaterTariffPerUnitChange: (value: string) => void;
-  onWaterStandingChargePerDayChange: (value: string) => void;
-  onWaterVatPercentChange: (value: string) => void;
-  onElectricityTariffPerUnitChange: (value: string) => void;
-  onElectricityStandingChargePerDayChange: (value: string) => void;
-  onElectricityVatPercentChange: (value: string) => void;
-  onSubmitTariffVersion: () => Promise<boolean>;
-  onUpdateTariffVersion: (effectiveFromDate: string) => Promise<boolean>;
-  onDeleteTariffVersion: (effectiveFromDate: string) => Promise<boolean>;
-  onLoadTariffManagement: () => Promise<void>;
-  onLoadActiveTariff: () => Promise<void>;
+  onBoilerEffectiveFromDateChange: (value: string) => void;
+  onHotWaterTemperatureCelsiusChange: (value: string) => void;
+  onHotWaterHeatCapacityChange: (value: string) => void;
+  onHotWaterDensityChange: (value: string) => void;
+  onKiloJouleToKiloWattHourFactorChange: (value: string) => void;
+  onBoilerKwhPerCubicMeterChange: (value: string) => void;
+  onBoilerEfficiencyPercentChange: (value: string) => void;
+  onSubmitBoilerAssumptionVersion: () => Promise<boolean>;
+  onUpdateBoilerAssumptionVersion: (
+    effectiveFromDate: string,
+  ) => Promise<boolean>;
+  onDeleteBoilerAssumptionVersion: (
+    effectiveFromDate: string,
+  ) => Promise<boolean>;
+  onLoadBoilerAssumptionManagement: () => Promise<void>;
+  onLoadActiveBoilerAssumption: () => Promise<void>;
 }
 
 const pageSize = 10;
 
-export function TariffsDashboardView({
+export function BoilerDashboardView({
   shellHeader,
   routeTabs,
   loading,
-  tariffEffectiveFromDate,
-  waterTariffPerUnit,
-  waterStandingChargePerDay,
-  waterVatPercent,
-  electricityTariffPerUnit,
-  electricityStandingChargePerDay,
-  electricityVatPercent,
-  tariffFieldErrors,
+  boilerEffectiveFromDate,
+  hotWaterTemperatureCelsius,
+  hotWaterHeatCapacity,
+  hotWaterDensity,
+  kiloJouleToKiloWattHourFactor,
+  boilerKwhPerCubicMeter,
+  boilerEfficiencyPercent,
+  boilerFieldErrors,
   billingMessage,
-  activeTariff,
-  tariffManagementItems,
+  activeBoilerAssumption,
+  boilerManagementItems,
   getFieldErrors,
-  onTariffEffectiveFromDateChange,
-  onWaterTariffPerUnitChange,
-  onWaterStandingChargePerDayChange,
-  onWaterVatPercentChange,
-  onElectricityTariffPerUnitChange,
-  onElectricityStandingChargePerDayChange,
-  onElectricityVatPercentChange,
-  onSubmitTariffVersion,
-  onUpdateTariffVersion,
-  onDeleteTariffVersion,
-  onLoadTariffManagement,
-  onLoadActiveTariff,
-}: TariffsDashboardViewProps) {
+  onBoilerEffectiveFromDateChange,
+  onHotWaterTemperatureCelsiusChange,
+  onHotWaterHeatCapacityChange,
+  onHotWaterDensityChange,
+  onKiloJouleToKiloWattHourFactorChange,
+  onBoilerKwhPerCubicMeterChange,
+  onBoilerEfficiencyPercentChange,
+  onSubmitBoilerAssumptionVersion,
+  onUpdateBoilerAssumptionVersion,
+  onDeleteBoilerAssumptionVersion,
+  onLoadBoilerAssumptionManagement,
+  onLoadActiveBoilerAssumption,
+}: BoilerDashboardViewProps) {
   const [editingEffectiveFromDate, setEditingEffectiveFromDate] = useState<
     string | null
   >(null);
   const [deleteTarget, setDeleteTarget] =
-    useState<TariffManagementItemResponse | null>(null);
+    useState<BoilerAssumptionManagementItemResponse | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [successToast, setSuccessToast] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -86,19 +90,18 @@ export function TariffsDashboardView({
   const filteredRows = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) {
-      return tariffManagementItems;
+      return boilerManagementItems;
     }
 
-    return tariffManagementItems.filter((item) => {
+    return boilerManagementItems.filter((item) => {
       return (
         item.effectiveFromDate.toLowerCase().includes(query) ||
-        item.waterTariffPerUnit.toLowerCase().includes(query) ||
-        item.waterStandingChargePerDay.toLowerCase().includes(query) ||
-        item.electricityTariffPerUnit.toLowerCase().includes(query) ||
-        item.electricityStandingChargePerDay.toLowerCase().includes(query)
+        item.boilerKwhPerCubicMeter.toLowerCase().includes(query) ||
+        item.boilerEfficiencyPercent.toLowerCase().includes(query) ||
+        item.hotWaterTemperatureCelsius.toLowerCase().includes(query)
       );
     });
-  }, [searchTerm, tariffManagementItems]);
+  }, [boilerManagementItems, searchTerm]);
 
   const totalEntries = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
@@ -106,27 +109,25 @@ export function TariffsDashboardView({
   const startIndex = (safePage - 1) * pageSize;
   const pagedRows = filteredRows.slice(startIndex, startIndex + pageSize);
 
-  const setFormFromRow = (item: TariffManagementItemResponse) => {
-    onTariffEffectiveFromDateChange(item.effectiveFromDate);
-    onWaterTariffPerUnitChange(item.waterTariffPerUnit);
-    onWaterStandingChargePerDayChange(item.waterStandingChargePerDay);
-    onWaterVatPercentChange(item.waterVatPercent);
-    onElectricityTariffPerUnitChange(item.electricityTariffPerUnit);
-    onElectricityStandingChargePerDayChange(
-      item.electricityStandingChargePerDay,
-    );
-    onElectricityVatPercentChange(item.electricityVatPercent);
+  const setFormFromRow = (item: BoilerAssumptionManagementItemResponse) => {
+    onBoilerEffectiveFromDateChange(item.effectiveFromDate);
+    onHotWaterTemperatureCelsiusChange(item.hotWaterTemperatureCelsius);
+    onHotWaterHeatCapacityChange(item.hotWaterHeatCapacity);
+    onHotWaterDensityChange(item.hotWaterDensity);
+    onKiloJouleToKiloWattHourFactorChange(item.kiloJouleToKiloWattHourFactor);
+    onBoilerKwhPerCubicMeterChange(item.boilerKwhPerCubicMeter);
+    onBoilerEfficiencyPercentChange(item.boilerEfficiencyPercent);
   };
 
   const clearForm = () => {
     setEditingEffectiveFromDate(null);
-    onTariffEffectiveFromDateChange("");
-    onWaterTariffPerUnitChange("");
-    onWaterStandingChargePerDayChange("");
-    onWaterVatPercentChange("");
-    onElectricityTariffPerUnitChange("");
-    onElectricityStandingChargePerDayChange("");
-    onElectricityVatPercentChange("");
+    onBoilerEffectiveFromDateChange("");
+    onHotWaterTemperatureCelsiusChange("");
+    onHotWaterHeatCapacityChange("");
+    onHotWaterDensityChange("");
+    onKiloJouleToKiloWattHourFactorChange("");
+    onBoilerKwhPerCubicMeterChange("");
+    onBoilerEfficiencyPercentChange("");
   };
 
   const openCreateModal = () => {
@@ -134,7 +135,7 @@ export function TariffsDashboardView({
     setIsEditorOpen(true);
   };
 
-  const openEditModal = (item: TariffManagementItemResponse) => {
+  const openEditModal = (item: BoilerAssumptionManagementItemResponse) => {
     setEditingEffectiveFromDate(item.effectiveFromDate);
     setFormFromRow(item);
     setIsEditorOpen(true);
@@ -147,25 +148,27 @@ export function TariffsDashboardView({
 
   const submitForm = async () => {
     if (!editingEffectiveFromDate) {
-      const created = await onSubmitTariffVersion();
+      const created = await onSubmitBoilerAssumptionVersion();
       if (created) {
         setIsEditorOpen(false);
-        showSuccessToast("Tariff version created.");
-        await onLoadTariffManagement();
+        showSuccessToast("Boiler assumptions version created.");
+        await onLoadBoilerAssumptionManagement();
       }
       return;
     }
 
-    const saved = await onUpdateTariffVersion(editingEffectiveFromDate);
+    const saved = await onUpdateBoilerAssumptionVersion(
+      editingEffectiveFromDate,
+    );
     if (saved) {
       setIsEditorOpen(false);
       setEditingEffectiveFromDate(null);
-      showSuccessToast("Tariff version updated.");
-      await onLoadTariffManagement();
+      showSuccessToast("Boiler assumptions version updated.");
+      await onLoadBoilerAssumptionManagement();
     }
   };
 
-  const openDeleteModal = (item: TariffManagementItemResponse) => {
+  const openDeleteModal = (item: BoilerAssumptionManagementItemResponse) => {
     setDeleteTarget(item);
   };
 
@@ -178,14 +181,16 @@ export function TariffsDashboardView({
       return;
     }
 
-    const removed = await onDeleteTariffVersion(deleteTarget.effectiveFromDate);
+    const removed = await onDeleteBoilerAssumptionVersion(
+      deleteTarget.effectiveFromDate,
+    );
     if (removed) {
       if (editingEffectiveFromDate === deleteTarget.effectiveFromDate) {
         clearForm();
       }
       setDeleteTarget(null);
-      showSuccessToast("Tariff version deleted.");
-      await onLoadTariffManagement();
+      showSuccessToast("Boiler assumptions version deleted.");
+      await onLoadBoilerAssumptionManagement();
     }
   };
 
@@ -203,10 +208,10 @@ export function TariffsDashboardView({
         <div className="container-fluid">
           <section className="hero-shell card border-0 shadow-sm mb-4">
             <div className="card-body p-4 p-xl-5">
-              <h1 className="hero-title mb-3">Tariffs management</h1>
+              <h1 className="hero-title mb-3">Boiler assumptions management</h1>
               <p className="hero-copy mb-0">
-                Create, review, and maintain tariff versions using a single
-                management table.
+                Manage dated boiler assumptions with edit/delete protections for
+                active and linked usage.
               </p>
             </div>
           </section>
@@ -216,7 +221,9 @@ export function TariffsDashboardView({
           <div className="card radius-10 border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                <h6 className="mb-0 text-uppercase">Tariff table</h6>
+                <h6 className="mb-0 text-uppercase">
+                  Boiler assumptions table
+                </h6>
                 <div className="d-flex gap-2 flex-wrap">
                   <button
                     type="button"
@@ -224,12 +231,12 @@ export function TariffsDashboardView({
                     onClick={openCreateModal}
                     disabled={loading}
                   >
-                    Create tariff version
+                    Create boiler assumptions version
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
-                    onClick={() => void onLoadActiveTariff()}
+                    onClick={() => void onLoadActiveBoilerAssumption()}
                     disabled={loading}
                   >
                     Load active
@@ -237,7 +244,7 @@ export function TariffsDashboardView({
                   <button
                     type="button"
                     className="btn btn-outline-dark"
-                    onClick={() => void onLoadTariffManagement()}
+                    onClick={() => void onLoadBoilerAssumptionManagement()}
                     disabled={loading}
                   >
                     Refresh
@@ -254,13 +261,13 @@ export function TariffsDashboardView({
               <div className="d-flex align-items-center justify-content-end mb-3">
                 <div className="d-flex align-items-center gap-2">
                   <label
-                    htmlFor="tariffTableSearch"
+                    htmlFor="boilerTableSearch"
                     className="form-label mb-0"
                   >
                     Search:
                   </label>
                   <input
-                    id="tariffTableSearch"
+                    id="boilerTableSearch"
                     type="search"
                     className="form-control"
                     value={searchTerm}
@@ -268,7 +275,7 @@ export function TariffsDashboardView({
                       setSearchTerm(event.target.value);
                       setCurrentPage(1);
                     }}
-                    placeholder="Search tariffs"
+                    placeholder="Search assumptions"
                     style={{ minWidth: "220px" }}
                   />
                 </div>
@@ -279,12 +286,12 @@ export function TariffsDashboardView({
                   <thead>
                     <tr>
                       <th>Effective from</th>
-                      <th>Water/unit</th>
-                      <th>Water standing</th>
-                      <th>Water VAT %</th>
-                      <th>Elec/unit</th>
-                      <th>Elec standing</th>
-                      <th>Elec VAT %</th>
+                      <th>Temp</th>
+                      <th>Heat cap</th>
+                      <th>Density</th>
+                      <th>kJ to kWh</th>
+                      <th>kWh/m3</th>
+                      <th>Efficiency %</th>
                       <th>Status</th>
                       <th>Linked</th>
                       <th className="text-end">Action</th>
@@ -297,19 +304,19 @@ export function TariffsDashboardView({
                           colSpan={10}
                           className="text-center text-secondary py-4"
                         >
-                          No tariff versions found.
+                          No boiler assumptions found.
                         </td>
                       </tr>
                     ) : (
                       pagedRows.map((item) => (
                         <tr key={item.effectiveFromDate}>
                           <td>{item.effectiveFromDate}</td>
-                          <td>{item.waterTariffPerUnit}</td>
-                          <td>{item.waterStandingChargePerDay}</td>
-                          <td>{item.waterVatPercent}</td>
-                          <td>{item.electricityTariffPerUnit}</td>
-                          <td>{item.electricityStandingChargePerDay}</td>
-                          <td>{item.electricityVatPercent}</td>
+                          <td>{item.hotWaterTemperatureCelsius}</td>
+                          <td>{item.hotWaterHeatCapacity}</td>
+                          <td>{item.hotWaterDensity}</td>
+                          <td>{item.kiloJouleToKiloWattHourFactor}</td>
+                          <td>{item.boilerKwhPerCubicMeter}</td>
+                          <td>{item.boilerEfficiencyPercent}</td>
                           <td>
                             <span
                               className={`badge rounded-pill ${item.isActive ? "bg-success" : "bg-secondary"}`}
@@ -335,8 +342,8 @@ export function TariffsDashboardView({
                                 onClick={() => openEditModal(item)}
                                 title={
                                   item.canEdit
-                                    ? "Edit this tariff"
-                                    : "Inactive tariffs cannot be edited"
+                                    ? "Edit these assumptions"
+                                    : "Inactive assumptions cannot be edited"
                                 }
                               >
                                 Edit
@@ -348,8 +355,8 @@ export function TariffsDashboardView({
                                 onClick={() => openDeleteModal(item)}
                                 title={
                                   item.canDelete
-                                    ? "Delete this tariff"
-                                    : "Linked tariffs cannot be deleted"
+                                    ? "Delete these assumptions"
+                                    : "Linked assumptions cannot be deleted"
                                 }
                               >
                                 Delete
@@ -369,7 +376,7 @@ export function TariffsDashboardView({
                   {Math.min(startIndex + pagedRows.length, totalEntries)} of{" "}
                   {totalEntries} entries
                 </div>
-                <nav aria-label="Tariff table pagination">
+                <nav aria-label="Boiler table pagination">
                   <ul className="pagination pagination-sm mb-0">
                     <li className={`page-item${canGoPrev ? "" : " disabled"}`}>
                       <button
@@ -410,11 +417,14 @@ export function TariffsDashboardView({
               </div>
 
               <div className="alert alert-light border mt-3 mb-0" role="status">
-                <div className="fw-semibold mb-1">Tariff status</div>
+                <div className="fw-semibold mb-1">
+                  Boiler assumptions status
+                </div>
                 <div>{billingMessage}</div>
-                {activeTariff && (
+                {activeBoilerAssumption && (
                   <div className="mt-2 text-secondary small">
-                    Active tariff from {activeTariff.effectiveFromDate}
+                    Active assumptions from{" "}
+                    {activeBoilerAssumption.effectiveFromDate}
                   </div>
                 )}
               </div>
@@ -434,8 +444,8 @@ export function TariffsDashboardView({
                     <div className="modal-header bg-primary text-white">
                       <h5 className="modal-title">
                         {editingEffectiveFromDate
-                          ? "Edit tariff version"
-                          : "Create tariff version"}
+                          ? "Edit boiler assumptions version"
+                          : "Create boiler assumptions version"}
                       </h5>
                       <button
                         type="button"
@@ -448,30 +458,30 @@ export function TariffsDashboardView({
                       <div className="row g-3 align-items-end">
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalTariffEffectiveFromDate"
+                            htmlFor="modalBoilerEffectiveFromDate"
                             className="form-label"
                           >
                             Effective from
                           </label>
                           <input
-                            id="modalTariffEffectiveFromDate"
+                            id="modalBoilerEffectiveFromDate"
                             type="date"
-                            className={`form-control ${getFieldErrors(tariffFieldErrors, "effectiveFromDate").length > 0 ? "is-invalid" : ""}`}
-                            value={tariffEffectiveFromDate}
+                            className={`form-control ${getFieldErrors(boilerFieldErrors, "effectiveFromDate").length > 0 ? "is-invalid" : ""}`}
+                            value={boilerEffectiveFromDate}
                             disabled={editingEffectiveFromDate !== null}
                             onChange={(event) =>
-                              onTariffEffectiveFromDateChange(
+                              onBoilerEffectiveFromDateChange(
                                 event.target.value,
                               )
                             }
                           />
                           {getFieldErrors(
-                            tariffFieldErrors,
+                            boilerFieldErrors,
                             "effectiveFromDate",
                           ).length > 0 && (
                             <div className="invalid-feedback d-block">
                               {getFieldErrors(
-                                tariffFieldErrors,
+                                boilerFieldErrors,
                                 "effectiveFromDate",
                               ).join(" ")}
                             </div>
@@ -479,35 +489,18 @@ export function TariffsDashboardView({
                         </div>
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalWaterTariffPerUnit"
+                            htmlFor="modalHotWaterTemperatureCelsius"
                             className="form-label"
                           >
-                            Water tariff/unit
+                            Temp (C)
                           </label>
                           <input
-                            id="modalWaterTariffPerUnit"
+                            id="modalHotWaterTemperatureCelsius"
                             type="text"
                             className="form-control"
-                            value={waterTariffPerUnit}
+                            value={hotWaterTemperatureCelsius}
                             onChange={(event) =>
-                              onWaterTariffPerUnitChange(event.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="col-12 col-lg-2">
-                          <label
-                            htmlFor="modalWaterStandingChargePerDay"
-                            className="form-label"
-                          >
-                            Water standing/day
-                          </label>
-                          <input
-                            id="modalWaterStandingChargePerDay"
-                            type="text"
-                            className="form-control"
-                            value={waterStandingChargePerDay}
-                            onChange={(event) =>
-                              onWaterStandingChargePerDayChange(
+                              onHotWaterTemperatureCelsiusChange(
                                 event.target.value,
                               )
                             }
@@ -515,35 +508,52 @@ export function TariffsDashboardView({
                         </div>
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalWaterVatPercent"
+                            htmlFor="modalHotWaterHeatCapacity"
                             className="form-label"
                           >
-                            Water VAT %
+                            Heat cap
                           </label>
                           <input
-                            id="modalWaterVatPercent"
+                            id="modalHotWaterHeatCapacity"
                             type="text"
                             className="form-control"
-                            value={waterVatPercent}
+                            value={hotWaterHeatCapacity}
                             onChange={(event) =>
-                              onWaterVatPercentChange(event.target.value)
+                              onHotWaterHeatCapacityChange(event.target.value)
                             }
                           />
                         </div>
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalElectricityTariffPerUnit"
+                            htmlFor="modalHotWaterDensity"
                             className="form-label"
                           >
-                            Elec tariff/unit
+                            Density
                           </label>
                           <input
-                            id="modalElectricityTariffPerUnit"
+                            id="modalHotWaterDensity"
                             type="text"
                             className="form-control"
-                            value={electricityTariffPerUnit}
+                            value={hotWaterDensity}
                             onChange={(event) =>
-                              onElectricityTariffPerUnitChange(
+                              onHotWaterDensityChange(event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="col-12 col-lg-2">
+                          <label
+                            htmlFor="modalKiloJouleToKiloWattHourFactor"
+                            className="form-label"
+                          >
+                            kJ to kWh
+                          </label>
+                          <input
+                            id="modalKiloJouleToKiloWattHourFactor"
+                            type="text"
+                            className="form-control"
+                            value={kiloJouleToKiloWattHourFactor}
+                            onChange={(event) =>
+                              onKiloJouleToKiloWattHourFactorChange(
                                 event.target.value,
                               )
                             }
@@ -551,37 +561,37 @@ export function TariffsDashboardView({
                         </div>
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalElectricityStandingChargePerDay"
+                            htmlFor="modalBoilerKwhPerCubicMeter"
                             className="form-label"
                           >
-                            Elec standing/day
+                            Boiler kWh/m3
                           </label>
                           <input
-                            id="modalElectricityStandingChargePerDay"
+                            id="modalBoilerKwhPerCubicMeter"
                             type="text"
                             className="form-control"
-                            value={electricityStandingChargePerDay}
+                            value={boilerKwhPerCubicMeter}
                             onChange={(event) =>
-                              onElectricityStandingChargePerDayChange(
-                                event.target.value,
-                              )
+                              onBoilerKwhPerCubicMeterChange(event.target.value)
                             }
                           />
                         </div>
                         <div className="col-12 col-lg-2">
                           <label
-                            htmlFor="modalElectricityVatPercent"
+                            htmlFor="modalBoilerEfficiencyPercent"
                             className="form-label"
                           >
-                            Elec VAT %
+                            Efficiency %
                           </label>
                           <input
-                            id="modalElectricityVatPercent"
+                            id="modalBoilerEfficiencyPercent"
                             type="text"
                             className="form-control"
-                            value={electricityVatPercent}
+                            value={boilerEfficiencyPercent}
                             onChange={(event) =>
-                              onElectricityVatPercentChange(event.target.value)
+                              onBoilerEfficiencyPercentChange(
+                                event.target.value,
+                              )
                             }
                           />
                         </div>
@@ -625,7 +635,9 @@ export function TariffsDashboardView({
                 <div className="modal-dialog modal-dialog-centered">
                   <div className="modal-content border-0 shadow">
                     <div className="modal-header bg-danger text-white">
-                      <h5 className="modal-title">Delete tariff version</h5>
+                      <h5 className="modal-title">
+                        Delete boiler assumptions version
+                      </h5>
                       <button
                         type="button"
                         className="btn-close btn-close-white"
@@ -635,7 +647,7 @@ export function TariffsDashboardView({
                     </div>
                     <div className="modal-body">
                       <p className="mb-0">
-                        Are you sure you want to delete tariff version dated{" "}
+                        Are you sure you want to delete boiler assumptions dated{" "}
                         <strong>{deleteTarget.effectiveFromDate}</strong>?
                       </p>
                     </div>

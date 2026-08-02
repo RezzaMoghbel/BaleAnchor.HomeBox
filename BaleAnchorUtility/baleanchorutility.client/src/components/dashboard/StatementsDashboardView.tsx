@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   StatementExportHistoryItemResponse,
   StatementPeriodItemResponse,
@@ -11,16 +11,14 @@ interface StatementsDashboardViewProps {
   loading: boolean;
   statementMessage: string;
   selectedSnapshotId: string;
-  latestStatementSummary: StatementSummaryResponse | null;
+  selectedSnapshotIds: string[];
   selectedStatementSummary: StatementSummaryResponse | null;
   statementPeriods: StatementPeriodItemResponse[];
   statementExportHistory: StatementExportHistoryItemResponse[];
-  onLoadLatestStatementSummary: () => Promise<void>;
-  onLoadStatementPeriods: () => Promise<void>;
-  onLoadSelectedStatementSummary: (snapshotId?: string) => Promise<void>;
-  onExportSelectedStatementPdf: (snapshotId?: string) => Promise<void>;
-  onLoadStatementExportHistory: () => Promise<void>;
-  onSelectSnapshotId: (snapshotId: string) => void;
+  onReloadStatements: () => Promise<void>;
+  onLoadSelectedStatementSummary: (snapshotId?: string) => Promise<boolean>;
+  onExportSelectedStatementPdf: () => Promise<void>;
+  onToggleSnapshotSelection: (snapshotId: string) => void;
   formatDateRange: (startDate: string, endDateExclusive: string) => string;
   formatCurrencyGbp: (value?: string) => string;
   formatDisplayDateTime: (value?: string) => string;
@@ -32,20 +30,27 @@ export function StatementsDashboardView({
   loading,
   statementMessage,
   selectedSnapshotId,
-  latestStatementSummary,
+  selectedSnapshotIds,
   selectedStatementSummary,
   statementPeriods,
   statementExportHistory,
-  onLoadLatestStatementSummary,
-  onLoadStatementPeriods,
+  onReloadStatements,
   onLoadSelectedStatementSummary,
   onExportSelectedStatementPdf,
-  onLoadStatementExportHistory,
-  onSelectSnapshotId,
+  onToggleSnapshotSelection,
   formatDateRange,
   formatCurrencyGbp,
   formatDisplayDateTime,
 }: StatementsDashboardViewProps) {
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  const openStatementDetails = async (snapshotId: string) => {
+    const loaded = await onLoadSelectedStatementSummary(snapshotId);
+    if (loaded) {
+      setIsDetailsModalOpen(true);
+    }
+  };
+
   return (
     <div className="wrapper">
       {shellHeader}
@@ -55,8 +60,8 @@ export function StatementsDashboardView({
             <div className="card-body p-4 p-xl-5">
               <h1 className="hero-title mb-3">Statements and PDF exports</h1>
               <p className="hero-copy mb-0">
-                Review latest and selected period statements, then export a
-                traceable PDF with versioned renderer metadata.
+                Select one or more periods, review details in a modal, and
+                export selected periods in an A4 PDF pack.
               </p>
             </div>
           </section>
@@ -65,47 +70,23 @@ export function StatementsDashboardView({
 
           <div className="card radius-10 border-0 shadow-sm">
             <div className="card-body">
-              <h5 className="mb-3">Statement actions</h5>
+              <h5 className="mb-3">Actions</h5>
               <div className="d-flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="btn btn-outline-primary"
-                  onClick={() => void onLoadLatestStatementSummary()}
+                  className="btn btn-outline-secondary"
+                  onClick={() => void onReloadStatements()}
                   disabled={loading}
                 >
-                  Load latest summary
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => void onLoadStatementPeriods()}
-                  disabled={loading}
-                >
-                  Load statement periods
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => void onLoadSelectedStatementSummary()}
-                  disabled={loading || !selectedSnapshotId}
-                >
-                  Load selected summary
+                  Refresh / Reload
                 </button>
                 <button
                   type="button"
                   className="btn btn-outline-success"
                   onClick={() => void onExportSelectedStatementPdf()}
-                  disabled={loading || !selectedSnapshotId}
+                  disabled={loading || selectedSnapshotIds.length === 0}
                 >
-                  Export selected PDF
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-dark"
-                  onClick={() => void onLoadStatementExportHistory()}
-                  disabled={loading}
-                >
-                  Load export history
+                  Export selected
                 </button>
               </div>
 
@@ -117,335 +98,270 @@ export function StatementsDashboardView({
                     Selected snapshot: {selectedSnapshotId}
                   </div>
                 )}
+                {selectedSnapshotIds.length > 0 && (
+                  <div className="mt-1 text-secondary small">
+                    Selected periods: {selectedSnapshotIds.length}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          <div className="row g-4 mt-1">
-            <div className="col-12 col-xl-6">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">Latest statement summary</h5>
-                  {latestStatementSummary ? (
-                    <div className="text-secondary small">
-                      <div>
-                        Period:{" "}
-                        {formatDateRange(
-                          latestStatementSummary.periodStartDate,
-                          latestStatementSummary.periodEndDateExclusive,
-                        )}
-                      </div>
-                      <div>
-                        Period total:{" "}
-                        {formatCurrencyGbp(latestStatementSummary.periodTotal)}
-                      </div>
-                      <div>
-                        Payment:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.paymentAmount ?? "0.00",
-                        )}
-                      </div>
-                      <div>
-                        Difference:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.periodDifference,
-                        )}
-                      </div>
-                      <div>
-                        Status: {latestStatementSummary.periodBalanceStatus}
-                      </div>
-                      <div>
-                        Current balance:{" "}
-                        {formatCurrencyGbp(
-                          latestStatementSummary.currentBalance,
-                        )}
-                      </div>
-                      <div>
-                        Balance status:{" "}
-                        {latestStatementSummary.currentBalanceStatus}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-secondary mb-0">
-                      No latest summary loaded yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 col-xl-6">
-              <div className="card radius-10 border-0 shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">Selected statement summary</h5>
-                  {selectedStatementSummary ? (
-                    <div className="text-secondary small">
-                      <div>
-                        Period:{" "}
-                        {formatDateRange(
-                          selectedStatementSummary.periodStartDate,
-                          selectedStatementSummary.periodEndDateExclusive,
-                        )}
-                      </div>
-                      <div>
-                        Period total:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.periodTotal,
-                        )}
-                      </div>
-                      <div>
-                        Payment:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.paymentAmount ?? "0.00",
-                        )}
-                      </div>
-                      <div>
-                        Difference:{" "}
-                        {formatCurrencyGbp(
-                          selectedStatementSummary.periodDifference,
-                        )}
-                      </div>
-                      <div>
-                        Status: {selectedStatementSummary.periodBalanceStatus}
-                      </div>
-                      <div>
-                        Estimated segments:{" "}
-                        {selectedStatementSummary.containsEstimatedSegments
-                          ? "Yes"
-                          : "No"}
-                      </div>
-                      {selectedStatementSummary.estimatedAllocationLabel && (
-                        <div>
-                          Estimate note:{" "}
-                          {selectedStatementSummary.estimatedAllocationLabel}
-                        </div>
-                      )}
-                      <div>
-                        Boiler assumptions:{" "}
-                        {
-                          selectedStatementSummary.boilerAssumptions
-                            .boilerKwhPerCubicMeter
-                        }{" "}
-                        kWh/m3,{" "}
-                        {
-                          selectedStatementSummary.boilerAssumptions
-                            .boilerEfficiencyPercent
-                        }
-                        % efficiency
-                      </div>
-                      <div>
-                        Engine version: {selectedStatementSummary.engineVersion}
-                      </div>
-                      <div>
-                        Rounding policy:{" "}
-                        {selectedStatementSummary.roundingPolicyVersion}
-                      </div>
-                      <div>
-                        Input hash: {selectedStatementSummary.inputHash}
-                      </div>
-                      <div>
-                        Integrity checks:{" "}
-                        {selectedStatementSummary.integrityChecksPassed
-                          ? "Passed"
-                          : "Failed"}
-                      </div>
-                      <div>
-                        Integrity digest:{" "}
-                        {selectedStatementSummary.integrityDigest}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-secondary mb-0">
-                      No selected summary loaded yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {selectedStatementSummary && (
-            <div className="row g-4 mt-1">
-              <div className="col-12">
-                <div className="card radius-10 border-0 shadow-sm">
-                  <div className="card-body">
-                    <h5 className="mb-3">Component lines</h5>
-                    <div className="table-responsive">
-                      <table className="table align-middle mb-0">
-                        <thead>
-                          <tr>
-                            <th>Component</th>
-                            <th>Usage</th>
-                            <th>Usage subtotal</th>
-                            <th>Standing subtotal</th>
-                            <th>VAT</th>
-                            <th>Total</th>
-                            <th>Equation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedStatementSummary.componentLines.map(
-                            (line) => (
-                              <tr key={line.component}>
-                                <td>{line.component}</td>
-                                <td>{line.usage}</td>
-                                <td>{formatCurrencyGbp(line.usageSubtotal)}</td>
-                                <td>
-                                  {formatCurrencyGbp(line.standingSubtotal)}
-                                </td>
-                                <td>{formatCurrencyGbp(line.vatAmount)}</td>
-                                <td>{formatCurrencyGbp(line.total)}</td>
-                                <td>{line.equation}</td>
-                              </tr>
-                            ),
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-12">
-                <div className="card radius-10 border-0 shadow-sm">
-                  <div className="card-body">
-                    <h5 className="mb-3">Tariff segment breakdown</h5>
-                    <div className="table-responsive">
-                      <table className="table align-middle mb-0">
-                        <thead>
-                          <tr>
-                            <th>Segment</th>
-                            <th>Days</th>
-                            <th>Estimated</th>
-                            <th>Water rates</th>
-                            <th>Electricity rates</th>
-                            <th>Usage allocation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedStatementSummary.tariffSegments.map(
-                            (segment) => (
-                              <tr
-                                key={`${segment.startDate}-${segment.endDateExclusive}`}
-                              >
-                                <td>
-                                  {formatDateRange(
-                                    segment.startDate,
-                                    segment.endDateExclusive,
-                                  )}
-                                </td>
-                                <td>{segment.days}</td>
-                                <td>
-                                  {segment.isEstimatedAllocation ? "Yes" : "No"}
-                                </td>
-                                <td>
-                                  Unit {segment.waterTariffPerUnit},
-                                  standing/day{" "}
-                                  {segment.waterStandingChargePerDay}, VAT{" "}
-                                  {segment.waterVatPercent}%
-                                </td>
-                                <td>
-                                  Unit {segment.electricityTariffPerUnit},
-                                  standing/day{" "}
-                                  {segment.electricityStandingChargePerDay}, VAT{" "}
-                                  {segment.electricityVatPercent}%
-                                </td>
-                                <td>
-                                  Cold {segment.coldWaterUsage}, hot{" "}
-                                  {segment.hotWaterUsage}, apartment{" "}
-                                  {segment.apartmentElectricityUsage}, boiler{" "}
-                                  {segment.boilerElectricityUsage}
-                                </td>
-                              </tr>
-                            ),
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="card radius-10 border-0 shadow-sm mt-4">
             <div className="card-body">
               <h5 className="mb-3">Statement periods</h5>
-              {statementPeriods.length === 0 ? (
-                <p className="text-secondary mb-0">
-                  No statement periods loaded yet.
-                </p>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
+              <div className="table-responsive">
+                <table className="table table-striped table-bordered align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "48px" }}>Select</th>
+                      <th>Period</th>
+                      <th>Total</th>
+                      <th>Difference</th>
+                      <th>Status</th>
+                      <th className="text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statementPeriods.length === 0 ? (
                       <tr>
-                        <th>Period</th>
-                        <th>Total</th>
-                        <th>Difference</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <td
+                          colSpan={6}
+                          className="text-center text-secondary py-4"
+                        >
+                          No statement periods loaded yet.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {statementPeriods.slice(0, 12).map((item) => (
-                        <tr key={item.snapshotId}>
-                          <td>
-                            {formatDateRange(
-                              item.periodStartDate,
-                              item.periodEndDateExclusive,
-                            )}
-                          </td>
-                          <td>{formatCurrencyGbp(item.periodTotal)}</td>
-                          <td>{formatCurrencyGbp(item.periodDifference)}</td>
-                          <td>{item.periodBalanceStatus}</td>
-                          <td>
-                            <div className="d-flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${selectedSnapshotId === item.snapshotId ? "btn-primary" : "btn-outline-primary"}`}
-                                onClick={() =>
-                                  onSelectSnapshotId(item.snapshotId)
+                    ) : (
+                      statementPeriods.map((item) => {
+                        const isSelected = selectedSnapshotIds.includes(
+                          item.snapshotId,
+                        );
+
+                        return (
+                          <tr key={item.snapshotId}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                checked={isSelected}
+                                onChange={() =>
+                                  onToggleSnapshotSelection(item.snapshotId)
                                 }
-                              >
-                                {selectedSnapshotId === item.snapshotId
-                                  ? "Selected"
-                                  : "Select"}
-                              </button>
+                                aria-label={`Select statement period ${formatDateRange(
+                                  item.periodStartDate,
+                                  item.periodEndDateExclusive,
+                                )}`}
+                              />
+                            </td>
+                            <td>
+                              {formatDateRange(
+                                item.periodStartDate,
+                                item.periodEndDateExclusive,
+                              )}
+                            </td>
+                            <td>{formatCurrencyGbp(item.periodTotal)}</td>
+                            <td>{formatCurrencyGbp(item.periodDifference)}</td>
+                            <td>{item.periodBalanceStatus}</td>
+                            <td className="text-end">
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-secondary"
                                 onClick={() =>
-                                  void onLoadSelectedStatementSummary(
-                                    item.snapshotId,
-                                  )
+                                  void openStatementDetails(item.snapshotId)
                                 }
                                 disabled={loading}
                               >
                                 Load
                               </button>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-success"
-                                onClick={() =>
-                                  void onExportSelectedStatementPdf(
-                                    item.snapshotId,
-                                  )
-                                }
-                                disabled={loading}
-                              >
-                                Export
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+
+          {isDetailsModalOpen && selectedStatementSummary && (
+            <>
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                aria-modal="true"
+                role="dialog"
+              >
+                <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                  <div className="modal-content border-0 shadow">
+                    <div className="modal-header bg-primary text-white">
+                      <h5 className="modal-title">Statement details</h5>
+                      <button
+                        type="button"
+                        className="btn-close btn-close-white"
+                        onClick={() => setIsDetailsModalOpen(false)}
+                        aria-label="Close"
+                      />
+                    </div>
+                    <div className="modal-body">
+                      <div className="row g-3 mb-4">
+                        <div className="col-12 col-md-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-uppercase small text-secondary">
+                              Period
+                            </div>
+                            <div className="fw-semibold">
+                              {formatDateRange(
+                                selectedStatementSummary.periodStartDate,
+                                selectedStatementSummary.periodEndDateExclusive,
+                              )}
+                            </div>
+                            <div className="text-secondary small mt-2">
+                              Total{" "}
+                              {formatCurrencyGbp(
+                                selectedStatementSummary.periodTotal,
+                              )}
+                            </div>
+                            <div className="text-secondary small">
+                              Payment{" "}
+                              {formatCurrencyGbp(
+                                selectedStatementSummary.paymentAmount ??
+                                  "0.00",
+                              )}
+                            </div>
+                            <div className="text-secondary small">
+                              Difference{" "}
+                              {formatCurrencyGbp(
+                                selectedStatementSummary.periodDifference,
+                              )}
+                            </div>
+                            <div className="text-secondary small">
+                              Status{" "}
+                              {selectedStatementSummary.periodBalanceStatus}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-uppercase small text-secondary">
+                              Integrity
+                            </div>
+                            <div className="text-secondary small mt-1">
+                              Estimated segments{" "}
+                              {selectedStatementSummary.containsEstimatedSegments
+                                ? "Yes"
+                                : "No"}
+                            </div>
+                            <div className="text-secondary small">
+                              Engine {selectedStatementSummary.engineVersion}
+                            </div>
+                            <div className="text-secondary small">
+                              Rounding{" "}
+                              {selectedStatementSummary.roundingPolicyVersion}
+                            </div>
+                            <div className="text-secondary small">
+                              Input hash {selectedStatementSummary.inputHash}
+                            </div>
+                            <div className="text-secondary small">
+                              Integrity{" "}
+                              {selectedStatementSummary.integrityChecksPassed
+                                ? "Passed"
+                                : "Failed"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="table-responsive mb-4">
+                        <table className="table table-striped table-bordered align-middle mb-0">
+                          <thead>
+                            <tr>
+                              <th>Component</th>
+                              <th>Usage</th>
+                              <th>Usage subtotal</th>
+                              <th>Standing subtotal</th>
+                              <th>VAT</th>
+                              <th>Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedStatementSummary.componentLines.map(
+                              (line) => (
+                                <tr key={line.component}>
+                                  <td>{line.component}</td>
+                                  <td>{line.usage}</td>
+                                  <td>
+                                    {formatCurrencyGbp(line.usageSubtotal)}
+                                  </td>
+                                  <td>
+                                    {formatCurrencyGbp(line.standingSubtotal)}
+                                  </td>
+                                  <td>{formatCurrencyGbp(line.vatAmount)}</td>
+                                  <td>{formatCurrencyGbp(line.total)}</td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="table-responsive">
+                        <table className="table table-striped table-bordered align-middle mb-0">
+                          <thead>
+                            <tr>
+                              <th>Segment</th>
+                              <th>Days</th>
+                              <th>Estimated</th>
+                              <th>Usage allocation</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedStatementSummary.tariffSegments.map(
+                              (segment) => (
+                                <tr
+                                  key={`${segment.startDate}-${segment.endDateExclusive}`}
+                                >
+                                  <td>
+                                    {formatDateRange(
+                                      segment.startDate,
+                                      segment.endDateExclusive,
+                                    )}
+                                  </td>
+                                  <td>{segment.days}</td>
+                                  <td>
+                                    {segment.isEstimatedAllocation
+                                      ? "Yes"
+                                      : "No"}
+                                  </td>
+                                  <td>
+                                    Cold {segment.coldWaterUsage}, hot{" "}
+                                    {segment.hotWaterUsage}, apartment{" "}
+                                    {segment.apartmentElectricityUsage}, boiler{" "}
+                                    {segment.boilerElectricityUsage}
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setIsDetailsModalOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show" />
+            </>
+          )}
 
           <div className="card radius-10 border-0 shadow-sm mt-4">
             <div className="card-body">

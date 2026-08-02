@@ -372,6 +372,28 @@ export interface TariffOptionItemResponse {
   isLatestApplicable: boolean;
 }
 
+export interface TariffManagementItemResponse {
+  effectiveFromDate: string;
+  waterTariffPerUnit: string;
+  waterStandingChargePerDay: string;
+  waterVatPercent: string;
+  electricityTariffPerUnit: string;
+  electricityStandingChargePerDay: string;
+  electricityVatPercent: string;
+  isActive: boolean;
+  isLinked: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  linkedReadingsCount: number;
+}
+
+export interface TariffManagementResponse {
+  userId: string;
+  onDate: string;
+  count: number;
+  items: TariffManagementItemResponse[];
+}
+
 export interface TariffOptionsResponse {
   userId: string;
   onDate: string;
@@ -389,6 +411,28 @@ export interface BoilerAssumptionOptionItemResponse {
   boilerKwhPerCubicMeter: string;
   boilerEfficiencyPercent: string;
   isLatestApplicable: boolean;
+}
+
+export interface BoilerAssumptionManagementItemResponse {
+  effectiveFromDate: string;
+  hotWaterTemperatureCelsius: string;
+  hotWaterHeatCapacity: string;
+  hotWaterDensity: string;
+  kiloJouleToKiloWattHourFactor: string;
+  boilerKwhPerCubicMeter: string;
+  boilerEfficiencyPercent: string;
+  isActive: boolean;
+  isLinked: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  linkedReadingsCount: number;
+}
+
+export interface BoilerAssumptionManagementResponse {
+  userId: string;
+  onDate: string;
+  count: number;
+  items: BoilerAssumptionManagementItemResponse[];
 }
 
 export interface BoilerAssumptionOptionsResponse {
@@ -522,8 +566,8 @@ export interface CalculationComponentLineResponse {
 export interface RecordLatestPeriodPaymentResponse {
   paymentId: string;
   userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
+  periodStartDate?: string;
+  periodEndDateExclusive?: string;
   amount: string;
   paymentDate: string;
   method: string;
@@ -531,14 +575,16 @@ export interface RecordLatestPeriodPaymentResponse {
   notes?: string;
   source: string;
   verificationStatus: string;
+  isLinked: boolean;
+  linkedSnapshotId?: string;
   message: string;
 }
 
 export interface UpdatePaymentResponse {
   paymentId: string;
   userId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
+  periodStartDate?: string;
+  periodEndDateExclusive?: string;
   amount: string;
   paymentDate: string;
   method: string;
@@ -546,12 +592,15 @@ export interface UpdatePaymentResponse {
   notes?: string;
   source: string;
   verificationStatus: string;
+  isLinked: boolean;
+  linkedSnapshotId?: string;
   message: string;
 }
 
 export interface DeletePaymentResponse {
   paymentId: string;
   userId: string;
+  wasLinked: boolean;
   message: string;
 }
 
@@ -571,8 +620,8 @@ export interface LatestPeriodPaymentSummaryResponse {
 
 export interface PaymentHistoryItemResponse {
   paymentId: string;
-  periodStartDate: string;
-  periodEndDateExclusive: string;
+  periodStartDate?: string;
+  periodEndDateExclusive?: string;
   amount: string;
   paymentDate: string;
   method: string;
@@ -580,6 +629,12 @@ export interface PaymentHistoryItemResponse {
   notes?: string;
   source: string;
   verificationStatus: string;
+  isLinked: boolean;
+  linkedSnapshotId?: string;
+}
+
+export interface LinkPaymentRequest {
+  snapshotId: string;
 }
 
 export interface PaymentHistoryResponse {
@@ -634,6 +689,16 @@ export interface StatementPeriodItemResponse {
   paymentId?: string;
   paymentAmount?: string;
   paymentDate?: string;
+  linkedPaymentCount: number;
+  linkedPayments: Array<{
+    paymentId: string;
+    amount: string;
+    paymentDate: string;
+    method: string;
+    reference?: string;
+    notes?: string;
+    verificationStatus: string;
+  }>;
   periodDifference: string;
   periodBalanceStatus: string;
   containsEstimatedSegments: boolean;

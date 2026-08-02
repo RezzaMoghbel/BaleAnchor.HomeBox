@@ -25,7 +25,8 @@ public sealed class JsonTariffVersionRepository : ITariffVersionRepository
 
         return all.FirstOrDefault(x =>
             string.Equals(x.UserId, userId, StringComparison.Ordinal)
-            && string.Equals(x.EffectiveFromDate, effectiveFromDate, StringComparison.Ordinal));
+            && string.Equals(x.EffectiveFromDate, effectiveFromDate, StringComparison.Ordinal)
+            && !x.IsDeleted);
     }
 
     public async Task<TariffVersion?> GetActiveByUserAndDateAsync(string userId, string onDate, CancellationToken cancellationToken)
@@ -35,6 +36,7 @@ public sealed class JsonTariffVersionRepository : ITariffVersionRepository
 
         return all
             .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => !x.IsDeleted)
             .Where(x => ParseDate(x.EffectiveFromDate) <= targetDate)
             .OrderByDescending(x => ParseDate(x.EffectiveFromDate))
             .ThenByDescending(x => x.UpdatedAtUtc)
@@ -48,6 +50,7 @@ public sealed class JsonTariffVersionRepository : ITariffVersionRepository
 
         return all
             .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
+            .Where(x => !x.IsDeleted)
             .Where(x => ParseDate(x.EffectiveFromDate) <= targetDate)
             .OrderBy(x => ParseDate(x.EffectiveFromDate))
             .ThenBy(x => x.UpdatedAtUtc)

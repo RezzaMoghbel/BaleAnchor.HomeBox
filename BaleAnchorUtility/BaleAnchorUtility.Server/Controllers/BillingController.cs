@@ -195,6 +195,80 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpGet("tariffs/manage")]
+    [ProducesResponseType(typeof(TariffManagementResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TariffManagementResponse>> GetTariffManagement(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.GetTariffManagementAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_TARIFF_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpPut("tariffs/{effectiveFromDate}")]
+    [ProducesResponseType(typeof(UpsertTariffResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpsertTariffResponse>> UpdateTariff(
+        [FromRoute] string effectiveFromDate,
+        [FromBody] UpsertTariffRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.UpdateTariffVersionAsync(userId, effectiveFromDate, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_TARIFF_CONFLICT");
+        }
+    }
+
+    [HttpDelete("tariffs/{effectiveFromDate}")]
+    [ProducesResponseType(typeof(UpsertTariffResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpsertTariffResponse>> DeleteTariff(
+        [FromRoute] string effectiveFromDate,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.DeleteTariffVersionAsync(userId, effectiveFromDate, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_TARIFF_CONFLICT");
+        }
+    }
+
     [HttpPost("boiler-assumptions")]
     [ProducesResponseType(typeof(UpsertBoilerAssumptionVersionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -267,6 +341,81 @@ public sealed class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpGet("boiler-assumptions/manage")]
+    [ProducesResponseType(typeof(BoilerAssumptionManagementResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<BoilerAssumptionManagementResponse>> GetBoilerAssumptionManagement(
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.GetBoilerAssumptionManagementAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_NOT_AVAILABLE");
+        }
+    }
+
+    [HttpPut("boiler-assumptions/{effectiveFromDate}")]
+    [ProducesResponseType(typeof(UpsertBoilerAssumptionVersionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpsertBoilerAssumptionVersionResponse>> UpdateBoilerAssumptionVersion(
+        [FromRoute] string effectiveFromDate,
+        [FromBody] UpsertBoilerAssumptionVersionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.UpdateBoilerAssumptionVersionAsync(userId, effectiveFromDate, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_CONFLICT");
+        }
+    }
+
+    [HttpDelete("boiler-assumptions/{effectiveFromDate}")]
+    [ProducesResponseType(typeof(UpsertBoilerAssumptionVersionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpsertBoilerAssumptionVersionResponse>> DeleteBoilerAssumptionVersion(
+        [FromRoute] string effectiveFromDate,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await billingInputService.DeleteBoilerAssumptionVersionAsync(userId, effectiveFromDate, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_BOILER_ASSUMPTIONS_CONFLICT");
         }
     }
 
@@ -392,6 +541,44 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPost("payments")]
+    [ProducesResponseType(typeof(RecordLatestPeriodPaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordLatestPeriodPaymentResponse>> CreatePayment(
+        [FromBody] RecordLatestPeriodPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.CreatePaymentAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Method), StringComparison.Ordinal)
+                ? "method"
+                : string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Reference), StringComparison.Ordinal)
+                    ? "reference"
+                    : string.Equals(ex.ParamName, nameof(RecordLatestPeriodPaymentRequest.Notes), StringComparison.Ordinal)
+                        ? "notes"
+                        : "request";
+
+            return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
     [HttpGet("calculations/latest/payment")]
     [ProducesResponseType(typeof(LatestPeriodPaymentSummaryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -453,6 +640,29 @@ public sealed class BillingController : ControllerBase
         try
         {
             var response = await paymentService.GetPaymentHistoryAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_HISTORY_CONFLICT");
+        }
+    }
+
+    [HttpGet("payments/unlinked")]
+    [ProducesResponseType(typeof(PaymentHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PaymentHistoryResponse>> GetUnlinkedPayments(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.GetUnlinkedPaymentsAsync(userId, cancellationToken);
             return Ok(response);
         }
         catch (InvalidOperationException ex)
@@ -528,6 +738,83 @@ public sealed class BillingController : ControllerBase
                             : "request";
 
             return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "BILLING_PAYMENT_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
+    [HttpPost("payments/{paymentId}/link")]
+    [ProducesResponseType(typeof(UpdatePaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpdatePaymentResponse>> LinkPayment(
+        string paymentId,
+        [FromBody] LinkPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.LinkPaymentAsync(userId, paymentId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            var field = string.Equals(ex.ParamName, nameof(paymentId), StringComparison.Ordinal)
+                ? "paymentId"
+                : string.Equals(ex.ParamName, nameof(LinkPaymentRequest.SnapshotId), StringComparison.Ordinal)
+                    ? "snapshotId"
+                    : "request";
+
+            return ValidationProblem(ex.Message, field, "BILLING_PAYMENT_VALIDATION");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundProblem(ex.Message, "BILLING_PAYMENT_NOT_FOUND");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_PAYMENT_CONFLICT");
+        }
+    }
+
+    [HttpPost("payments/{paymentId}/unlink")]
+    [ProducesResponseType(typeof(UpdatePaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<UpdatePaymentResponse>> UnlinkPayment(
+        string paymentId,
+        CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await paymentService.UnlinkPaymentAsync(userId, paymentId, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return ValidationProblem(ex.Message, "paymentId", "BILLING_PAYMENT_VALIDATION");
         }
         catch (KeyNotFoundException ex)
         {

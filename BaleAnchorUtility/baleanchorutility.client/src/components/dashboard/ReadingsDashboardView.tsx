@@ -6,6 +6,7 @@ import type {
   BoilerAssumptionOptionItemResponse,
   FieldErrors,
   LatestReadingsResponse,
+  PaymentHistoryItemResponse,
   StatementPeriodItemResponse,
   StatementSummaryResponse,
   TariffOptionItemResponse,
@@ -89,11 +90,12 @@ export function ReadingsDashboardView({
     useState(false);
   const [targetPeriodForPayment, setTargetPeriodForPayment] =
     useState<StatementPeriodItemResponse | null>(null);
-  const [linkPaymentAmount, setLinkPaymentAmount] = useState("");
-  const [linkPaymentDate, setLinkPaymentDate] = useState("");
-  const [linkPaymentMethod, setLinkPaymentMethod] = useState("Direct Debit");
-  const [linkPaymentReference, setLinkPaymentReference] = useState("");
-  const [linkPaymentNotes, setLinkPaymentNotes] = useState("");
+  const [unlinkedPayments, setUnlinkedPayments] = useState<
+    PaymentHistoryItemResponse[]
+  >([]);
+  const [selectedUnlinkedPaymentId, setSelectedUnlinkedPaymentId] =
+    useState("");
+  const [targetLinkedPaymentId, setTargetLinkedPaymentId] = useState("");
   const [linkPaymentFieldErrors, setLinkPaymentFieldErrors] =
     useState<FieldErrors>({});
   const [unlinkPaymentFieldErrors, setUnlinkPaymentFieldErrors] =
@@ -435,6 +437,20 @@ export function ReadingsDashboardView({
     });
 
     return `${formatter.format(start)} to ${formatter.format(end)}`;
+  };
+
+  const formatDisplayDate = (value?: string) => {
+    if (!value) {
+      return "-";
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    return formatter.format(new Date(`${value}T00:00:00`));
   };
 
   const formatPeriodHeading = (endDateExclusive: string) => {
@@ -946,18 +962,35 @@ export function ReadingsDashboardView({
 
   const openLinkPaymentModal = (period: StatementPeriodItemResponse) => {
     setTargetPeriodForPayment(period);
-    setLinkPaymentAmount(period.periodTotal);
-    setLinkPaymentDate(todayIsoDate());
-    setLinkPaymentMethod("Direct Debit");
-    setLinkPaymentReference("");
-    setLinkPaymentNotes("");
+    setUnlinkedPayments([]);
+    setSelectedUnlinkedPaymentId("");
     setLinkPaymentFieldErrors({});
     setLinkPaymentConfirmed(false);
     setIsLinkPaymentModalOpen(true);
+
+    void portalClient
+      .getUnlinkedPayments()
+      .then((response) => {
+        setUnlinkedPayments(response.items);
+        setSelectedUnlinkedPaymentId(response.items[0]?.paymentId ?? "");
+      })
+      .catch((error) => {
+        if (error instanceof PortalApiError) {
+          setDashboardMessage(
+            `Unable to load unlinked payments. ${error.message}`,
+          );
+        } else {
+          setDashboardMessage("Unable to load unlinked payments.");
+        }
+      });
   };
 
-  const openUnlinkPaymentModal = (period: StatementPeriodItemResponse) => {
+  const openUnlinkPaymentModal = (
+    period: StatementPeriodItemResponse,
+    paymentId: string,
+  ) => {
     setTargetPeriodForPayment(period);
+    setTargetLinkedPaymentId(paymentId);
     setUnlinkPaymentFieldErrors({});
     setUnlinkPaymentConfirmed(false);
     setIsUnlinkPaymentModalOpen(true);
@@ -1024,15 +1057,16 @@ export function ReadingsDashboardView({
       return;
     }
 
+    if (selectedUnlinkedPaymentId.length === 0) {
+      setLinkPaymentFieldErrors({
+        paymentId: ["Select an unlinked payment to continue."],
+      });
+      return;
+    }
+
     try {
-      const body = await portalClient.recordPeriodPayment({
-        periodStartDate: targetPeriodForPayment.periodStartDate,
-        periodEndDateExclusive: targetPeriodForPayment.periodEndDateExclusive,
-        amount: linkPaymentAmount,
-        paymentDate: linkPaymentDate,
-        method: linkPaymentMethod,
-        reference: linkPaymentReference,
-        notes: linkPaymentNotes,
+      const body = await portalClient.linkPayment(selectedUnlinkedPaymentId, {
+        snapshotId: targetPeriodForPayment.snapshotId,
       });
 
       await refreshCardData(targetPeriodForPayment.snapshotId);
@@ -1041,6 +1075,8 @@ export function ReadingsDashboardView({
       );
       setIsLinkPaymentModalOpen(false);
       setTargetPeriodForPayment(null);
+      setUnlinkedPayments([]);
+      setSelectedUnlinkedPaymentId("");
     } catch (error) {
       if (error instanceof PortalApiError) {
         setLinkPaymentFieldErrors(error.errors);
@@ -1052,7 +1088,7 @@ export function ReadingsDashboardView({
   };
 
   const handleUnlinkPaymentSubmit = async () => {
-    if (!targetPeriodForPayment?.paymentId) {
+    if (targetLinkedPaymentId.length === 0) {
       setUnlinkPaymentFieldErrors({
         paymentId: ["No linked payment was found for this period."],
       });
@@ -1067,15 +1103,18 @@ export function ReadingsDashboardView({
     }
 
     try {
-      const body = await portalClient.deletePayment(
-        targetPeriodForPayment.paymentId,
-      );
+      const body = await portalClient.unlinkPayment(targetLinkedPaymentId);
+      if (!targetPeriodForPayment) {
+        return;
+      }
+
       await refreshCardData(targetPeriodForPayment.snapshotId);
       setDashboardMessage(
         `${body.message} Unlinked from ${targetPeriodForPayment.periodStartDate} to ${targetPeriodForPayment.periodEndDateExclusive}.`,
       );
       setIsUnlinkPaymentModalOpen(false);
       setTargetPeriodForPayment(null);
+      setTargetLinkedPaymentId("");
     } catch (error) {
       if (error instanceof PortalApiError) {
         setUnlinkPaymentFieldErrors(error.errors);
@@ -1926,11 +1965,58 @@ export function ReadingsDashboardView({
                                       </span>
                                     </div>
                                     <div className="d-flex justify-content-between small text-secondary mt-1">
-                                      <span>Payment recorded:</span>
+                                      <span>Total linked payments:</span>
                                       <span>
                                         {formatCurrency(period.paymentAmount)}
                                       </span>
                                     </div>
+                                    <div className="small text-secondary mt-1">
+                                      {period.linkedPaymentCount} linked payment
+                                      {period.linkedPaymentCount === 1
+                                        ? ""
+                                        : "s"}
+                                    </div>
+                                    {period.linkedPayments.length > 0 && (
+                                      <div className="mt-2 d-flex flex-column gap-2">
+                                        {period.linkedPayments.map((linked) => (
+                                          <div
+                                            key={linked.paymentId}
+                                            className="border rounded px-2 py-2 small"
+                                          >
+                                            <div className="d-flex justify-content-between flex-wrap gap-2">
+                                              <span>
+                                                {formatCurrency(linked.amount)}{" "}
+                                                on{" "}
+                                                {formatDisplayDate(
+                                                  linked.paymentDate,
+                                                )}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                className="btn btn-outline-danger btn-sm"
+                                                onClick={() =>
+                                                  openUnlinkPaymentModal(
+                                                    period,
+                                                    linked.paymentId,
+                                                  )
+                                                }
+                                                disabled={
+                                                  loading || cardsLoading
+                                                }
+                                              >
+                                                Unlink
+                                              </button>
+                                            </div>
+                                            <div className="text-secondary mt-1">
+                                              {linked.method}
+                                              {linked.reference
+                                                ? ` | Ref: ${linked.reference}`
+                                                : ""}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                     <div className="d-flex justify-content-between fw-semibold mt-1">
                                       <span>{periodDifferenceLabel}:</span>
                                       <span
@@ -1942,30 +2028,16 @@ export function ReadingsDashboardView({
                                       </span>
                                     </div>
                                     <div className="d-flex flex-wrap gap-2 mt-3">
-                                      {!period.hasPayment && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-outline-success btn-sm"
-                                          onClick={() =>
-                                            openLinkPaymentModal(period)
-                                          }
-                                          disabled={loading || cardsLoading}
-                                        >
-                                          Link payment
-                                        </button>
-                                      )}
-                                      {period.hasPayment && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-outline-danger btn-sm"
-                                          onClick={() =>
-                                            openUnlinkPaymentModal(period)
-                                          }
-                                          disabled={loading || cardsLoading}
-                                        >
-                                          Unlink payment
-                                        </button>
-                                      )}
+                                      <button
+                                        type="button"
+                                        className="btn btn-outline-success btn-sm"
+                                        onClick={() =>
+                                          openLinkPaymentModal(period)
+                                        }
+                                        disabled={loading || cardsLoading}
+                                      >
+                                        Link payment
+                                      </button>
                                     </div>
                                   </div>
                                 </>
@@ -2701,7 +2773,11 @@ export function ReadingsDashboardView({
                         type="button"
                         className="btn-close"
                         aria-label="Close"
-                        onClick={() => setIsLinkPaymentModalOpen(false)}
+                        onClick={() => {
+                          setIsLinkPaymentModalOpen(false);
+                          setUnlinkedPayments([]);
+                          setSelectedUnlinkedPaymentId("");
+                        }}
                         disabled={loading || cardsLoading}
                       ></button>
                     </div>
@@ -2717,88 +2793,41 @@ export function ReadingsDashboardView({
                       <div className="row g-3">
                         <div className="col-12">
                           <label
-                            htmlFor="linkPaymentAmount"
+                            htmlFor="selectedUnlinkedPaymentId"
                             className="form-label"
                           >
-                            Amount
+                            Select payment from unlinked pool
                           </label>
-                          <input
-                            id="linkPaymentAmount"
-                            type="text"
-                            className={`form-control ${linkPaymentFieldErrors.amount ? "is-invalid" : ""}`}
-                            value={linkPaymentAmount}
+                          <select
+                            id="selectedUnlinkedPaymentId"
+                            className={`form-select ${linkPaymentFieldErrors.paymentId ? "is-invalid" : ""}`}
+                            value={selectedUnlinkedPaymentId}
                             onChange={(event) =>
-                              setLinkPaymentAmount(event.target.value)
+                              setSelectedUnlinkedPaymentId(event.target.value)
                             }
-                          />
-                        </div>
-                        <div className="col-12 col-md-6">
-                          <label
-                            htmlFor="linkPaymentDate"
-                            className="form-label"
+                            disabled={unlinkedPayments.length === 0}
                           >
-                            Payment date
-                          </label>
-                          <input
-                            id="linkPaymentDate"
-                            type="date"
-                            className={`form-control ${linkPaymentFieldErrors.paymentDate ? "is-invalid" : ""}`}
-                            value={linkPaymentDate}
-                            onChange={(event) =>
-                              setLinkPaymentDate(event.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="col-12 col-md-6">
-                          <label
-                            htmlFor="linkPaymentMethod"
-                            className="form-label"
-                          >
-                            Method
-                          </label>
-                          <input
-                            id="linkPaymentMethod"
-                            type="text"
-                            className={`form-control ${linkPaymentFieldErrors.method ? "is-invalid" : ""}`}
-                            value={linkPaymentMethod}
-                            onChange={(event) =>
-                              setLinkPaymentMethod(event.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="col-12 col-md-6">
-                          <label
-                            htmlFor="linkPaymentReference"
-                            className="form-label"
-                          >
-                            Reference (optional)
-                          </label>
-                          <input
-                            id="linkPaymentReference"
-                            type="text"
-                            className={`form-control ${linkPaymentFieldErrors.reference ? "is-invalid" : ""}`}
-                            value={linkPaymentReference}
-                            onChange={(event) =>
-                              setLinkPaymentReference(event.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="col-12 col-md-6">
-                          <label
-                            htmlFor="linkPaymentNotes"
-                            className="form-label"
-                          >
-                            Notes (optional)
-                          </label>
-                          <input
-                            id="linkPaymentNotes"
-                            type="text"
-                            className={`form-control ${linkPaymentFieldErrors.notes ? "is-invalid" : ""}`}
-                            value={linkPaymentNotes}
-                            onChange={(event) =>
-                              setLinkPaymentNotes(event.target.value)
-                            }
-                          />
+                            {unlinkedPayments.length === 0 ? (
+                              <option value="">
+                                No unlinked payments available
+                              </option>
+                            ) : (
+                              unlinkedPayments.map((payment) => (
+                                <option
+                                  key={payment.paymentId}
+                                  value={payment.paymentId}
+                                >
+                                  {`${formatCurrency(payment.amount)} | ${formatDisplayDate(payment.paymentDate)} | ${payment.method}`}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                          {unlinkedPayments.length === 0 && (
+                            <div className="form-text">
+                              Create payments in the Payments tab first, then
+                              link them to reading cards here.
+                            </div>
+                          )}
                         </div>
                         <div className="col-12">
                           <div className="form-check">
@@ -2838,7 +2867,11 @@ export function ReadingsDashboardView({
                       <button
                         type="button"
                         className="btn btn-outline-secondary"
-                        onClick={() => setIsLinkPaymentModalOpen(false)}
+                        onClick={() => {
+                          setIsLinkPaymentModalOpen(false);
+                          setUnlinkedPayments([]);
+                          setSelectedUnlinkedPaymentId("");
+                        }}
                         disabled={loading || cardsLoading}
                       >
                         Cancel
@@ -2847,7 +2880,12 @@ export function ReadingsDashboardView({
                         type="button"
                         className="btn btn-success"
                         onClick={() => void handleLinkPaymentSubmit()}
-                        disabled={loading || cardsLoading}
+                        disabled={
+                          loading ||
+                          cardsLoading ||
+                          unlinkedPayments.length === 0 ||
+                          selectedUnlinkedPaymentId.length === 0
+                        }
                       >
                         Confirm and link payment
                       </button>
@@ -2877,7 +2915,10 @@ export function ReadingsDashboardView({
                         type="button"
                         className="btn-close"
                         aria-label="Close"
-                        onClick={() => setIsUnlinkPaymentModalOpen(false)}
+                        onClick={() => {
+                          setIsUnlinkPaymentModalOpen(false);
+                          setTargetLinkedPaymentId("");
+                        }}
                         disabled={loading || cardsLoading}
                       ></button>
                     </div>
@@ -2889,6 +2930,9 @@ export function ReadingsDashboardView({
                           targetPeriodForPayment.periodEndDateExclusive,
                         )}
                         .
+                      </div>
+                      <div className="small text-secondary mb-3">
+                        Payment ID: {targetLinkedPaymentId}
                       </div>
                       <div className="form-check">
                         <input
@@ -2925,7 +2969,10 @@ export function ReadingsDashboardView({
                       <button
                         type="button"
                         className="btn btn-outline-secondary"
-                        onClick={() => setIsUnlinkPaymentModalOpen(false)}
+                        onClick={() => {
+                          setIsUnlinkPaymentModalOpen(false);
+                          setTargetLinkedPaymentId("");
+                        }}
                         disabled={loading || cardsLoading}
                       >
                         Cancel

@@ -10,6 +10,8 @@ public sealed class StatementPeriodItemResponse
     public string? PaymentId { get; init; }
     public string? PaymentAmount { get; init; }
     public string? PaymentDate { get; init; }
+    public int LinkedPaymentCount { get; init; }
+    public IReadOnlyList<LinkedPaymentItemResponse> LinkedPayments { get; init; } = [];
     public string PeriodDifference { get; init; } = string.Empty;
     public string PeriodBalanceStatus { get; init; } = string.Empty;
     public bool ContainsEstimatedSegments { get; init; }

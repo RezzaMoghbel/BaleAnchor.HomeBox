@@ -32,10 +32,13 @@ public sealed class JsonPaymentRepository : IPaymentRepository
     {
         var all = await store.GetAllAsync<PaymentRecord>(Collection, cancellationToken);
 
-        return all.FirstOrDefault(x =>
-            string.Equals(x.UserId, userId, StringComparison.Ordinal)
-            && string.Equals(x.PeriodStartDate, periodStartDate, StringComparison.Ordinal)
-            && string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal));
+        return all
+            .Where(x =>
+                string.Equals(x.UserId, userId, StringComparison.Ordinal)
+                && string.Equals(x.PeriodStartDate, periodStartDate, StringComparison.Ordinal)
+                && string.Equals(x.PeriodEndDateExclusive, periodEndDateExclusive, StringComparison.Ordinal))
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .FirstOrDefault();
     }
 
     public async Task<PaymentRecord?> GetLatestByUserIdAsync(string userId, CancellationToken cancellationToken)
@@ -44,7 +47,7 @@ public sealed class JsonPaymentRepository : IPaymentRepository
 
         return all
             .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
-            .OrderByDescending(x => x.PeriodEndDateExclusive, StringComparer.Ordinal)
+            .OrderByDescending(x => x.PeriodEndDateExclusive ?? string.Empty, StringComparer.Ordinal)
             .ThenByDescending(x => x.PaymentDate, StringComparer.Ordinal)
             .ThenByDescending(x => x.UpdatedAtUtc)
             .FirstOrDefault();
@@ -56,7 +59,7 @@ public sealed class JsonPaymentRepository : IPaymentRepository
 
         var results = all
             .Where(x => string.Equals(x.UserId, userId, StringComparison.Ordinal))
-            .OrderBy(x => x.PeriodStartDate, StringComparer.Ordinal)
+            .OrderBy(x => x.PeriodStartDate ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(x => x.PaymentDate, StringComparer.Ordinal)
             .ThenBy(x => x.CreatedAtUtc)
             .ToList();

@@ -1,6 +1,7 @@
 import type {
   AcceptTermsResponse,
   ActiveTariffResponse,
+  BoilerAssumptionManagementResponse,
   ActiveBoilerAssumptionResponse,
   ActiveTermsResponse,
   AdminAuthAccessSettingsResponse,
@@ -29,6 +30,7 @@ import type {
   FieldErrors,
   LatestPeriodPaymentSummaryResponse,
   LatestReadingsResponse,
+  LinkPaymentRequest,
   NotificationPreferencesResponse,
   OnboardingProgressResponse,
   OnboardingStateResponse,
@@ -45,6 +47,7 @@ import type {
   StatementExportHistoryResponse,
   StatementPeriodListResponse,
   StatementSummaryResponse,
+  TariffManagementResponse,
   TariffOptionsResponse,
   SignupRequestCodeRequest,
   SubmitReadingsResponse,
@@ -889,6 +892,40 @@ export const portalClient = {
     );
   },
 
+  getTariffManagement() {
+    return requestJson<TariffManagementResponse>(
+      "/api/v1/billing/tariffs/manage",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updateTariffVersion(effectiveFromDate: string, request: UpsertTariffRequest) {
+    return requestJson<UpsertTariffResponse>(
+      `/api/v1/billing/tariffs/${encodeURIComponent(effectiveFromDate)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  deleteTariffVersion(effectiveFromDate: string) {
+    return requestJson<UpsertTariffResponse>(
+      `/api/v1/billing/tariffs/${encodeURIComponent(effectiveFromDate)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      },
+    );
+  },
+
   submitBoilerAssumptionVersion(request: UpsertBoilerAssumptionVersionRequest) {
     return requestJson<UpsertBoilerAssumptionVersionResponse>(
       "/api/v1/billing/boiler-assumptions",
@@ -930,6 +967,43 @@ export const portalClient = {
       `/api/v1/billing/boiler-assumptions/options${suffix}`,
       {
         method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getBoilerAssumptionManagement() {
+    return requestJson<BoilerAssumptionManagementResponse>(
+      "/api/v1/billing/boiler-assumptions/manage",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  updateBoilerAssumptionVersion(
+    effectiveFromDate: string,
+    request: UpsertBoilerAssumptionVersionRequest,
+  ) {
+    return requestJson<UpsertBoilerAssumptionVersionResponse>(
+      `/api/v1/billing/boiler-assumptions/${encodeURIComponent(effectiveFromDate)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  deleteBoilerAssumptionVersion(effectiveFromDate: string) {
+    return requestJson<UpsertBoilerAssumptionVersionResponse>(
+      `/api/v1/billing/boiler-assumptions/${encodeURIComponent(effectiveFromDate)}`,
+      {
+        method: "DELETE",
         credentials: "include",
       },
     );
@@ -983,6 +1057,20 @@ export const portalClient = {
     );
   },
 
+  createPayment(request: RecordLatestPeriodPaymentRequest) {
+    return requestJson<RecordLatestPeriodPaymentResponse>(
+      "/api/v1/billing/payments",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
   getLatestPeriodPaymentSummary() {
     return requestJson<LatestPeriodPaymentSummaryResponse>(
       "/api/v1/billing/calculations/latest/payment",
@@ -996,6 +1084,16 @@ export const portalClient = {
   getPaymentHistory() {
     return requestJson<PaymentHistoryResponse>(
       "/api/v1/billing/payments/history",
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+  },
+
+  getUnlinkedPayments() {
+    return requestJson<PaymentHistoryResponse>(
+      "/api/v1/billing/payments/unlinked",
       {
         method: "GET",
         credentials: "include",
@@ -1022,6 +1120,30 @@ export const portalClient = {
       `/api/v1/billing/payments/${encodeURIComponent(paymentId)}`,
       {
         method: "DELETE",
+        credentials: "include",
+      },
+    );
+  },
+
+  linkPayment(paymentId: string, request: LinkPaymentRequest) {
+    return requestJson<UpdatePaymentResponse>(
+      `/api/v1/billing/payments/${encodeURIComponent(paymentId)}/link`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  unlinkPayment(paymentId: string) {
+    return requestJson<UpdatePaymentResponse>(
+      `/api/v1/billing/payments/${encodeURIComponent(paymentId)}/unlink`,
+      {
+        method: "POST",
         credentials: "include",
       },
     );
