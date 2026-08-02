@@ -5,8 +5,8 @@
   "contentMarkdown": "# BaleAnchor Utility Terms\n\nThis is the active baseline terms version for development. Replace with approved legal content before production.",
   "effectiveFromUtc": "2026-07-28T13:47:51.7283773+00:00",
   "publishedAtUtc": "2026-07-28T13:47:51.7283773+00:00",
-  "isActive": true,
+  "isActive": false,
   "createdAtUtc": "2026-07-28T13:47:51.7283773+00:00",
-  "updatedAtUtc": "2026-07-28T13:47:51.7283773+00:00",
-  "version": 1
+  "updatedAtUtc": "2026-08-02T21:23:55.0075097+00:00",
+  "version": 2
 }

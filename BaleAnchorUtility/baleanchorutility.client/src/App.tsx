@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
@@ -743,17 +744,19 @@ function App() {
   const pageMode =
     location.pathname === "/onboarding"
       ? "onboarding"
-      : location.pathname.startsWith("/dashboard")
-        ? "dashboard"
-        : location.pathname === "/rejected"
-          ? "rejected"
-          : location.pathname === "/suspended"
-            ? "suspended"
-            : location.pathname === "/otp"
-              ? "otp"
-              : location.pathname === "/signup"
-                ? "signup"
-                : "signin";
+      : location.pathname === "/terms-and-conditions"
+        ? "terms"
+        : location.pathname.startsWith("/dashboard")
+          ? "dashboard"
+          : location.pathname === "/rejected"
+            ? "rejected"
+            : location.pathname === "/suspended"
+              ? "suspended"
+              : location.pathname === "/otp"
+                ? "otp"
+                : location.pathname === "/signup"
+                  ? "signup"
+                  : "signin";
 
   const dashboardSection = location.pathname.startsWith("/dashboard/payments")
     ? "payments"
@@ -785,6 +788,35 @@ function App() {
 
   const shellLinkClass = (path: string) =>
     `shell-nav-link${pageMode === path ? " shell-nav-link--active" : ""}`;
+
+  const renderShellFooter = () => (
+    <footer className="shell-footer" role="contentinfo">
+      <div className="container-fluid d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div className="small text-secondary">
+          Created and powered by{" "}
+          <a
+            href="https://reza.moghbel.co.uk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shell-footer__credit-link"
+          >
+            Reza.Moghbel
+          </a>
+        </div>
+        <Link className="shell-footer__policy-link" to="/terms-and-conditions">
+          Terms and Conditions
+        </Link>
+      </div>
+    </footer>
+  );
+
+  const withFooter = (content: ReactNode) => (
+    <div className="app-shell">
+      {content}
+      {renderShellFooter()}
+    </div>
+  );
+
   const renderShellHeader = () => (
     <header className="top-header">
       <nav className="navbar navbar-expand align-items-center justify-content-between px-3 shell-nav">
@@ -836,7 +868,7 @@ function App() {
   );
 
   if (!sessionChecked) {
-    return (
+    return withFooter(
       <div className="wrapper">
         {renderShellHeader()}
         <main className="page-content p-4">
@@ -851,7 +883,7 @@ function App() {
             </div>
           </div>
         </main>
-      </div>
+      </div>,
     );
   }
 
@@ -1003,6 +1035,145 @@ function App() {
                 emailing the administrator.
               </p>
               <a href="mailto:info@moghbel.co.uk">reza@moghbel.co.uk</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+
+  const renderTermsAndConditionsView = () => (
+    <div className="wrapper">
+      {renderShellHeader()}
+      <main className="page-content p-4">
+        <div className="container-fluid">
+          <div className="card radius-10 border-0 shadow-sm">
+            <div className="card-body p-4 p-lg-5 terms-policy">
+              <h1 className="mb-2">Terms and Conditions</h1>
+              <p className="text-secondary mb-4">
+                Effective date: 02 August 2026
+              </p>
+
+              <h2>1. Ownership of platform and design</h2>
+              <p>
+                This website, including its source code, user interface layouts,
+                visual hierarchy, workflows, content structure, styling, and all
+                associated design language, is authored and owned by Reza
+                Moghbel unless a signed written assignment states otherwise.
+              </p>
+
+              <h2>2. Copyright and IP protection</h2>
+              <p>
+                All intellectual property rights are reserved. No party may
+                copy, recreate, re-theme, extract, adapt, train on, white-label,
+                sublicense, or commercially exploit any substantial part of the
+                design system or implementation without prior written
+                permission.
+              </p>
+
+              <h2>3. Limited licence</h2>
+              <p>
+                Any access to this website is provided under a revocable,
+                non-exclusive, non-transferable, and non-sublicensable licence
+                solely for approved operational use. This licence does not
+                transfer ownership of code, design patterns, or visual assets.
+              </p>
+
+              <h2>4. Prohibited reuse and cloning</h2>
+              <p>
+                Rebuilding or commissioning a lookalike product based on the
+                website UI/UX, information architecture, or distinctive design
+                decisions without written consent is prohibited and may be
+                treated as infringement and passing off where applicable.
+              </p>
+
+              <h2>5. Remedies for infringement</h2>
+              <p>
+                In the event of unauthorised copying or derivative use, the
+                owner may seek all available legal and equitable remedies,
+                including immediate injunctive relief, account of profits,
+                recovery of losses, additional damages where allowed, and
+                reimbursement of enforcement costs and legal fees.
+              </p>
+
+              <h2>6. Commercial restitution basis</h2>
+              <p>
+                If any part of this website is copied, recreated, adapted, or
+                reused without written permission, the infringing party will be
+                liable to pay for design and development time spent creating the
+                copied material. The recoverable amount may include all hours
+                reasonably worked and related commercial losses, assessed and
+                quantified by the website creator, subject to applicable law.
+              </p>
+
+              <h2>7. Data handling and security notice</h2>
+              <p>
+                Reasonable measures are used to protect data; however, no
+                digital platform can guarantee absolute security or continuous
+                availability. To the fullest extent permitted by law, the
+                website owner disclaims liability for any loss, corruption,
+                delay, interception, unauthorised access, deletion, or
+                unavailability of data.
+              </p>
+
+              <h2>8. Calculation and accuracy disclaimer</h2>
+              <p>
+                Any calculations, outputs, estimates, or reports produced by
+                this website depend on data provided by users or third parties.
+                Accuracy is conditional on that input being complete and
+                correct. The website owner accepts no responsibility for
+                inaccuracies, omissions, outcomes, or decisions arising from
+                incorrect, incomplete, delayed, or manipulated input data.
+              </p>
+
+              <h2>9. Limitation of liability</h2>
+              <p>
+                To the maximum extent permitted by law, use of this website is
+                at the user&apos;s own risk. The website owner shall not be
+                liable for direct, indirect, incidental, consequential, or
+                special losses, including loss of data, loss of profit, loss of
+                business, or reputational harm connected with use of, inability
+                to use, or reliance on this website.
+              </p>
+
+              <h2>10. User conduct and system integrity</h2>
+              <p>
+                Users must not attempt to manipulate data, interfere with
+                processing, probe, disrupt, overload, reverse engineer,
+                circumvent security controls, or otherwise interfere with this
+                website, its infrastructure, or connected services. Any such
+                attempt is strictly prohibited and may result in access
+                suspension, legal action, and referral to enforcement
+                authorities.
+              </p>
+
+              <h2>11. Acceptance by use</h2>
+              <p>
+                By accessing or using this website, each user confirms that they
+                have read, understood, and accepted these Terms and Conditions
+                in full, and agrees not to challenge or bypass them through
+                misuse of the platform or its data.
+              </p>
+
+              <h2>12. Third-party rights and reporting</h2>
+              <p>
+                Suspected infringement or misuse may be reported to hosting
+                providers, marketplaces, payment processors, and relevant
+                authorities for takedown or enforcement support.
+              </p>
+
+              <h2>13. Governing law</h2>
+              <p>
+                These terms are governed by the laws of England and Wales,
+                unless superseded by a signed agreement specifying another
+                jurisdiction.
+              </p>
+
+              <h2>14. Contact</h2>
+              <p className="mb-0">
+                For licensing, permissions, or legal correspondence contact{" "}
+                <a href="mailto:reza@moghbel.co.uk">reza@moghbel.co.uk</a>.
+              </p>
             </div>
           </div>
         </div>
@@ -1459,81 +1630,85 @@ function App() {
   );
 
   if (pageMode === "signin" || pageMode === "signup") {
-    return renderLoginView();
+    return withFooter(renderLoginView());
   }
 
   if (pageMode === "otp") {
-    return renderOtpView();
+    return withFooter(renderOtpView());
   }
 
   if (pageMode === "onboarding") {
-    return renderOnboardingView();
+    return withFooter(renderOnboardingView());
+  }
+
+  if (pageMode === "terms") {
+    return withFooter(renderTermsAndConditionsView());
   }
 
   if (pageMode === "suspended") {
-    return renderSuspendedView();
+    return withFooter(renderSuspendedView());
   }
 
   if (pageMode === "rejected") {
-    return renderRejectedView();
+    return withFooter(renderRejectedView());
   }
 
   if (dashboardSection === "readings") {
     if (isSuperAdminUser) {
-      return renderAdminView();
+      return withFooter(renderAdminView());
     }
 
-    return renderReadingsView();
+    return withFooter(renderReadingsView());
   }
 
   if (dashboardSection === "tariffs") {
     if (isSuperAdminUser) {
-      return renderAdminView();
+      return withFooter(renderAdminView());
     }
 
-    return renderTariffsView();
+    return withFooter(renderTariffsView());
   }
 
   if (dashboardSection === "boiler") {
     if (isSuperAdminUser) {
-      return renderAdminView();
+      return withFooter(renderAdminView());
     }
 
-    return renderBoilerView();
+    return withFooter(renderBoilerView());
   }
 
   if (dashboardSection === "payments") {
     if (isAdminUser) {
-      return renderAdminView();
+      return withFooter(renderAdminView());
     }
 
-    return renderPaymentsView();
+    return withFooter(renderPaymentsView());
   }
 
   if (dashboardSection === "statements") {
     if (isAdminUser) {
-      return renderAdminView();
+      return withFooter(renderAdminView());
     }
 
-    return renderStatementsView();
+    return withFooter(renderStatementsView());
   }
 
   if (dashboardSection === "notifications") {
-    return renderNotificationsView();
+    return withFooter(renderNotificationsView());
   }
 
   if (dashboardSection === "admin") {
-    return renderAdminView();
+    return withFooter(renderAdminView());
   }
 
-  return (
+  return withFooter(
     <OverviewDashboardView
       shellHeader={renderShellHeader()}
       routeTabs={renderDashboardTabsWithDelegatedBanner()}
       session={session}
       statusMessage={statusMessage}
       formatDisplayDateTime={formatDisplayDateTime}
-    />
+    />,
   );
 }
 

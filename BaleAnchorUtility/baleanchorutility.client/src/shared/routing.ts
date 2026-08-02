@@ -12,6 +12,7 @@ export function getTargetRoute(
     path === "/otp";
   const isRejectedPath = path === "/rejected";
   const isSuspendedPath = path === "/suspended";
+  const isTermsPath = path === "/terms-and-conditions";
   const isOnboardingPath = path === "/onboarding";
   const isDashboardPath = path.startsWith("/dashboard");
   const isAdminPath = path.startsWith("/dashboard/admin");
@@ -27,7 +28,11 @@ export function getTargetRoute(
   const isAdminUser = role === "admin" || role === "superadmin";
 
   if (!isAuthenticated) {
-    return isLoginPath ? null : "/signin";
+    return isLoginPath || isTermsPath ? null : "/signin";
+  }
+
+  if (isTermsPath) {
+    return null;
   }
 
   if (isRejected) {

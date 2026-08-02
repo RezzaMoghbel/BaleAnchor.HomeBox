@@ -1,4 +1,20 @@
-﻿.widget-icon {
+﻿.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell > .wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell > .wrapper .page-content {
+  flex: 1;
+}
+
+.widget-icon {
   width: 46px;
   height: 46px;
   border-radius: 12px;
@@ -322,4 +338,47 @@
 
 .guestimate-total--high {
   border-top-color: #ffd287 !important;
+}
+
+.shell-footer {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  padding: 0.8rem 1rem;
+}
+
+.shell-footer__credit-link,
+.shell-footer__policy-link {
+  color: #0d6efd;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.shell-footer__credit-link:hover,
+.shell-footer__policy-link:hover {
+  text-decoration: underline;
+}
+
+.terms-policy {
+  max-width: 980px;
+}
+
+.terms-policy h1 {
+  font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.terms-policy h2 {
+  margin-top: 1.2rem;
+  margin-bottom: 0.45rem;
+  font-size: 1.08rem;
+  color: #13253a;
+  font-weight: 750;
+}
+
+.terms-policy p {
+  color: #334155;
+  line-height: 1.6;
+  margin-bottom: 0.72rem;
 }

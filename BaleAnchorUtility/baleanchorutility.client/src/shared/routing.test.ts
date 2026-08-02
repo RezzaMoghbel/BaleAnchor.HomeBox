@@ -19,6 +19,7 @@ describe("getTargetRoute", () => {
     expect(getTargetRoute("/signup", null)).toBeNull();
     expect(getTargetRoute("/otp", null)).toBeNull();
     expect(getTargetRoute("/", null)).toBeNull();
+    expect(getTargetRoute("/terms-and-conditions", null)).toBeNull();
   });
 
   it("redirects unauthenticated users away from private routes", () => {
@@ -39,6 +40,12 @@ describe("getTargetRoute", () => {
 
     expect(getTargetRoute("/signin", session)).toBe("/dashboard");
     expect(getTargetRoute("/dashboard", session)).toBeNull();
+  });
+
+  it("allows authenticated users to open terms page", () => {
+    const session = createSession({ userStatus: "Active" });
+
+    expect(getTargetRoute("/terms-and-conditions", session)).toBeNull();
   });
 
   it("routes suspended users to suspended page", () => {

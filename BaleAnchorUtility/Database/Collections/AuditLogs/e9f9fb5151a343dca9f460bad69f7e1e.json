@@ -1,0 +1,11 @@
+{
+  "id": "e9f9fb5151a343dca9f460bad69f7e1e",
+  "actorUserId": "seed-superadmin-0001",
+  "targetUserId": "seed-superadmin-0001",
+  "category": "TERMS",
+  "action": "PUBLISH_TERMS_VERSION",
+  "reason": "Publish terms",
+  "metadata": "versionId:78e3ae3207644bdeb8b993a81d803128;versionLabel:v1.0.1",
+  "createdAtUtc": "2026-08-02T21:23:55.0529928+00:00",
+  "version": 1
+}
