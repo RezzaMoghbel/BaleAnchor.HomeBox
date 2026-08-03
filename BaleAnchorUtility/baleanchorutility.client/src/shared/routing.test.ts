@@ -35,6 +35,16 @@ describe("getTargetRoute", () => {
     expect(getTargetRoute("/onboarding", session)).toBeNull();
   });
 
+  it("does not force onboarding for superadmin with non-active status", () => {
+    const session = createSession({
+      userRole: "SuperAdmin",
+      userStatus: "TermsPending",
+    });
+
+    expect(getTargetRoute("/dashboard", session)).toBeNull();
+    expect(getTargetRoute("/onboarding", session)).toBe("/dashboard");
+  });
+
   it("routes active residents into the dashboard", () => {
     const session = createSession({ userStatus: "Active" });
 

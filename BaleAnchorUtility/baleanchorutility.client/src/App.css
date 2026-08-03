@@ -14,6 +14,16 @@
   flex: 1;
 }
 
+/* Skodash base CSS offsets header/content by 250px for sidebar layouts.
+   This app currently renders no sidebar, so force a no-sidebar shell globally. */
+.app-shell .top-header .navbar {
+  left: 0 !important;
+}
+
+.app-shell .page-content {
+  margin-left: 0 !important;
+}
+
 .widget-icon {
   width: 46px;
   height: 46px;
@@ -189,6 +199,22 @@
   border-color: transparent;
 }
 
+/* Keep the auth header in pill-link mode; never show burger toggles here. */
+.shell-nav .navbar-toggler,
+.shell-nav-toggle {
+  display: none !important;
+}
+
+@media (max-width: 375.98px) {
+  .shell-brand-title {
+    font-size: 0.5rem;
+  }
+
+  .shell-auth-actions-row {
+    gap: 0 !important;
+  }
+}
+
 .auth-form-card {
   background-color: #ffffff;
 }
@@ -249,6 +275,92 @@
 
 .onboarding-accordion__body {
   padding: 1rem 1.25rem 1.25rem;
+}
+
+.onboarding-terms-modal-open {
+  overflow: hidden;
+}
+
+.onboarding-terms-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.onboarding-terms-modal__panel {
+  width: min(940px, 100%);
+  max-height: 90vh;
+  background: #ffffff;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
+  display: flex;
+  flex-direction: column;
+}
+
+.onboarding-terms-modal__header,
+.onboarding-terms-modal__footer {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.onboarding-terms-modal__footer {
+  border-bottom: 0;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.onboarding-terms-modal__header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.onboarding-terms-modal__body {
+  padding: 1rem 1.25rem;
+  overflow: auto;
+}
+
+.onboarding-terms-modal__content {
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #0f172a;
+}
+
+@media (max-width: 767.98px) {
+  .onboarding-terms-modal {
+    padding: 0.5rem;
+  }
+
+  .onboarding-terms-modal__header,
+  .onboarding-terms-modal__body,
+  .onboarding-terms-modal__footer {
+    padding: 0.85rem;
+  }
+
+  .onboarding-terms-modal__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .onboarding-terms-modal__footer {
+    justify-content: stretch;
+  }
+
+  .onboarding-terms-modal__footer .btn {
+    width: 100%;
+  }
 }
 
 .account-user-id {

@@ -35,6 +35,7 @@ interface ReadingsDashboardViewProps {
   onUpdateLatestReadings: () => Promise<boolean>;
   onLoadLatestReadings: () => Promise<void>;
   onRunLatestCalculation: () => Promise<void>;
+  onRecalculateStatements: () => Promise<boolean>;
 }
 
 export function ReadingsDashboardView({
@@ -57,6 +58,7 @@ export function ReadingsDashboardView({
   onUpdateLatestReadings,
   onLoadLatestReadings,
   onRunLatestCalculation,
+  onRecalculateStatements,
 }: ReadingsDashboardViewProps) {
   const [cardsLoading, setCardsLoading] = useState(false);
   const [dashboardMessage, setDashboardMessage] = useState(
@@ -127,6 +129,10 @@ export function ReadingsDashboardView({
   const [addReadingConfirmationError, setAddReadingConfirmationError] =
     useState("");
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isRecalculateConfirmOpen, setIsRecalculateConfirmOpen] =
+    useState(false);
+  const [hasRecalculateAcknowledgement, setHasRecalculateAcknowledgement] =
+    useState(false);
   const pageSize = 12;
 
   const todayIsoDate = () => {
@@ -375,7 +381,7 @@ export function ReadingsDashboardView({
       case "ApartmentElectricity":
         return "Apartment electricity total = ((AE x ER) + (D x ES)) x (1 + EV)";
       case "BoilerElectricity":
-        return "Boiler electricity total = (BE x ER) x (1 + EV)";
+        return "Boiler electricity total = ((HW x WT x HC x WD / NK) x ER) x (1 + EV)";
       default:
         return equation;
     }
@@ -1008,6 +1014,24 @@ export function ReadingsDashboardView({
       [snapshotId]: summary,
     }));
     await loadReadingPeriods();
+  };
+
+  const handleRecalculateAll = async () => {
+    const success = await onRecalculateStatements();
+    if (!success) {
+      setDashboardMessage(
+        "Recalculation did not complete. Review status messages.",
+      );
+      return;
+    }
+
+    setSummariesBySnapshotId({});
+    await loadReadingPeriods();
+    setDashboardMessage(
+      "Recalculation completed and reading-period cards were refreshed.",
+    );
+    setIsRecalculateConfirmOpen(false);
+    setHasRecalculateAcknowledgement(false);
   };
 
   const handleModalSubmit = async () => {
@@ -1699,6 +1723,17 @@ export function ReadingsDashboardView({
                 <div className="d-flex flex-wrap gap-2">
                   <button
                     type="button"
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      setHasRecalculateAcknowledgement(false);
+                      setIsRecalculateConfirmOpen(true);
+                    }}
+                    disabled={loading || cardsLoading || isExportingPdf}
+                  >
+                    Recalculate
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-outline-secondary"
                     onClick={() => void loadReadingPeriods()}
                     disabled={loading || cardsLoading || isExportingPdf}
@@ -1723,6 +1758,95 @@ export function ReadingsDashboardView({
                   </button>
                 </div>
               </div>
+
+              {isRecalculateConfirmOpen && (
+                <>
+                  <div
+                    className="modal fade show d-block"
+                    tabIndex={-1}
+                    aria-modal="true"
+                    role="dialog"
+                  >
+                    <div className="modal-dialog modal-dialog-centered">
+                      <div className="modal-content border-0 shadow">
+                        <div className="modal-header bg-warning-subtle">
+                          <h5 className="modal-title">Confirm recalculation</h5>
+                          <button
+                            type="button"
+                            className="btn-close"
+                            onClick={() => {
+                              setIsRecalculateConfirmOpen(false);
+                              setHasRecalculateAcknowledgement(false);
+                            }}
+                            aria-label="Close"
+                            disabled={loading || cardsLoading || isExportingPdf}
+                          />
+                        </div>
+                        <div className="modal-body">
+                          <p className="mb-2">
+                            Recalculate will regenerate readings and statement
+                            cards using the latest rates and calculation logic.
+                          </p>
+                          <p className="mb-0 text-secondary small">
+                            Existing snapshots are kept for audit history, and
+                            new snapshot versions will be added for each period.
+                          </p>
+                          <div className="form-check mt-3">
+                            <input
+                              id="readingsRecalculateAcknowledgement"
+                              className="form-check-input"
+                              type="checkbox"
+                              checked={hasRecalculateAcknowledgement}
+                              onChange={(event) =>
+                                setHasRecalculateAcknowledgement(
+                                  event.target.checked,
+                                )
+                              }
+                              disabled={
+                                loading || cardsLoading || isExportingPdf
+                              }
+                            />
+                            <label
+                              className="form-check-label"
+                              htmlFor="readingsRecalculateAcknowledgement"
+                            >
+                              I understand this will create new snapshot
+                              versions for all reading and statement periods.
+                            </label>
+                          </div>
+                        </div>
+                        <div className="modal-footer">
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => {
+                              setIsRecalculateConfirmOpen(false);
+                              setHasRecalculateAcknowledgement(false);
+                            }}
+                            disabled={loading || cardsLoading || isExportingPdf}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => void handleRecalculateAll()}
+                            disabled={
+                              loading ||
+                              cardsLoading ||
+                              isExportingPdf ||
+                              !hasRecalculateAcknowledgement
+                            }
+                          >
+                            Confirm and recalculate
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="modal-backdrop fade show" />
+                </>
+              )}
 
               <div className="card border mb-3 bg-light-subtle">
                 <div className="card-body py-3">
@@ -2474,14 +2598,18 @@ export function ReadingsDashboardView({
                                       }
                                     </div>
                                     <div className="small text-secondary">
-                                      kWh/m3:{" "}
+                                      kWh/m3 (legacy reference):{" "}
                                       {
                                         selectedBoilerOption.boilerKwhPerCubicMeter
                                       }
-                                      {" | Efficiency %: "}
+                                      {" | Efficiency % (legacy reference): "}
                                       {
                                         selectedBoilerOption.boilerEfficiencyPercent
                                       }
+                                    </div>
+                                    <div className="small text-secondary">
+                                      Active formula: BE = HW x WT x HC x WD /
+                                      NK
                                     </div>
                                   </div>
                                 </div>
@@ -3133,7 +3261,7 @@ export function ReadingsDashboardView({
                                 </div>
                                 <div className="col-12 col-md-6">
                                   <span className="text-secondary">
-                                    kWh per m3:
+                                    kWh per m3 (legacy reference):
                                   </span>{" "}
                                   <span className="fw-semibold">
                                     {
@@ -3144,13 +3272,21 @@ export function ReadingsDashboardView({
                                 </div>
                                 <div className="col-12 col-md-6">
                                   <span className="text-secondary">
-                                    Efficiency (%):
+                                    Efficiency (%) (legacy reference):
                                   </span>{" "}
                                   <span className="fw-semibold">
                                     {
                                       detailsSummary.boilerAssumptions
                                         .boilerEfficiencyPercent
                                     }
+                                  </span>
+                                </div>
+                                <div className="col-12">
+                                  <span className="text-secondary">
+                                    Boiler kWh equation:
+                                  </span>{" "}
+                                  <span className="fw-semibold font-monospace">
+                                    BE = HW x WT x HC x WD / NK
                                   </span>
                                 </div>
                               </div>

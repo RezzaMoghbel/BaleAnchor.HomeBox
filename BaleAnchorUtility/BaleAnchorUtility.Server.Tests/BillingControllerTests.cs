@@ -54,6 +54,30 @@ public sealed class BillingControllerTests
     }
 
     [Fact]
+    public async Task RecalculateStatementPeriods_Returns401_WhenUnauthenticated()
+    {
+        var controller = CreateController(withSessionCookie: false, seedUser: false);
+
+        var action = await controller.RecalculateStatementPeriods(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(action.Result);
+    }
+
+    [Fact]
+    public async Task RecalculateStatementPeriods_Returns409Problem_WhenCalculationInputsMissing()
+    {
+        var controller = CreateController(withSessionCookie: true, seedUser: true);
+
+        var action = await controller.RecalculateStatementPeriods(CancellationToken.None);
+
+        var conflict = Assert.IsType<ObjectResult>(action.Result);
+        var problem = Assert.IsType<ProblemDetails>(conflict.Value);
+
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("BILLING_CALCULATION_CONFLICT", problem.Extensions["errorCode"]?.ToString());
+    }
+
+    [Fact]
     public async Task RecordLatestPeriodPayment_Returns409_WhenSnapshotMissing()
     {
         var controller = CreateController(withSessionCookie: true, seedUser: true);

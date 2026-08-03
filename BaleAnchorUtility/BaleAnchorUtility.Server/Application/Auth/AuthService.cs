@@ -30,6 +30,7 @@ public sealed class AuthService
     private readonly IAuthAccessSettingsProvider authAccessSettingsProvider;
     private readonly ISystemClock clock;
     private readonly AuthOtpOptions options;
+    private readonly AdminAccessOptions adminAccessOptions;
     private readonly IHostEnvironment environment;
     private readonly ILogger<AuthService> logger;
 
@@ -43,7 +44,8 @@ public sealed class AuthService
         ISystemClock clock,
         IOptions<AuthOtpOptions> options,
         IHostEnvironment environment,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IOptions<AdminAccessOptions>? adminAccessOptions = null)
     {
         this.userRepository = userRepository;
         this.otpChallengeRepository = otpChallengeRepository;
@@ -53,6 +55,7 @@ public sealed class AuthService
         this.authAccessSettingsProvider = authAccessSettingsProvider;
         this.clock = clock;
         this.options = options.Value;
+        this.adminAccessOptions = adminAccessOptions?.Value ?? new AdminAccessOptions();
         this.environment = environment;
         this.logger = logger;
     }
@@ -62,6 +65,11 @@ public sealed class AuthService
         var authSettings = await authAccessSettingsProvider.GetEffectiveAsync(cancellationToken);
         if (!authSettings.OtpEnabled)
         {
+            logger.LogInformation(
+                "OTP request accepted but not sent because OTP is disabled. Email hash {EmailHash}, IP {IP}",
+                Sha256Hex(NormalizeEmail(request.Email)),
+                ipAddress);
+
             return new RequestCodeResponse
             {
                 Message = "OTP login is currently disabled. Please sign in with email and password.",
@@ -72,6 +80,38 @@ public sealed class AuthService
 
         var normalizedEmail = NormalizeEmail(request.Email);
         var user = await userRepository.GetByNormalizedEmailAsync(normalizedEmail, cancellationToken);
+
+        if (IsBootstrapAdminEmail(normalizedEmail))
+        {
+            var now = clock.UtcNow;
+
+            if (user is null)
+            {
+                user = new UserAccount
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    EmailDisplay = request.Email.Trim(),
+                    EmailNormalized = normalizedEmail,
+                    Role = UserRole.SuperAdmin,
+                    Status = UserAccountStatus.Active,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now,
+                    Version = 1,
+                };
+
+                await userRepository.UpsertAsync(user, cancellationToken);
+                logger.LogInformation("Auto-provisioned bootstrap superadmin for email hash {EmailHash}.", Sha256Hex(normalizedEmail));
+            }
+            else if (user.Role != UserRole.SuperAdmin || user.Status != UserAccountStatus.Active)
+            {
+                user.Role = UserRole.SuperAdmin;
+                user.Status = UserAccountStatus.Active;
+                user.UpdatedAtUtc = now;
+                user.Version += 1;
+                await userRepository.UpsertAsync(user, cancellationToken);
+                logger.LogInformation("Elevated bootstrap admin account to SuperAdmin/Active for email hash {EmailHash}.", Sha256Hex(normalizedEmail));
+            }
+        }
 
         if (user is null && !ShouldBypassWithLocalFixedOtp(normalizedEmail, authSettings))
         {
@@ -151,11 +191,20 @@ public sealed class AuthService
 
         if (latestActive is not null && latestActive.CooldownUntilUtc > now)
         {
+            var resendAfterSeconds = (int)Math.Ceiling((latestActive.CooldownUntilUtc - now).TotalSeconds);
+            var expiresInSeconds = (int)Math.Ceiling((latestActive.ExpiresAtUtc - now).TotalSeconds);
+            logger.LogInformation(
+                "OTP request accepted but not sent because cooldown is active. Email hash {EmailHash}, IP {IP}, ResendAfterSeconds {ResendAfterSeconds}, ExpiresInSeconds {ExpiresInSeconds}",
+                Sha256Hex(normalizedEmail),
+                ipAddress,
+                resendAfterSeconds,
+                expiresInSeconds);
+
             return new RequestCodeResponse
             {
                 Message = "If the details are valid, a code has been sent.",
-                ResendAfterSeconds = (int)Math.Ceiling((latestActive.CooldownUntilUtc - now).TotalSeconds),
-                ExpiresInSeconds = (int)Math.Ceiling((latestActive.ExpiresAtUtc - now).TotalSeconds),
+                ResendAfterSeconds = resendAfterSeconds,
+                ExpiresInSeconds = expiresInSeconds,
                 DevelopmentCode = developmentCode,
             };
         }
@@ -165,6 +214,13 @@ public sealed class AuthService
         if (sendsLastHour >= options.MaxCodesPerHourPerEmail)
         {
             logger.LogWarning("OTP send limit exceeded for email hash {EmailHash} from IP {IP}", Sha256Hex(normalizedEmail), ipAddress);
+            logger.LogInformation(
+                "OTP request accepted but not sent because hourly cap was reached. Email hash {EmailHash}, IP {IP}, SendsLastHour {SendsLastHour}, MaxPerHour {MaxPerHour}",
+                Sha256Hex(normalizedEmail),
+                ipAddress,
+                sendsLastHour,
+                options.MaxCodesPerHourPerEmail);
+
             return new RequestCodeResponse
             {
                 Message = "If the details are valid, a code has been sent.",
@@ -242,6 +298,25 @@ public sealed class AuthService
             ExpiresInSeconds = options.OtpExpiryMinutes * 60,
             DevelopmentCode = developmentCode,
         };
+    }
+
+    private bool IsBootstrapAdminEmail(string normalizedEmail)
+    {
+        var configured = adminAccessOptions.BootstrapAdminEmails ?? [];
+        foreach (var value in configured)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (string.Equals(NormalizeEmail(value), normalizedEmail, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public async Task<VerificationResult> VerifyCodeAsync(VerifyCodeRequest request, string deviceSummary, string ipAddress, CancellationToken cancellationToken)
@@ -606,6 +681,12 @@ public sealed class AuthService
         if (!settings.AllowLocalDomainFixedOtp || !environment.IsDevelopment())
         {
             return false;
+        }
+
+        // Always allow fixed OTP for explicitly configured bootstrap admin emails in Development.
+        if (IsBootstrapAdminEmail(normalizedEmail))
+        {
+            return true;
         }
 
         var at = normalizedEmail.IndexOf('@');

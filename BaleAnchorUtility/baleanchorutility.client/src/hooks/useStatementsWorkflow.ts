@@ -91,6 +91,39 @@ export function useStatementsWorkflow({
     }
   };
 
+  const recalculateStatements = async (): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const recalc = await portalClient.recalculateStatementPeriods();
+      const [periods, exports] = await Promise.all([
+        portalClient.getStatementPeriods(),
+        portalClient.getStatementExportHistory(),
+      ]);
+
+      setStatementPeriods(periods.items);
+      setStatementExportHistory(exports.items);
+      setSelectedStatementSummary(null);
+      setSelectedSnapshotIds(
+        periods.items.length > 0 ? [periods.items[0].snapshotId] : [],
+      );
+      setStatementMessage(
+        `${recalc.message} Refreshed ${periods.count} statement period(s).`,
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof PortalApiError) {
+        setStatementMessage(
+          `Unable to recalculate statements. ${error.message}`,
+        );
+      } else {
+        setStatementMessage("Unable to recalculate statements.");
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadSelectedStatementSummary = async (
     snapshotId?: string,
   ): Promise<boolean> => {
@@ -254,6 +287,7 @@ export function useStatementsWorkflow({
     selectedStatementSummary,
     statementPeriods,
     statementExportHistory,
+    recalculateStatements,
     reloadStatements,
     loadStatementPeriods,
     loadSelectedStatementSummary,

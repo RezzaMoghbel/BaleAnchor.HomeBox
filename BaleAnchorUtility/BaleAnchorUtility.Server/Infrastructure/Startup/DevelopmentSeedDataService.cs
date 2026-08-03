@@ -30,6 +30,7 @@ public sealed class DevelopmentSeedDataService
     private readonly IUtilitySetupRepository utilitySetupRepository;
     private readonly IReadingSubmissionRepository readingSubmissionRepository;
     private readonly ITariffVersionRepository tariffVersionRepository;
+    private readonly IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository;
     private readonly ICalculationSnapshotRepository calculationSnapshotRepository;
     private readonly IPaymentRepository paymentRepository;
     private readonly IStatementExportRepository statementExportRepository;
@@ -49,6 +50,7 @@ public sealed class DevelopmentSeedDataService
         IUtilitySetupRepository utilitySetupRepository,
         IReadingSubmissionRepository readingSubmissionRepository,
         ITariffVersionRepository tariffVersionRepository,
+        IBoilerAssumptionVersionRepository boilerAssumptionVersionRepository,
         ICalculationSnapshotRepository calculationSnapshotRepository,
         IPaymentRepository paymentRepository,
         IStatementExportRepository statementExportRepository,
@@ -67,6 +69,7 @@ public sealed class DevelopmentSeedDataService
         this.utilitySetupRepository = utilitySetupRepository;
         this.readingSubmissionRepository = readingSubmissionRepository;
         this.tariffVersionRepository = tariffVersionRepository;
+        this.boilerAssumptionVersionRepository = boilerAssumptionVersionRepository;
         this.calculationSnapshotRepository = calculationSnapshotRepository;
         this.paymentRepository = paymentRepository;
         this.statementExportRepository = statementExportRepository;
@@ -101,6 +104,7 @@ public sealed class DevelopmentSeedDataService
         var termsAcceptancesSeeded = await EnsureTermsAcceptanceAsync(activeResident.Id, activeTerms.Id, cancellationToken);
         var utilitySetupsSeeded = await EnsureUtilitySetupAsync(activeResident.Id, cancellationToken);
         var tariffsSeeded = await EnsureTariffsAsync(activeResident.Id, cancellationToken);
+        await EnsureBoilerAssumptionsAsync(activeResident.Id, cancellationToken);
         var readingsSeeded = await EnsureReadingsAsync(activeResident.Id, cancellationToken);
         var snapshotsSeeded = await EnsureSnapshotAsync(activeResident.Id, cancellationToken);
         var paymentsSeeded = await EnsurePaymentAsync(activeResident.Id, cancellationToken);
@@ -162,6 +166,12 @@ public sealed class DevelopmentSeedDataService
         result.AuditLogsChanged = await DeleteByPredicateAsync<AuditLogEntry>(
             "AuditLogs",
             x => seedUserIds.Contains(x.ActorUserId) || seedUserIds.Contains(x.TargetUserId),
+            x => x.Id,
+            cancellationToken);
+
+        await DeleteByPredicateAsync<Domain.Billing.BoilerAssumptionVersion>(
+            "BoilerAssumptions",
+            x => seedUserIds.Contains(x.UserId),
             x => x.Id,
             cancellationToken);
 
@@ -311,7 +321,11 @@ public sealed class DevelopmentSeedDataService
     private async Task<int> EnsureUtilitySetupAsync(string userId, CancellationToken cancellationToken)
     {
         var existing = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken);
-        if (existing is not null)
+        if (existing is not null
+            && existing.HotWaterTemperatureCelsius > 0m
+            && existing.HotWaterHeatCapacity > 0m
+            && existing.HotWaterDensity > 0m
+            && existing.KiloJouleToKiloWattHourFactor > 0m)
         {
             return 0;
         }
@@ -328,6 +342,10 @@ public sealed class DevelopmentSeedDataService
                 OpeningElectricityReading = 0m,
                 InitialWaterTariffPerUnit = 1.750000m,
                 InitialElectricityTariffPerUnit = 0.280000m,
+                HotWaterTemperatureCelsius = 55m,
+                HotWaterHeatCapacity = 4.186m,
+                HotWaterDensity = 1000m,
+                KiloJouleToKiloWattHourFactor = 3600m,
                 BoilerKwhPerCubicMeter = 10.500000m,
                 BoilerEfficiencyPercent = 85.00m,
                 CreatedAtUtc = now,
@@ -336,7 +354,7 @@ public sealed class DevelopmentSeedDataService
             },
             cancellationToken);
 
-        return 1;
+        return existing is null ? 1 : 0;
     }
 
     private async Task<int> EnsureTariffsAsync(string userId, CancellationToken cancellationToken)
@@ -380,6 +398,48 @@ public sealed class DevelopmentSeedDataService
         }
 
         return count;
+    }
+
+    private async Task EnsureBoilerAssumptionsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var existingVersions = (await boilerAssumptionVersionRepository.GetByUserUpToDateAsync(userId, "9999-12-31", cancellationToken))
+            .ToList();
+
+        foreach (var invalidVersionId in existingVersions
+                     .Where(x => x.HotWaterTemperatureCelsius <= 0m
+                                 || x.HotWaterHeatCapacity <= 0m
+                                 || x.HotWaterDensity <= 0m
+                                 || x.KiloJouleToKiloWattHourFactor <= 0m
+                                 || x.BoilerKwhPerCubicMeter <= 0m
+                                 || x.BoilerEfficiencyPercent <= 0m)
+                     .Select(x => x.Id))
+        {
+            await store.DeleteAsync("BoilerAssumptions", invalidVersionId, cancellationToken);
+        }
+
+        var baselineVersion = await boilerAssumptionVersionRepository.GetByUserAndEffectiveFromDateAsync(
+            userId,
+            FirstReadingDate,
+            cancellationToken);
+
+        if (baselineVersion is not null)
+        {
+            return;
+        }
+
+        await billingInputService.UpsertBoilerAssumptionVersionAsync(
+            userId,
+            new UpsertBoilerAssumptionVersionRequest
+            {
+                EffectiveFromDate = FirstReadingDate,
+                HotWaterTemperatureCelsius = "55",
+                HotWaterHeatCapacity = "4.186",
+                HotWaterDensity = "1000",
+                KiloJouleToKiloWattHourFactor = "3600",
+                BoilerKwhPerCubicMeter = "10.500000",
+                BoilerEfficiencyPercent = "85.00",
+            },
+            cancellationToken);
     }
 
     private async Task<int> EnsureReadingsAsync(string userId, CancellationToken cancellationToken)

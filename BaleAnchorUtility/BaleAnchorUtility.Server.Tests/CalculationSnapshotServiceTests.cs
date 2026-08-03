@@ -70,6 +70,10 @@ public sealed class CalculationSnapshotServiceTests
             OpeningElectricityReading = 0m,
             InitialWaterTariffPerUnit = 2m,
             InitialElectricityTariffPerUnit = 0.5m,
+            HotWaterTemperatureCelsius = 3m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
             BoilerKwhPerCubicMeter = 3m,
             BoilerEfficiencyPercent = 100m,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -116,6 +120,117 @@ public sealed class CalculationSnapshotServiceTests
         Assert.Equal("3", result.TariffSegments[0].ColdWaterUsage);
         Assert.Contains(result.ComponentLines, x => x.Component == "ColdWater");
         Assert.Contains(result.ComponentLines, x => x.Component == "BoilerElectricity");
+    }
+
+    [Fact]
+    public async Task RecalculateStatementPeriodsAsync_CreatesSnapshotsForAllPeriods()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateUser("u-active", UserAccountStatus.Active));
+
+        var readings = new InMemoryReadingSubmissionRepository();
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r1",
+            UserId = "u-active",
+            ReadingDate = "2026-07-01",
+            ColdWaterReading = 10m,
+            HotWaterReading = 10m,
+            ElectricityReading = 10m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r2",
+            UserId = "u-active",
+            ReadingDate = "2026-08-01",
+            ColdWaterReading = 11m,
+            HotWaterReading = 12m,
+            ElectricityReading = 13m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        await readings.AddAsync(new ReadingSubmission
+        {
+            Id = "r3",
+            UserId = "u-active",
+            ReadingDate = "2026-09-01",
+            ColdWaterReading = 12m,
+            HotWaterReading = 15m,
+            ElectricityReading = 19m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var tariffs = new InMemoryTariffVersionRepository();
+        await tariffs.AddAsync(new TariffVersion
+        {
+            Id = "t1",
+            UserId = "u-active",
+            EffectiveFromDate = "2026-07-01",
+            WaterTariffPerUnit = 1m,
+            WaterStandingChargePerDay = 0m,
+            WaterVatPercent = 0m,
+            ElectricityTariffPerUnit = 1m,
+            ElectricityStandingChargePerDay = 0m,
+            ElectricityVatPercent = 0m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        }, CancellationToken.None);
+
+        var setups = new InMemoryUtilitySetupRepository();
+        setups.Seed(new UtilitySetupSubmission
+        {
+            Id = "setup-1",
+            UserId = "u-active",
+            MoveInDate = "2026-06-01",
+            OpeningColdWaterReading = 10m,
+            OpeningHotWaterReading = 10m,
+            OpeningElectricityReading = 10m,
+            InitialWaterTariffPerUnit = 1m,
+            InitialElectricityTariffPerUnit = 1m,
+            HotWaterTemperatureCelsius = 1m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
+            BoilerKwhPerCubicMeter = 1m,
+            BoilerEfficiencyPercent = 100m,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Version = 1,
+        });
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        var service = new CalculationSnapshotService(
+            users,
+            readings,
+            tariffs,
+            new InMemoryBoilerAssumptionVersionRepository(),
+            setups,
+            snapshots,
+            new FakeSystemClock { UtcNow = DateTimeOffset.Parse("2026-09-01T00:00:00Z") },
+            NullLogger<CalculationSnapshotService>.Instance);
+
+        var result = await service.RecalculateStatementPeriodsAsync("u-active", CancellationToken.None);
+        var allSnapshots = await snapshots.GetByUserIdAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("u-active", result.UserId);
+        Assert.Equal(3, result.PeriodsProcessed);
+        Assert.Equal(3, result.SnapshotsCreated);
+        Assert.Equal("2026-06-01", allSnapshots[0].PeriodStartDate);
+        Assert.Equal("2026-07-01", allSnapshots[0].PeriodEndDateExclusive);
+        Assert.Equal("2026-08-01", allSnapshots[1].PeriodEndDateExclusive);
+        Assert.Equal("2026-09-01", allSnapshots[2].PeriodEndDateExclusive);
+        Assert.Equal(allSnapshots[2].Id, result.LatestSnapshotId);
+        Assert.Equal("2026-08-01", result.LatestPeriodStartDate);
+        Assert.Equal("2026-09-01", result.LatestPeriodEndDateExclusive);
     }
 
     [Fact]
@@ -195,6 +310,10 @@ public sealed class CalculationSnapshotServiceTests
             OpeningElectricityReading = 0m,
             InitialWaterTariffPerUnit = 1m,
             InitialElectricityTariffPerUnit = 1m,
+            HotWaterTemperatureCelsius = 1m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
             BoilerKwhPerCubicMeter = 1m,
             BoilerEfficiencyPercent = 100m,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -283,6 +402,10 @@ public sealed class CalculationSnapshotServiceTests
             OpeningElectricityReading = 0m,
             InitialWaterTariffPerUnit = 1m,
             InitialElectricityTariffPerUnit = 2m,
+            HotWaterTemperatureCelsius = 1m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
             BoilerKwhPerCubicMeter = 1m,
             BoilerEfficiencyPercent = 100m,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -363,6 +486,10 @@ public sealed class CalculationSnapshotServiceTests
             InitialElectricityTariffPerUnit = 0.24796m,
             InitialElectricityStandingChargePerDay = 0.72626m,
             InitialElectricityVatPercent = 5m,
+            HotWaterTemperatureCelsius = 55m,
+            HotWaterHeatCapacity = 4.186m,
+            HotWaterDensity = 1000m,
+            KiloJouleToKiloWattHourFactor = 3600m,
             BoilerKwhPerCubicMeter = 10.5m,
             BoilerEfficiencyPercent = 85m,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -468,10 +595,10 @@ public sealed class CalculationSnapshotServiceTests
             Id = "b1",
             UserId = "u-active",
             EffectiveFromDate = "2026-07-01",
-            HotWaterTemperatureCelsius = 55m,
-            HotWaterHeatCapacity = 4.186m,
-            HotWaterDensity = 1000m,
-            KiloJouleToKiloWattHourFactor = 3600m,
+            HotWaterTemperatureCelsius = 1m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
             BoilerKwhPerCubicMeter = 1m,
             BoilerEfficiencyPercent = 100m,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -484,10 +611,10 @@ public sealed class CalculationSnapshotServiceTests
             Id = "b2",
             UserId = "u-active",
             EffectiveFromDate = "2026-07-15",
-            HotWaterTemperatureCelsius = 60m,
-            HotWaterHeatCapacity = 4.186m,
-            HotWaterDensity = 1000m,
-            KiloJouleToKiloWattHourFactor = 3600m,
+            HotWaterTemperatureCelsius = 2m,
+            HotWaterHeatCapacity = 1m,
+            HotWaterDensity = 1m,
+            KiloJouleToKiloWattHourFactor = 1m,
             BoilerKwhPerCubicMeter = 10m,
             BoilerEfficiencyPercent = 100m,
             CreatedAtUtc = DateTimeOffset.UtcNow,

@@ -313,6 +313,7 @@ function App() {
     selectedStatementSummary,
     statementPeriods,
     statementExportHistory,
+    recalculateStatements,
     reloadStatements,
     loadSelectedStatementSummary,
     exportSelectedStatementPdf,
@@ -682,8 +683,13 @@ function App() {
   const isAuthenticated = session?.isAuthenticated === true;
   const isRejected = isAuthenticated && userStatus === "rejected";
   const isSuspended = isAuthenticated && userStatus === "suspended";
+  const isResidentUser = userRole === "resident";
   const needsOnboarding =
-    isAuthenticated && !isRejected && !isSuspended && userStatus !== "active";
+    isAuthenticated &&
+    isResidentUser &&
+    !isRejected &&
+    !isSuspended &&
+    userStatus !== "active";
   const isAdminUser = userRole === "admin" || userRole === "superadmin";
   const isSuperAdminUser = userRole === "superadmin";
   const isDelegatedSession = session?.isDelegatedSession === true;
@@ -823,11 +829,13 @@ function App() {
         <div className="d-flex align-items-center gap-2">
           <i className="bi bi-buildings fs-4 text-primary"></i>
           <div>
-            <h5 className="mb-0 fw-bold">BaleAnchor Utility</h5>
+            <h5 className="mb-0 fw-bold shell-brand-title">
+              Transparent Utility
+            </h5>
             <small className="text-secondary">Resident Portal</small>
           </div>
         </div>
-        <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end shell-auth-actions-row">
           {sessionChecked && !isAuthenticated && (
             <>
               <Link className={shellLinkClass("signin")} to="/signin">
@@ -1453,6 +1461,21 @@ function App() {
     />
   );
 
+  const recalculateStatementsAndRefreshFinancials = async () => {
+    const success = await recalculateStatements();
+    if (!success) {
+      return false;
+    }
+
+    await Promise.all([
+      loadLatestPeriodPaymentSummary(true),
+      loadPaymentHistory(true),
+      loadAllTimeBalance(true),
+    ]);
+
+    return true;
+  };
+
   const renderReadingsView = () => (
     <ReadingsDashboardView
       shellHeader={renderShellHeader()}
@@ -1474,6 +1497,7 @@ function App() {
       onUpdateLatestReadings={updateLatestReadings}
       onLoadLatestReadings={loadLatestReadings}
       onRunLatestCalculation={runLatestCalculation}
+      onRecalculateStatements={recalculateStatementsAndRefreshFinancials}
     />
   );
 
@@ -1594,6 +1618,7 @@ function App() {
       selectedStatementSummary={selectedStatementSummary}
       statementPeriods={statementPeriods}
       statementExportHistory={statementExportHistory}
+      onRecalculateStatements={recalculateStatementsAndRefreshFinancials}
       onReloadStatements={reloadStatements}
       onLoadSelectedStatementSummary={loadSelectedStatementSummary}
       onExportSelectedStatementPdf={exportSelectedStatementPdf}

@@ -146,6 +146,37 @@ public sealed class StatementSummaryServiceTests
     }
 
     [Fact]
+    public async Task GetLatestSummaryAsync_UsesLatestSnapshotPerPeriodForAggregateTotals()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        var older = CreateSnapshot("s-old", "u-active", "2026-07-01", "2026-08-01", 80m);
+        older.CreatedAtUtc = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        await snapshots.AddAsync(older, CancellationToken.None);
+
+        var newer = CreateSnapshot("s-new", "u-active", "2026-07-01", "2026-08-01", 90m);
+        newer.CreatedAtUtc = DateTimeOffset.Parse("2026-08-06T00:00:00Z");
+        await snapshots.AddAsync(newer, CancellationToken.None);
+
+        var latestPeriodSnapshot = CreateSnapshot("s-next", "u-active", "2026-08-01", "2026-09-01", 100m);
+        latestPeriodSnapshot.CreatedAtUtc = DateTimeOffset.Parse("2026-08-07T00:00:00Z");
+        await snapshots.AddAsync(latestPeriodSnapshot, CancellationToken.None);
+
+        var service = new StatementSummaryService(users, snapshots, new InMemoryReadingSubmissionRepository(), new InMemoryPaymentRepository());
+
+        var response = await service.GetLatestSummaryAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("2026-08-01", response.PeriodStartDate);
+        Assert.Equal("2026-09-01", response.PeriodEndDateExclusive);
+        Assert.Equal("190.00", response.TotalCalculatedCharges);
+        Assert.Equal("0.00", response.TotalRecordedPayments);
+        Assert.Equal("190.00", response.CurrentBalance);
+        Assert.Equal("Amount outstanding", response.CurrentBalanceStatus);
+    }
+
+    [Fact]
     public async Task GetSelectedSummaryAsync_ThrowsValidation_WhenSelectionMissing()
     {
         var users = new InMemoryUserRepository();

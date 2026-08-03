@@ -527,6 +527,16 @@ export interface CalculateLatestPeriodResponse {
   integrityDigest: string;
 }
 
+export interface RecalculateStatementPeriodsResponse {
+  userId: string;
+  periodsProcessed: number;
+  snapshotsCreated: number;
+  latestSnapshotId: string;
+  latestPeriodStartDate: string;
+  latestPeriodEndDateExclusive: string;
+  message: string;
+}
+
 export interface BoilerAssumptionSummaryResponse {
   hotWaterTemperatureCelsius: string;
   hotWaterHeatCapacity: string;

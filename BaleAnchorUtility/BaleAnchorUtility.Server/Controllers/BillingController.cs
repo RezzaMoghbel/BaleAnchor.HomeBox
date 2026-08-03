@@ -465,6 +465,29 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [HttpPost("calculations/recalculate")]
+    [ProducesResponseType(typeof(RecalculateStatementPeriodsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecalculateStatementPeriodsResponse>> RecalculateStatementPeriods(CancellationToken cancellationToken)
+    {
+        var userId = await ResolveUserIdAsync(cancellationToken);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await calculationSnapshotService.RecalculateStatementPeriodsAsync(userId, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictProblem(ex.Message, "BILLING_CALCULATION_CONFLICT");
+        }
+    }
+
     [HttpPost("calculations/latest/payment")]
     [ProducesResponseType(typeof(RecordLatestPeriodPaymentResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

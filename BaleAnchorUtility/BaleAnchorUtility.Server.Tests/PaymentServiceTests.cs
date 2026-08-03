@@ -36,7 +36,7 @@ public sealed class PaymentServiceTests
 
         Assert.Equal("u-active", response.UserId);
         Assert.Equal("100.00", response.Amount);
-        Assert.Equal("Payment recorded by resident.", response.Message);
+        Assert.Equal("Payment linked to reading period.", response.Message);
         Assert.Equal("Resident", response.Source);
         Assert.Equal("Unverified", response.VerificationStatus);
 
@@ -47,7 +47,7 @@ public sealed class PaymentServiceTests
     }
 
     [Fact]
-    public async Task RecordLatestPeriodPaymentAsync_RejectsSecondPaymentForSamePeriod()
+    public async Task RecordLatestPeriodPaymentAsync_AllowsAdditionalPaymentForSamePeriod()
     {
         var users = new InMemoryUserRepository();
         users.Seed(CreateActiveUser("u-active"));
@@ -76,16 +76,22 @@ public sealed class PaymentServiceTests
 
         var service = CreateService(users, snapshots, payments);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.RecordLatestPeriodPaymentAsync(
-                "u-active",
-                new RecordLatestPeriodPaymentRequest
-                {
-                    Amount = "10",
-                    PaymentDate = "2026-08-02",
-                    Method = "Card",
-                },
-                CancellationToken.None));
+        var response = await service.RecordLatestPeriodPaymentAsync(
+            "u-active",
+            new RecordLatestPeriodPaymentRequest
+            {
+                Amount = "10",
+                PaymentDate = "2026-08-02",
+                Method = "Card",
+            },
+            CancellationToken.None);
+
+        Assert.Equal("10.00", response.Amount);
+        Assert.Equal("2026-07-01", response.PeriodStartDate);
+        Assert.Equal("2026-08-01", response.PeriodEndDateExclusive);
+
+        var allPayments = await payments.GetByUserIdAsync("u-active", CancellationToken.None);
+        Assert.Equal(2, allPayments.Count);
     }
 
     [Fact]
@@ -118,7 +124,7 @@ public sealed class PaymentServiceTests
     }
 
     [Fact]
-    public async Task DeletePaymentAsync_DeletesSelectedPeriodPayment()
+    public async Task DeletePaymentAsync_RejectsLinkedPaymentDeletion()
     {
         var users = new InMemoryUserRepository();
         users.Seed(CreateActiveUser("u-active"));
@@ -162,11 +168,10 @@ public sealed class PaymentServiceTests
 
         var service = CreateService(users, new InMemoryCalculationSnapshotRepository(), payments);
 
-        var response = await service.DeletePaymentAsync("u-active", "p-old", CancellationToken.None);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.DeletePaymentAsync("u-active", "p-old", CancellationToken.None));
 
-        Assert.Equal("p-old", response.PaymentId);
-        var deleted = await payments.GetByIdAsync("p-old", CancellationToken.None);
-        Assert.Null(deleted);
+        Assert.Equal("Linked payments cannot be deleted. Unlink the payment first.", ex.Message);
     }
 
     [Fact]
@@ -205,6 +210,54 @@ public sealed class PaymentServiceTests
         Assert.Equal("200.00", result.TotalCalculatedCharges);
         Assert.Equal("150.00", result.TotalRecordedPayments);
         Assert.Equal("50.00", result.Balance);
+        Assert.Equal("Amount outstanding", result.BalanceStatus);
+    }
+
+    [Fact]
+    public async Task GetAllTimeBalanceAsync_UsesLatestSnapshotPerPeriod_WhenRecalculationCreatesDuplicates()
+    {
+        var users = new InMemoryUserRepository();
+        users.Seed(CreateActiveUser("u-active"));
+
+        var snapshots = new InMemoryCalculationSnapshotRepository();
+        var older = CreateSnapshot("s-old", "u-active", "2026-07-01", "2026-08-01", 80m);
+        older.CreatedAtUtc = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        await snapshots.AddAsync(older, CancellationToken.None);
+
+        var newer = CreateSnapshot("s-new", "u-active", "2026-07-01", "2026-08-01", 95m);
+        newer.CreatedAtUtc = DateTimeOffset.Parse("2026-08-05T00:00:00Z");
+        await snapshots.AddAsync(newer, CancellationToken.None);
+
+        await snapshots.AddAsync(
+            CreateSnapshot("s-other", "u-active", "2026-08-01", "2026-09-01", 105m),
+            CancellationToken.None);
+
+        var payments = new InMemoryPaymentRepository();
+        await payments.AddAsync(
+            new PaymentRecord
+            {
+                Id = "p1",
+                UserId = "u-active",
+                PeriodStartDate = "2026-07-01",
+                PeriodEndDateExclusive = "2026-08-01",
+                Amount = 50m,
+                PaymentDate = "2026-08-06",
+                Method = "Card",
+                Source = "Resident",
+                VerificationStatus = "Unverified",
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Version = 1,
+            },
+            CancellationToken.None);
+
+        var service = CreateService(users, snapshots, payments);
+
+        var result = await service.GetAllTimeBalanceAsync("u-active", CancellationToken.None);
+
+        Assert.Equal("200.00", result.TotalCalculatedCharges);
+        Assert.Equal("50.00", result.TotalRecordedPayments);
+        Assert.Equal("150.00", result.Balance);
         Assert.Equal("Amount outstanding", result.BalanceStatus);
     }
 

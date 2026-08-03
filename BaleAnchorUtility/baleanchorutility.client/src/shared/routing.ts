@@ -23,8 +23,13 @@ export function getTargetRoute(
   const role = currentSession?.userRole?.trim().toLowerCase();
   const isRejected = isAuthenticated && status === "rejected";
   const isSuspended = isAuthenticated && status === "suspended";
+  const isResidentUser = role === "resident";
   const needsOnboarding =
-    isAuthenticated && !isRejected && !isSuspended && status !== "active";
+    isAuthenticated &&
+    isResidentUser &&
+    !isRejected &&
+    !isSuspended &&
+    status !== "active";
   const isAdminUser = role === "admin" || role === "superadmin";
 
   if (!isAuthenticated) {

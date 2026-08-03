@@ -119,6 +119,7 @@ export function OnboardingView({
   onKiloJouleToKiloWattHourFactorChange,
 }: OnboardingViewProps) {
   const [openSection, setOpenSection] = useState<OnboardingSection>("terms");
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
 
   useEffect(() => {
     void onLoadOnboardingState();
@@ -145,6 +146,26 @@ export function OnboardingView({
 
     setOpenSection("terms");
   }, [onboardingProgress?.nextStep]);
+
+  useEffect(() => {
+    if (!isTermsModalOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsTermsModalOpen(false);
+      }
+    };
+
+    document.body.classList.add("onboarding-terms-modal-open");
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.classList.remove("onboarding-terms-modal-open");
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isTermsModalOpen]);
 
   const accountStatus =
     onboardingProgress?.accountStatus?.trim().toLowerCase() ?? "";
@@ -278,6 +299,14 @@ export function OnboardingView({
                       disabled={loading}
                     >
                       Refresh terms
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-dark"
+                      onClick={() => setIsTermsModalOpen(true)}
+                      disabled={!hasActiveTerms}
+                    >
+                      View full terms
                     </button>
                     <button
                       type="button"
@@ -850,13 +879,17 @@ export function OnboardingView({
 
                   <div className="mb-0">
                     <h6 className="mb-2">Hot water equation</h6>
+                    <p className="small text-secondary mb-3">
+                      Boiler kWh = HW x DeltaT x Heat capacity x Density /
+                      Conversion factor
+                    </p>
                     <div className="row g-3">
                       <div className="col-12 col-lg-3">
                         <label
                           htmlFor="hotWaterTemperature-onboarding"
                           className="form-label"
                         >
-                          Temperature
+                          Temperature increase (DeltaT)
                         </label>
                         <input
                           id="hotWaterTemperature-onboarding"
@@ -888,7 +921,7 @@ export function OnboardingView({
                           htmlFor="hotWaterHeatCapacity-onboarding"
                           className="form-label"
                         >
-                          Heat capacity
+                          Heat capacity (Cp)
                         </label>
                         <input
                           id="hotWaterHeatCapacity-onboarding"
@@ -1048,6 +1081,65 @@ export function OnboardingView({
           </div>
         </div>
       </main>
+
+      {isTermsModalOpen && activeTerms && (
+        <div
+          className="onboarding-terms-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-terms-modal-title"
+          onClick={() => setIsTermsModalOpen(false)}
+        >
+          <div
+            className="onboarding-terms-modal__panel"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="onboarding-terms-modal__header">
+              <div>
+                <h2 id="onboarding-terms-modal-title" className="h5 mb-1">
+                  {activeTerms.title}
+                </h2>
+                <div className="text-secondary small">
+                  Version: {activeTerms.versionLabel} ({activeTerms.versionId})
+                  {` | Effective: ${activeTerms.effectiveFromUtc}`}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setIsTermsModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="onboarding-terms-modal__body">
+              <pre className="onboarding-terms-modal__content">
+                {activeTerms.contentMarkdown}
+              </pre>
+            </div>
+
+            <div className="onboarding-terms-modal__footer">
+              <button
+                type="button"
+                className="btn btn-outline-success"
+                onClick={() => {
+                  setIsTermsModalOpen(false);
+                  void onAcceptTerms();
+                }}
+                disabled={
+                  loading ||
+                  !hasActiveTerms ||
+                  (termsAccepted && !canRetryTermsAcceptance) ||
+                  lockAfterCompletion
+                }
+              >
+                Accept terms and acknowledgement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

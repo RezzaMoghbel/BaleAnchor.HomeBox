@@ -41,6 +41,7 @@ import type {
   PushSubscriptionResponse,
   ReminderJobListResponse,
   RecordLatestPeriodPaymentResponse,
+  RecalculateStatementPeriodsResponse,
   RequestCodeResponse,
   SendTestNotificationResponse,
   SessionStatusResponse,
@@ -1012,6 +1013,16 @@ export const portalClient = {
   runLatestCalculation() {
     return requestJson<CalculateLatestPeriodResponse>(
       "/api/v1/billing/calculations/latest",
+      {
+        method: "POST",
+        credentials: "include",
+      },
+    );
+  },
+
+  recalculateStatementPeriods() {
+    return requestJson<RecalculateStatementPeriodsResponse>(
+      "/api/v1/billing/calculations/recalculate",
       {
         method: "POST",
         credentials: "include",

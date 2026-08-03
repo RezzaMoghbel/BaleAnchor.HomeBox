@@ -11,7 +11,7 @@ Calculation snapshots now persist structured trace data used by API responses an
 - tariff segment timeline with boundary convention [start, end)
 - per-segment allocated usage for cold, hot, apartment electricity, and boiler electricity
 - estimated-allocation label when tariff changes occur without boundary readings
-- boiler assumptions used for the calculation (kWh per m3 and efficiency percent)
+- boiler assumptions used for the calculation (DeltaT, heat capacity, density, and kJ-to-kWh conversion factor)
 - component line breakdown (usage subtotal, standing subtotal, VAT, total)
 - rounding policy version and integrity check digest
 

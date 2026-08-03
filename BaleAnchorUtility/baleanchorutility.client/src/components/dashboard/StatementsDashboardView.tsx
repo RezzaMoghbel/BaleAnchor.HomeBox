@@ -15,6 +15,7 @@ interface StatementsDashboardViewProps {
   selectedStatementSummary: StatementSummaryResponse | null;
   statementPeriods: StatementPeriodItemResponse[];
   statementExportHistory: StatementExportHistoryItemResponse[];
+  onRecalculateStatements: () => Promise<boolean>;
   onReloadStatements: () => Promise<void>;
   onLoadSelectedStatementSummary: (snapshotId?: string) => Promise<boolean>;
   onExportSelectedStatementPdf: () => Promise<void>;
@@ -34,6 +35,7 @@ export function StatementsDashboardView({
   selectedStatementSummary,
   statementPeriods,
   statementExportHistory,
+  onRecalculateStatements,
   onReloadStatements,
   onLoadSelectedStatementSummary,
   onExportSelectedStatementPdf,
@@ -43,12 +45,26 @@ export function StatementsDashboardView({
   formatDisplayDateTime,
 }: StatementsDashboardViewProps) {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isRecalculateConfirmOpen, setIsRecalculateConfirmOpen] =
+    useState(false);
+  const [hasRecalculateAcknowledgement, setHasRecalculateAcknowledgement] =
+    useState(false);
 
   const openStatementDetails = async (snapshotId: string) => {
     const loaded = await onLoadSelectedStatementSummary(snapshotId);
     if (loaded) {
       setIsDetailsModalOpen(true);
     }
+  };
+
+  const confirmRecalculate = async () => {
+    if (!hasRecalculateAcknowledgement) {
+      return;
+    }
+
+    await onRecalculateStatements();
+    setIsRecalculateConfirmOpen(false);
+    setHasRecalculateAcknowledgement(false);
   };
 
   return (
@@ -72,6 +88,17 @@ export function StatementsDashboardView({
             <div className="card-body">
               <h5 className="mb-3">Actions</h5>
               <div className="d-flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => {
+                    setHasRecalculateAcknowledgement(false);
+                    setIsRecalculateConfirmOpen(true);
+                  }}
+                  disabled={loading}
+                >
+                  Recalculate
+                </button>
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
@@ -184,6 +211,88 @@ export function StatementsDashboardView({
               </div>
             </div>
           </div>
+
+          {isRecalculateConfirmOpen && (
+            <>
+              <div
+                className="modal fade show d-block"
+                tabIndex={-1}
+                aria-modal="true"
+                role="dialog"
+              >
+                <div className="modal-dialog modal-dialog-centered">
+                  <div className="modal-content border-0 shadow">
+                    <div className="modal-header bg-warning-subtle">
+                      <h5 className="modal-title">Confirm recalculation</h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        onClick={() => {
+                          setIsRecalculateConfirmOpen(false);
+                          setHasRecalculateAcknowledgement(false);
+                        }}
+                        aria-label="Close"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="modal-body">
+                      <p className="mb-2">
+                        Recalculate will regenerate all statement cards using
+                        the latest rates and calculation logic.
+                      </p>
+                      <p className="mb-0 text-secondary small">
+                        Existing snapshots are kept for audit history, and new
+                        snapshot versions will be added for each period.
+                      </p>
+                      <div className="form-check mt-3">
+                        <input
+                          id="recalculateAcknowledgement"
+                          className="form-check-input"
+                          type="checkbox"
+                          checked={hasRecalculateAcknowledgement}
+                          onChange={(event) =>
+                            setHasRecalculateAcknowledgement(
+                              event.target.checked,
+                            )
+                          }
+                          disabled={loading}
+                        />
+                        <label
+                          className="form-check-label"
+                          htmlFor="recalculateAcknowledgement"
+                        >
+                          I understand this will create new snapshot versions
+                          for all statement periods.
+                        </label>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => {
+                          setIsRecalculateConfirmOpen(false);
+                          setHasRecalculateAcknowledgement(false);
+                        }}
+                        disabled={loading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => void confirmRecalculate()}
+                        disabled={loading || !hasRecalculateAcknowledgement}
+                      >
+                        Confirm and recalculate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-backdrop fade show" />
+            </>
+          )}
 
           {isDetailsModalOpen && selectedStatementSummary && (
             <>

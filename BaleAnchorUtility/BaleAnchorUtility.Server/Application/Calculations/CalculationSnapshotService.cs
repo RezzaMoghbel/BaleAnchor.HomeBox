@@ -92,6 +92,140 @@ public sealed class CalculationSnapshotService
             };
         }
 
+        var snapshot = await CreateSnapshotAsync(userId, start, end, setup, cancellationToken);
+        await calculationSnapshotRepository.AddAsync(snapshot, cancellationToken);
+
+        logger.LogInformation("Calculation snapshot {SnapshotId} created for user {UserId}.", snapshot.Id, userId);
+
+        return ToResponse(snapshot);
+    }
+
+    public async Task<CalculateLatestPeriodResponse> GetLatestSnapshotAsync(string userId, CancellationToken cancellationToken)
+    {
+        var snapshot = await calculationSnapshotRepository.GetLatestByUserIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("No calculation snapshot is available yet.");
+
+        return ToResponse(snapshot);
+    }
+
+    public async Task<RecalculateStatementPeriodsResponse> RecalculateStatementPeriodsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User record was not found for this session.");
+
+        if (user.Status != UserAccountStatus.Active)
+        {
+            throw new InvalidOperationException("Only active accounts can generate calculations.");
+        }
+
+        var allReadings = await readingSubmissionRepository.GetByUserIdAsync(userId, cancellationToken);
+        if (allReadings.Count == 0)
+        {
+            throw new InvalidOperationException("At least one reading is required to recalculate statement periods.");
+        }
+
+        var orderedReadings = allReadings
+            .OrderBy(x => x.ReadingDate, StringComparer.Ordinal)
+            .ThenBy(x => x.UpdatedAtUtc)
+            .ToList();
+
+        var setup = await utilitySetupRepository.GetByUserIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("Utility setup is required before calculating charges.");
+
+        var periods = BuildPeriodInputs(userId, orderedReadings, setup);
+        if (periods.Count == 0)
+        {
+            throw new InvalidOperationException("No calculation periods were found to recalculate.");
+        }
+
+        var newSnapshots = new List<CalculationSnapshot>(periods.Count);
+        foreach (var period in periods)
+        {
+            var snapshot = await CreateSnapshotAsync(userId, period.Start, period.End, setup, cancellationToken);
+            newSnapshots.Add(snapshot);
+        }
+
+        foreach (var snapshot in newSnapshots)
+        {
+            await calculationSnapshotRepository.AddAsync(snapshot, cancellationToken);
+        }
+
+        var latestSnapshot = newSnapshots[^1];
+
+        logger.LogInformation(
+            "Recalculated {SnapshotCount} statement period snapshot(s) for user {UserId}.",
+            newSnapshots.Count,
+            userId);
+
+        return new RecalculateStatementPeriodsResponse
+        {
+            UserId = userId,
+            PeriodsProcessed = periods.Count,
+            SnapshotsCreated = newSnapshots.Count,
+            LatestSnapshotId = latestSnapshot.Id,
+            LatestPeriodStartDate = latestSnapshot.PeriodStartDate,
+            LatestPeriodEndDateExclusive = latestSnapshot.PeriodEndDateExclusive,
+            Message = $"Recalculated {newSnapshots.Count} statement period(s) using current rates and formula assumptions.",
+        };
+    }
+
+    private static List<CalculationPeriodInput> BuildPeriodInputs(
+        string userId,
+        IReadOnlyList<ReadingSubmission> orderedReadings,
+        Domain.Onboarding.UtilitySetupSubmission setup)
+    {
+        if (orderedReadings.Count == 0)
+        {
+            return [];
+        }
+
+        var periods = new List<CalculationPeriodInput>(orderedReadings.Count);
+
+        var firstReading = orderedReadings[0];
+        if (string.CompareOrdinal(setup.MoveInDate, firstReading.ReadingDate) < 0)
+        {
+            periods.Add(new CalculationPeriodInput
+            {
+                Start = BuildSetupOpeningReading(userId, setup),
+                End = firstReading,
+            });
+        }
+
+        for (var index = 1; index < orderedReadings.Count; index++)
+        {
+            periods.Add(new CalculationPeriodInput
+            {
+                Start = orderedReadings[index - 1],
+                End = orderedReadings[index],
+            });
+        }
+
+        return periods;
+    }
+
+    private static ReadingSubmission BuildSetupOpeningReading(string userId, Domain.Onboarding.UtilitySetupSubmission setup)
+    {
+        return new ReadingSubmission
+        {
+            Id = "utility-setup-opening",
+            UserId = userId,
+            ReadingDate = setup.MoveInDate,
+            ColdWaterReading = setup.OpeningColdWaterReading,
+            HotWaterReading = setup.OpeningHotWaterReading,
+            ElectricityReading = setup.OpeningElectricityReading,
+            CreatedAtUtc = setup.CreatedAtUtc,
+            UpdatedAtUtc = setup.UpdatedAtUtc,
+            Version = 1,
+        };
+    }
+
+    private async Task<CalculationSnapshot> CreateSnapshotAsync(
+        string userId,
+        ReadingSubmission start,
+        ReadingSubmission end,
+        Domain.Onboarding.UtilitySetupSubmission setup,
+        CancellationToken cancellationToken)
+    {
         var startDate = ParseDate(start.ReadingDate, "Stored start reading date is invalid.");
         var endDate = ParseDate(end.ReadingDate, "Stored end reading date is invalid.");
 
@@ -113,15 +247,27 @@ public sealed class CalculationSnapshotService
 
         var boilerAssumptions = await ResolveBoilerAssumptionsAsync(userId, end, setup, cancellationToken);
 
-        if (boilerAssumptions.BoilerKwhPerCubicMeter <= 0m || boilerAssumptions.BoilerEfficiencyPercent <= 0m)
+        if (boilerAssumptions.HotWaterTemperatureCelsius <= 0m
+            || boilerAssumptions.HotWaterHeatCapacity <= 0m
+            || boilerAssumptions.HotWaterDensity <= 0m
+            || boilerAssumptions.KiloJouleToKiloWattHourFactor <= 0m)
         {
             throw new InvalidOperationException("Boiler assumptions are invalid for calculation.");
         }
 
-        var boilerUsed = hotUsed * boilerAssumptions.BoilerKwhPerCubicMeter / (boilerAssumptions.BoilerEfficiencyPercent / 100m);
+        var boilerUsed = hotUsed
+            * boilerAssumptions.HotWaterTemperatureCelsius
+            * boilerAssumptions.HotWaterHeatCapacity
+            * boilerAssumptions.HotWaterDensity
+            / boilerAssumptions.KiloJouleToKiloWattHourFactor;
 
         var tariffs = await tariffVersionRepository.GetByUserUpToDateAsync(userId, end.ReadingDate, cancellationToken);
         var periodTariffs = BuildTariffSegments(tariffs, startDate, endDate);
+        if (periodTariffs.Count == 0)
+        {
+            periodTariffs = BuildTariffSegmentsWithSetupFallback(tariffs, startDate, endDate, setup);
+        }
+
         if (periodTariffs.Count == 0)
         {
             throw new InvalidOperationException("No tariffs are available for the selected calculation period.");
@@ -191,7 +337,7 @@ public sealed class CalculationSnapshotService
             electricityTotal,
             periodTotal);
 
-        var equation = "PeriodTotal = WaterTotal + ElectricityTotal; WaterTotal = ColdWaterTotal + HotWaterTotal; ElectricityTotal = ApartmentElectricityTotal + BoilerElectricityTotal.";
+        var equation = "PeriodTotal = WaterTotal + ElectricityTotal; WaterTotal = ColdWaterTotal + HotWaterTotal; ElectricityTotal = ApartmentElectricityTotal + BoilerElectricityTotal; BoilerkWh = HW x DeltaT x Cp x Density / ConversionFactor; BoilerElectricityTotal = (BoilerkWh x ER) x (1 + EV).";
         var segmentTraces = BuildSegmentTraces(
             periodTariffs,
             coldUsageBySegment,
@@ -210,7 +356,8 @@ public sealed class CalculationSnapshotService
 
         var inputHash = ComputeInputHash(userId, start, end, setup, periodTariffs, boilerAssumptions);
         var now = clock.UtcNow;
-        var snapshot = new CalculationSnapshot
+
+        return new CalculationSnapshot
         {
             Id = Guid.NewGuid().ToString("N"),
             UserId = userId,
@@ -247,20 +394,6 @@ public sealed class CalculationSnapshotService
             CreatedAtUtc = now,
             Version = 1,
         };
-
-        await calculationSnapshotRepository.AddAsync(snapshot, cancellationToken);
-
-        logger.LogInformation("Calculation snapshot {SnapshotId} created for user {UserId}.", snapshot.Id, userId);
-
-        return ToResponse(snapshot);
-    }
-
-    public async Task<CalculateLatestPeriodResponse> GetLatestSnapshotAsync(string userId, CancellationToken cancellationToken)
-    {
-        var snapshot = await calculationSnapshotRepository.GetLatestByUserIdAsync(userId, cancellationToken)
-            ?? throw new InvalidOperationException("No calculation snapshot is available yet.");
-
-        return ToResponse(snapshot);
     }
 
     private static CalculateLatestPeriodResponse ToResponse(CalculationSnapshot snapshot)
@@ -387,6 +520,68 @@ public sealed class CalculationSnapshotService
         }
 
         return result;
+    }
+
+    private static List<TariffSegment> BuildTariffSegmentsWithSetupFallback(
+        IReadOnlyList<Domain.Billing.TariffVersion> versions,
+        DateOnly startDate,
+        DateOnly endDateExclusive,
+        Domain.Onboarding.UtilitySetupSubmission setup)
+    {
+        if (startDate >= endDateExclusive)
+        {
+            return [];
+        }
+
+        var tariffStartDates = versions
+            .Select(x => ParseDate(x.EffectiveFromDate, "Stored tariff date is invalid."))
+            .Where(x => x < endDateExclusive)
+            .OrderBy(x => x)
+            .ToList();
+
+        if (tariffStartDates.Count == 0)
+        {
+            return [BuildSetupTariffSegment(startDate, endDateExclusive, setup)];
+        }
+
+        var firstTariffDate = tariffStartDates[0];
+        if (firstTariffDate <= startDate)
+        {
+            return [];
+        }
+
+        var preTariffEnd = firstTariffDate < endDateExclusive ? firstTariffDate : endDateExclusive;
+        var fallbackSegments = new List<TariffSegment>
+        {
+            BuildSetupTariffSegment(startDate, preTariffEnd, setup),
+        };
+
+        if (preTariffEnd < endDateExclusive)
+        {
+            var postFallbackSegments = BuildTariffSegments(versions, preTariffEnd, endDateExclusive);
+            fallbackSegments.AddRange(postFallbackSegments);
+        }
+
+        return fallbackSegments;
+    }
+
+    private static TariffSegment BuildSetupTariffSegment(
+        DateOnly startDate,
+        DateOnly endDateExclusive,
+        Domain.Onboarding.UtilitySetupSubmission setup)
+    {
+        return new TariffSegment
+        {
+            StartDate = startDate,
+            EndDateExclusive = endDateExclusive,
+            Days = endDateExclusive.DayNumber - startDate.DayNumber,
+            WaterTariffPerUnit = setup.InitialWaterTariffPerUnit,
+            WaterStandingChargePerDay = 0m,
+            WaterVatPercent = 0m,
+            ElectricityTariffPerUnit = setup.InitialElectricityTariffPerUnit,
+            ElectricityStandingChargePerDay = 0m,
+            ElectricityVatPercent = 0m,
+        };
     }
 
     private static ComponentComputationResult CalculateComponent(
@@ -517,7 +712,7 @@ public sealed class CalculationSnapshotService
             "ColdWater" => "Cold-water total = ((CW x WR) + (D x WS)) x (1 + WV)",
             "HotWater" => "Hot-water total = (HW x WR) x (1 + WV)",
             "ApartmentElectricity" => "Apartment electricity total = ((AE x ER) + (D x ES)) x (1 + EV)",
-            "BoilerElectricity" => "Boiler electricity total = (BE x ER) x (1 + EV)",
+            "BoilerElectricity" => "Boiler electricity total = ((HW x WT x HC x WD / NK) x ER) x (1 + EV)",
             _ => "Total = (usage x unitRate + standing) + VAT",
         };
     }
@@ -687,5 +882,11 @@ public sealed class CalculationSnapshotService
         public required decimal KiloJouleToKiloWattHourFactor { get; init; }
         public required decimal BoilerKwhPerCubicMeter { get; init; }
         public required decimal BoilerEfficiencyPercent { get; init; }
+    }
+
+    private sealed class CalculationPeriodInput
+    {
+        public required ReadingSubmission Start { get; init; }
+        public required ReadingSubmission End { get; init; }
     }
 }

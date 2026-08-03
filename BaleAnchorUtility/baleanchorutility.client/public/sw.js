@@ -8,7 +8,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("push", (event) => {
   let payload = {
-    title: "BaleAnchor reminder",
+    title: "Transparent reminder",
     body: "You have a new reminder.",
     url: "/dashboard/readings",
     tag: "reading-reminder",

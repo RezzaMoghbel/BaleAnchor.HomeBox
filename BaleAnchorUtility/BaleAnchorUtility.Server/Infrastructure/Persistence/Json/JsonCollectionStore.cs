@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 
@@ -10,13 +12,19 @@ public sealed class JsonCollectionStore
     private static readonly TimeSpan TempFileGracePeriod = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(20);
     private const int ReadRetryCount = 5;
+    private const string CollectionsRootConfigKey = "Persistence:Json:CollectionsRootPath";
 
     private readonly JsonSerializerOptions serializerOptions;
     private readonly string rootPath;
+    private readonly ILogger<JsonCollectionStore> logger;
 
-    public JsonCollectionStore(IWebHostEnvironment environment)
+    public JsonCollectionStore(IWebHostEnvironment environment, IConfiguration configuration, ILogger<JsonCollectionStore> logger)
     {
-        rootPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "Database", "Collections"));
+        this.logger = logger;
+        rootPath = ResolveRootPath(environment.ContentRootPath, configuration[CollectionsRootConfigKey]);
+        Directory.CreateDirectory(rootPath);
+        this.logger.LogInformation("JsonCollectionStore using collections root path: {CollectionsRootPath}", rootPath);
+
         serializerOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -180,7 +188,35 @@ public sealed class JsonCollectionStore
 
     private string EnsureCollectionPath(string collectionName)
     {
-        return Path.Combine(rootPath, collectionName);
+        var path = Path.Combine(rootPath, collectionName);
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static string ResolveRootPath(string contentRootPath, string? configuredRootPath)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredRootPath))
+        {
+            return Path.GetFullPath(
+                Path.IsPathRooted(configuredRootPath)
+                    ? configuredRootPath
+                    : Path.Combine(contentRootPath, configuredRootPath));
+        }
+
+        var siteLocalPath = Path.GetFullPath(Path.Combine(contentRootPath, "Database", "Collections"));
+        var legacyParentPath = Path.GetFullPath(Path.Combine(contentRootPath, "..", "Database", "Collections"));
+
+        if (Directory.Exists(siteLocalPath))
+        {
+            return siteLocalPath;
+        }
+
+        if (Directory.Exists(legacyParentPath))
+        {
+            return legacyParentPath;
+        }
+
+        return siteLocalPath;
     }
 
     private static void CleanupTemporaryFiles(string collectionPath)

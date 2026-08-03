@@ -1,0 +1,4 @@
+
+# Prevent committed web publish artifacts
+BaleAnchorUtility.Publish/
+

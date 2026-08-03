@@ -1,7 +1,9 @@
 using BaleAnchorUtility.Server.Domain.Users;
 using BaleAnchorUtility.Server.Infrastructure.Persistence.Json;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace BaleAnchorUtility.Server.Tests;
 
@@ -20,12 +22,23 @@ public sealed class JsonCollectionStoreTests : IDisposable
     {
         var contentRoot = Path.Combine(root, "Server");
         Directory.CreateDirectory(contentRoot);
+        var collectionsRoot = Path.Combine(root, "Database", "Collections");
 
         var collectionPath = Path.Combine(root, "Database", "Collections", "users");
         Directory.CreateDirectory(collectionPath);
         await File.WriteAllTextAsync(Path.Combine(collectionPath, "bad.json"), "{ not-valid-json", CancellationToken.None);
 
-        var store = new JsonCollectionStore(new FakeWebHostEnvironment { ContentRootPath = contentRoot });
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Persistence:Json:CollectionsRootPath"] = collectionsRoot,
+            })
+            .Build();
+
+        var store = new JsonCollectionStore(
+            new FakeWebHostEnvironment { ContentRootPath = contentRoot },
+            configuration,
+            NullLogger<JsonCollectionStore>.Instance);
 
         var records = await store.GetAllAsync<UserAccount>("users", CancellationToken.None);
 
@@ -39,8 +52,19 @@ public sealed class JsonCollectionStoreTests : IDisposable
     {
         var contentRoot = Path.Combine(root, "Server");
         Directory.CreateDirectory(contentRoot);
+        var collectionsRoot = Path.Combine(root, "Database", "Collections");
 
-        var store = new JsonCollectionStore(new FakeWebHostEnvironment { ContentRootPath = contentRoot });
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Persistence:Json:CollectionsRootPath"] = collectionsRoot,
+            })
+            .Build();
+
+        var store = new JsonCollectionStore(
+            new FakeWebHostEnvironment { ContentRootPath = contentRoot },
+            configuration,
+            NullLogger<JsonCollectionStore>.Instance);
 
         await store.UpsertAsync("users", "u-1", new UserAccount
         {

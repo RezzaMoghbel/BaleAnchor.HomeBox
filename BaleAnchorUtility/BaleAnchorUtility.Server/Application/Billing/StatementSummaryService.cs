@@ -201,6 +201,11 @@ public sealed class StatementSummaryService
                 .Where(x => validPeriodEndDates.Contains(x.PeriodEndDateExclusive))
                 .ToList();
         }
+        allSnapshots = allSnapshots
+            .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
+            .Select(x => x.OrderByDescending(s => s.CreatedAtUtc).First())
+            .ToList();
+
         var totalCalculatedCharges = allSnapshots.Sum(x => x.PeriodTotal);
         var totalRecordedPayments = allPayments.Sum(x => x.Amount);
         var currentBalance = totalCalculatedCharges - totalRecordedPayments;

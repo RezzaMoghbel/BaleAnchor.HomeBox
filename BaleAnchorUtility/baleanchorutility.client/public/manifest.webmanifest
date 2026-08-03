@@ -1,7 +1,7 @@
 {
-  "name": "BaleAnchor Utility Portal",
-  "short_name": "BaleAnchor",
-  "description": "Resident utility portal with reminders and statements.",
+  "name": "Transparent Utility Portal",
+  "short_name": "Transparent",
+  "description": "Track utility readings, review transparent statements, and manage reminders in one secure resident portal.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -245,7 +245,12 @@ public sealed class PaymentService
         var snapshots = await calculationSnapshotRepository.GetByUserIdAsync(user.Id, cancellationToken);
         var payments = await paymentRepository.GetByUserIdAsync(user.Id, cancellationToken);
 
-        var totalCharges = snapshots.Sum(x => x.PeriodTotal);
+        var latestSnapshotsByPeriod = snapshots
+            .GroupBy(x => $"{x.PeriodStartDate}|{x.PeriodEndDateExclusive}")
+            .Select(x => x.OrderByDescending(s => s.CreatedAtUtc).First())
+            .ToList();
+
+        var totalCharges = latestSnapshotsByPeriod.Sum(x => x.PeriodTotal);
         var totalPayments = payments.Sum(x => x.Amount);
         var balance = totalCharges - totalPayments;
 

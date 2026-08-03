@@ -90,8 +90,11 @@ public sealed class PlaceholderStatementPdfGenerator : IStatementPdfGenerator
                                     column.Item().Text(model.EstimatedAllocationLabel);
                                 }
 
-                                column.Item().Text($"Boiler kWh/m3: {model.BoilerAssumptions.BoilerKwhPerCubicMeter}");
-                                column.Item().Text($"Boiler efficiency %: {model.BoilerAssumptions.BoilerEfficiencyPercent}");
+                                column.Item().Text($"Boiler conversion (kWh): HW x DeltaT x Cp x Density / ConversionFactor");
+                                column.Item().Text($"DeltaT: {model.BoilerAssumptions.HotWaterTemperatureCelsius}");
+                                column.Item().Text($"Heat capacity: {model.BoilerAssumptions.HotWaterHeatCapacity}");
+                                column.Item().Text($"Water density: {model.BoilerAssumptions.HotWaterDensity}");
+                                column.Item().Text($"kJ-to-kWh factor: {model.BoilerAssumptions.KiloJouleToKiloWattHourFactor}");
                                 column.Item().Text($"Engine version: {model.EngineVersion}");
                                 column.Item().Text($"Rounding policy: {model.RoundingPolicyVersion}");
                                 column.Item().Text($"Input hash: {model.InputHash}");

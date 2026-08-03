@@ -464,7 +464,7 @@ export function AdminDashboardView({
                         onChange={(event) =>
                           onAuthLocalDomainsChange(event.target.value)
                         }
-                        placeholder="baleanchor.local"
+                        placeholder="tenant.local"
                       />
                     </div>
                   </div>

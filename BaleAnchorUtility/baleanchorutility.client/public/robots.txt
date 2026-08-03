@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /signin
+Disallow: /signup
+Disallow: /admin
+
+Sitemap: https://utility.moghbel.co.uk/sitemap.xml
